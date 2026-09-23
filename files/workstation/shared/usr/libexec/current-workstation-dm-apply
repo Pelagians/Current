@@ -4,13 +4,6 @@ set -euo pipefail
 
 desktop_env_file="/usr/share/current/workstation/desktop.env"
 
-if [[ ! -r "${desktop_env_file}" ]]; then
-  exit 0
-fi
-
-# shellcheck disable=SC1090
-. "${desktop_env_file}"
-
 log() {
   printf 'current-workstation-dm-apply: %s\n' "$*"
 }
@@ -103,10 +96,10 @@ insert_line_after_match() {
   fi
 
   tmp="$(mktemp)"
-  awk -v match="${match}" -v line="${line}" '
+  awk -v pattern="${match}" -v line="${line}" '
     {
       print
-      if (!inserted && $0 ~ match) {
+      if (!inserted && $0 ~ pattern) {
         print line
         inserted=1
       }
@@ -122,27 +115,54 @@ insert_line_after_match() {
 }
 
 ensure_cosmic_keyring_pam() {
-  local pam_file="/etc/pam.d/cosmic-greeter"
+  local pam_file="${1:-/etc/pam.d/cosmic-greeter}"
+  local vendor_pam_file="${2:-/usr/lib/pam.d/cosmic-greeter}"
+  local managed_marker="# Managed by Current from /usr/lib/pam.d/cosmic-greeter"
+  local tmp
 
-  if [[ ! -f "${pam_file}" ]]; then
-    log "COSMIC PAM file is missing: ${pam_file}"
+  # Recent COSMIC packages ship the PAM stack under /usr/lib. PAM reads that
+  # location until an /etc override exists. Regenerate only our own override
+  # on each boot so package updates to the vendor stack are not hidden.
+  if [[ -L "${pam_file}" ]]; then
+    log "COSMIC PAM file is a symlink; leaving it untouched: ${pam_file}"
+    return 0
+  fi
+  if [[ ! -f "${pam_file}" && ! -f "${vendor_pam_file}" ]]; then
+    log "COSMIC PAM file is missing from /etc/pam.d and /usr/lib/pam.d"
     return 1
   fi
-
   if ! pam_gnome_keyring_available; then
     log "pam_gnome_keyring.so is not installed; skipping COSMIC keyring PAM reconciliation"
     return 0
+  fi
+  if [[ -f "${vendor_pam_file}" ]] &&
+     { [[ ! -e "${pam_file}" ]] || [[ "$(head -n 1 "${pam_file}")" == "${managed_marker}" ]]; }; then
+    tmp="$(mktemp "$(dirname "${pam_file}")/.cosmic-greeter.XXXXXX")"
+    if ! { printf '%s\n' "${managed_marker}"; cat "${vendor_pam_file}"; } > "${tmp}" ||
+       ! chmod 0644 "${tmp}" || ! mv -f "${tmp}" "${pam_file}"; then
+      rm -f "${tmp}"
+      log "failed to install COSMIC PAM override from ${vendor_pam_file}"
+      return 1
+    fi
   fi
 
   insert_line_after_match "${pam_file}" '^auth[[:space:]].*login([[:space:]]|$)' 'auth optional pam_gnome_keyring.so'
   insert_line_after_match "${pam_file}" '^session[[:space:]].*login([[:space:]]|$)' 'session optional pam_gnome_keyring.so auto_start'
 }
 
-ensure_graphical_default
-cleanup_display_manager_links
-systemctl daemon-reload >/dev/null 2>&1 || true
+main() {
+  if [[ ! -r "${desktop_env_file}" ]]; then
+    return 0
+  fi
 
-case "${CURRENT_DESKTOP:-}" in
+  # shellcheck disable=SC1090
+  . "${desktop_env_file}"
+
+  ensure_graphical_default
+  cleanup_display_manager_links
+  systemctl daemon-reload >/dev/null 2>&1 || true
+
+  case "${CURRENT_DESKTOP:-}" in
   gnome)
     log "selecting GDM for GNOME"
     retire_unit cosmic-greeter.service
@@ -196,4 +216,9 @@ case "${CURRENT_DESKTOP:-}" in
     log "unsupported desktop marker: ${CURRENT_DESKTOP}"
     exit 1
     ;;
-esac
+  esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

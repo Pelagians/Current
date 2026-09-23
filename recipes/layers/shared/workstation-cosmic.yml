@@ -12,10 +12,14 @@ modules:
         - cosmic-panel
         - cosmic-app-library
         - cosmic-applets
+        - cosmic-edit
         - cosmic-files
+        - cosmic-idle
         - cosmic-launcher
+        - cosmic-monitor
         - cosmic-notifications
         - cosmic-osd
+        - cosmic-player
         - cosmic-settings
         - cosmic-settings-daemon
         - cosmic-store
@@ -48,6 +52,7 @@ modules:
           command -v cosmic-files >/dev/null; \
           command -v cosmic-settings >/dev/null; \
           command -v cosmic-store >/dev/null; \
+          rpm -q cosmic-edit cosmic-idle cosmic-monitor cosmic-player; \
           command -v cosmic-greeter-start >/dev/null; \
           command -v cosmic-greeter-daemon >/dev/null; \
           command -v gnome-keyring-daemon >/dev/null; \
@@ -55,6 +60,6 @@ modules:
           test -f /usr/lib/systemd/system/cosmic-greeter.service; \
           test -f /usr/lib/systemd/system/greetd.service; \
           test -f /etc/greetd/cosmic-greeter.toml; \
-          test -f /etc/pam.d/cosmic-greeter; \
+          { test -f /etc/pam.d/cosmic-greeter || test -f /usr/lib/pam.d/cosmic-greeter; }; \
           find /usr/lib /usr/lib64 -path '*/security/pam_gnome_keyring.so' -type f | grep -q .; \
           grep -q 'command = "cosmic-greeter-start"' /etc/greetd/cosmic-greeter.toml

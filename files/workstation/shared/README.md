@@ -32,6 +32,9 @@ after a desktop switch.
 For COSMIC deployments, the helper also reconciles the `cosmic-greeter` PAM file
 with `pam_gnome_keyring.so` when the module is installed, which keeps keyring
 unlock support aligned even when `/etc` persists across image switches.
+For packages with a vendor stack in `/usr/lib/pam.d`, it refreshes its own
+`/etc/pam.d` override from the current vendor file on each boot. It leaves
+administrator-managed overrides untouched.
 
 The shared tmpfiles payload also restores the policy-defined writable labels for
 TuneD runtime state files under `/etc/tuned` and the TuneD log tree under

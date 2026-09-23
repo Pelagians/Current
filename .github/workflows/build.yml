@@ -23,6 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           bash ./scripts/validate-runtime-artifacts.sh
+          bash ./scripts/test-cosmic-pam.sh
 
   validate-image-matrix:
     name: Validate image matrix
@@ -71,7 +72,8 @@ jobs:
 
   server-images:
     name: Server Images (${{ matrix.name }})
-    if: ${{ needs.define-image-matrix.result == 'success' }}
+    # Dependabot and fork PRs cannot access the signing secret or push images.
+    if: ${{ needs.define-image-matrix.result == 'success' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     needs:
       - validate-runtime-artifacts
       - validate-image-matrix
@@ -98,7 +100,7 @@ jobs:
 
   workstation-images:
     name: Workstation Images (${{ matrix.name }})
-    if: ${{ needs.define-image-matrix.result == 'success' }}
+    if: ${{ needs.define-image-matrix.result == 'success' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     needs:
       - validate-runtime-artifacts
       - validate-image-matrix
