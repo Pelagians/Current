@@ -110,7 +110,7 @@ test ! -e files/flatpak/base/usr/lib/environment.d/60-myos-flatpak-exports.conf
 test -f files/gnome/shared/etc/dconf/db/gdm.d/02-current-global
 test ! -e files/gnome/shared/etc/dconf/db/gdm.d/02-myos-global
 test -f files/flatpak/base/etc/systemd/system/system-flatpak-setup.service.d/10-managed-org-system.conf
-grep -q "current-flatpak-system-maintenance ensure" files/flatpak/base/etc/systemd/system/system-flatpak-setup.service.d/10-managed-org-system.conf
+grep -q "current-flatpak-system-maintenance setup" files/flatpak/base/etc/systemd/system/system-flatpak-setup.service.d/10-managed-org-system.conf
 test -f files/flatpak/base/usr/libexec/current-flatpak-session-env
 test -f files/flatpak/cleanup/usr/libexec/current-flatpak-system-maintenance
 test -f files/workstation/shared/usr/libexec/current-workstation-dm-apply
@@ -194,3 +194,7 @@ grep -q "import '/usr/share/current/just/update.just'" files/justfiles/usr/share
 ! grep -q "cluster.just" files/justfiles/usr/share/current/just/index.just
 test ! -e files/justfiles/usr/share/current/just/cluster.just
 grep -q '^rebase:$' files/justfiles/usr/share/current/just/rebase.just
+
+# Flatpak transaction, wrapper, policy, and orchestration behavior.
+bash -n files/flatpak/base/etc/profile.d/flatpak-user-default.sh
+python3 scripts/test-flatpak-maintenance.py
