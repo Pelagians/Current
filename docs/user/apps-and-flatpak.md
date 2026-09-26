@@ -6,13 +6,15 @@ Current keeps two Flatpak lanes on workstation images.
 
 `flathub` is available in user scope for normal personal app installs.
 
-That means the default path for a user-installed app is still the user's own home directory and user session.
+In interactive shells, `flatpak install APP` and `flatpak update` default to user scope without administrator authorization. `flatpak --user ...` remains explicit and supported. Global verbosity options work; an explicit `--system` or `--installation NAME` selection is preserved. Read-only commands are unchanged. Scripts should always specify scope.
 
 ## Admin-managed apps
 
 `org-system` is the image-managed system scope for curated shared apps.
 
-It is hidden from app and source enumeration, but Flatpak can still use it for automatic runtime dependency resolution for managed system apps.
+The remote is marked `--no-enumerate` at rest, limiting ordinary app browsing to installed refs. This does not conceal the remote from administrative commands such as `flatpak remotes`. Managed maintenance temporarily permits enumeration so Flatpak can discover newly required runtime branches, then restores the hidden policy.
+
+System changes require an administrator. Use `sudo flatpak --system ...` for deliberate direct operations, or `current update-system` for updates with dependency discovery. GUI system mutations require a wheel member to authenticate through polkit. The interactive shell function is only a convenience, not the security boundary.
 
 This is where the image or an admin can keep a clean shared app set without turning every machine into an anything-goes system-wide app bucket.
 
@@ -30,10 +32,14 @@ Useful targets:
 
 - `current flatpak-status` shows system remotes, apps, runtimes, and extensions.
 - `current flatpak-clean-system` removes unused system-scope Flatpak runtime content.
-- `current flatpak-repair-system` runs system-scope Flatpak repair and reapplies the system baseline.
+- `current flatpak-repair-system` runs system-scope Flatpak repair inside the managed remote transaction.
 - `current flatpak-portal-status` shows the current user's portal service state.
 
-`current update-system` updates system Flatpaks, safely cleans unused system runtime content, reapplies the baseline extension warmup, then stages the bootc image update.
+`current update-system` updates system Flatpaks and safely cleans unused refs. It attempts the independent bootc image upgrade even if Flatpak fails, reports both results, and exits nonzero if either fails.
+
+Cleanup uses Flatpak's own `--unused` handling. Required runtimes, including EOL runtimes, and administrator-created pins are retained. EOL warnings are not themselves update failures. Do not delete a runtime still needed by an application. Flatpak selects runtime and graphics extensions from app/runtime metadata; Current no longer installs or pins a separate extension baseline.
+
+Startup reconciliation and managed maintenance hold the same lock for the whole transaction. Direct `sudo flatpak` and direct BlueBuild script invocations do not participate in that lock; avoid running them concurrently with managed maintenance.
 
 
 ## Why this split exists

@@ -61,12 +61,26 @@ It owns:
 
 - Flatpak and `xdg-desktop-portal` package baseline
 - user `flathub` remote for personal installs
-- hidden admin-managed `org-system` remote for curated system apps and dependency resolution
+- hidden-at-rest admin-managed `org-system` remote, temporarily enumerable for dependency resolution
 - shared managed system app set
 - Flatpak policy payloads under `files/flatpak/base/`
 - graphical session environment import for D-Bus activation and `systemd --user`
 
 `recipes/layers/shared/flatpak-cleanup.yml` owns the system-scope maintenance helper used by startup hooks and Justfile targets.
+
+Managed system Flatpak transactions require root and use a fixed executable path and root-owned `/run/current-flatpak-maintenance.lock` with `flock`. Sequence: acquire lock, inspect the existing managed remote, enable enumeration and dependency use, run the operation, clean unused refs after a successful update, restore `--no-enumerate --use-for-deps`, release lock. An absent remote is allowed; an existing remote with an unexpected URL, disabled state, or disabled GPG verification is rejected for update/repair/setup. No remote trust keys or URLs are rewritten.
+
+The EXIT trap reports restoration failures without erasing an earlier operation failure. HUP/INT/TERM stop the child before restoring. SIGKILL and power loss cannot be trapped. The next managed operation restores policy; the startup unit also has a locked `ExecStopPost=... ensure` recovery path. Root can still bypass these advisory lifecycle controls.
+
+The BlueBuild v2 `ExecStart` is wrapped as one `setup` transaction, including first-run remote creation. Separate pre/post invocations cannot hold a lock across BlueBuild setup. The expected upstream executable is `/usr/libexec/bluebuild/default-flatpaks/system-flatpak-setup`; a missing or changed executable fails visibly. BlueBuild retains ownership of app reconciliation. Current does not reinterpret errors swallowed internally by upstream setup.
+
+There is no explicit GL/VAAPI extension warmup: Flatpak transaction metadata selects related extensions and hardware-specific branches. Explicit runtime installs auto-pin; historical pins cannot safely be attributed to Current and are left intact. Cleanup only calls `flatpak --system uninstall --unused -y --noninteractive`.
+
+`00-current-flatpak.rules` runs before upstream `org.freedesktop.Flatpak.rules` (which grants some wheel operations silently) and normal distro `50-default.rules`. Current's `25-gnome.rules` does not handle Flatpak. The Flatpak rule permits only `appstream-update` and `metadata-update` without authentication for active local sessions. All other Flatpak actions, including unknown future IDs, require wheel membership and `AUTH_ADMIN`, not `AUTH_ADMIN_KEEP`. A scoped admin-identity rule enforces wheel across distro lanes without changing other services. Per-user operations normally do not invoke the system helper/polkit. Sudo/root authorization remains governed by the host sudo policy, including its credential-cache behavior.
+
+Audit sources: [Flatpak policy and helper](https://github.com/flatpak/flatpak/tree/ddcd5c4ebb545a7a1e7225a96bd44256c61ac5cb/system-helper), [Flatpak transaction dependency and pin handling](https://github.com/flatpak/flatpak/blob/ddcd5c4ebb545a7a1e7225a96bd44256c61ac5cb/common/flatpak-transaction.c), [BlueBuild default-flatpaks v2](https://github.com/blue-build/modules/tree/7d51cca7502a41ef4fd05ad75ff9702f2ef8d147/modules/default-flatpaks/v2/post-boot), and [polkit rule ordering](https://polkit.pages.freedesktop.org/polkit/polkit.8.html). The upstream action set includes `update-remote` and both parental-control overrides; `DeployAppstream` is a D-Bus method, not an allowed polkit action ID.
+
+Behavior tests run through `scripts/validate-runtime-artifacts.sh` using Python 3, Bash, flock, and Node.js. They model runtime branch migration and pin/dependency retention, exercise signal restoration and lock contention, and execute rule decisions and extracted Justfile shell bodies. These are deterministic mocks, not proof of real Flatpak dependency resolution or a running polkit daemon. Image smoke tests must check the installed Flatpak version/action policy, complete distro/local rule ordering, authentication prompts, BlueBuild/systemd stop behavior, GNOME/KDE branch transitions, and actual graphics extensions. Administrators can override image policy with earlier local rules; inspect both `/etc/polkit-1/rules.d` and `/usr/share/polkit-1/rules.d` in basename order.
 
 `recipes/layers/shared/flatpak-gnome.yml` and `recipes/layers/shared/flatpak-cosmic.yml` own desktop portal backend selection and environment-specific Flatpak remotes/apps.
 

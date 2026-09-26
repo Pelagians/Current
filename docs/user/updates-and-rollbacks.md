@@ -16,13 +16,17 @@ If you only want to stage the OS image update, use plain `bootc`:
 sudo bootc upgrade
 ```
 
-To remove unused system Flatpak refs, including stale pinned runtimes that are no longer needed by installed system apps:
+To remove unused, unpinned system Flatpak refs:
 
 ```bash
 current clean-system
 ```
 
-`current clean-system` clears system runtime pins first, then lets Flatpak remove only refs it considers unused.
+`current clean-system` is an alias for `current flatpak-clean-system`. Cleanup preserves administrator pins and runtimes still required by apps, even when EOL. It never clears runtime pins automatically.
+
+`current update-system` runs system Flatpak maintenance and `bootc upgrade` independently. It prints each result and exits nonzero if either fails. A successful bootc command can mean the image was already current; reboot activates an update only if one was staged.
+
+`current update-all` attempts system, user, Podman, and firmware categories even if an earlier category fails. Its final summary retains each category's failure and returns nonzero if any failed.
 
 Current disables the stock `bootc-fetch-apply-updates` timer and service. Updates are downloaded and applied when you choose, then activated on reboot.
 
