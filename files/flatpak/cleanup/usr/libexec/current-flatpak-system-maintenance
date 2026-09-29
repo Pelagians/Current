@@ -1,115 +1,128 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export PATH="/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+# Root operations never resolve binaries through a caller-controlled PATH.
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL=C
+flatpak_bin=/usr/bin/flatpak
+lock_file=/run/current-flatpak-maintenance.lock
+setup_bin=/usr/libexec/bluebuild/default-flatpaks/system-flatpak-setup
+child_pid=
 
 log() {
   printf 'current-flatpak-system-maintenance: %s\n' "$*" >&2
 }
 
-require_flatpak() {
-  if ! command -v flatpak >/dev/null 2>&1; then
-    log "flatpak is not installed; nothing to do"
-    exit 0
+remote_record() {
+  # --show-disabled is essential: a disabled remote must not look absent.
+  "$flatpak_bin" --system remotes --show-disabled --columns=name,url,options
+}
+
+restore_remote() {
+  local records
+  records=$(remote_record) || return $?
+  if printf '%s\n' "$records" | /usr/bin/awk -F '\t' '$1 == "org-system" {found=1} END {exit !found}'; then
+    "$flatpak_bin" --system remote-modify --no-enumerate --use-for-deps org-system
   fi
 }
 
-org_system_exists() {
-  flatpak --system remotes --columns=name 2>/dev/null | grep -qx org-system
-}
-
-hide_org_system() {
-  if org_system_exists; then
-    flatpak --system remote-modify --no-enumerate --use-for-deps org-system || \
-      log "could not update org-system remote visibility flags"
+finish() {
+  local result=$? restore_result=0
+  trap - EXIT
+  # Do not interrupt restoration a second time. SIGKILL cannot be caught.
+  trap '' HUP INT TERM
+  restore_remote || restore_result=$?
+  if [ "$restore_result" -ne 0 ]; then
+    log "FAILED to restore hidden org-system policy (exit $restore_result)"
+    if [ "$result" -eq 0 ]; then result=$restore_result; fi
   fi
+  exit "$result"
 }
 
-installed_freedesktop_branches() {
-  flatpak --system list --runtime --columns=application,branch 2>/dev/null | \
-    awk -F '\t' '$1 == "org.freedesktop.Platform" && $2 != "" { print $2 }' | sort -u
-}
-
-common_extension_refs() {
-  local branch
-  while IFS= read -r branch; do
-    [ -n "${branch}" ] || continue
-    printf '%s\n' \
-      "org.freedesktop.Platform.GL.default//${branch}" \
-      "org.freedesktop.Platform.VAAPI.Intel//${branch}"
-  done < <(installed_freedesktop_branches)
-}
-
-ref_installed() {
-  flatpak --system info --runtime "$1" >/dev/null 2>&1
-}
-
-install_common_extensions() {
-  local ref
-
-  if ! org_system_exists; then
-    log "org-system remote is not present; skipping runtime-extension baseline"
-    return 0
+interrupted() {
+  local result=$1
+  trap '' HUP INT TERM
+  if [ -n "$child_pid" ]; then
+    # Background shell jobs may inherit SIGINT ignored. Terminate the whole
+    # dedicated process group, including BlueBuild's Flatpak children.
+    kill -TERM -- "-$child_pid" 2>/dev/null || : # Child may have just exited.
+    wait "$child_pid" 2>/dev/null || : # Preserve the signal status instead.
   fi
-
-  while IFS= read -r ref; do
-    [ -n "${ref}" ] || continue
-    if ref_installed "${ref}"; then
-      continue
-    fi
-    if ! flatpak --system install -y --noninteractive --runtime org-system "${ref}"; then
-      log "skipped unavailable system Flatpak extension: ${ref}"
-    fi
-  done < <(common_extension_refs | sort -u)
+  exit "$result"
 }
 
-ensure_system() {
-  require_flatpak
-  hide_org_system
-  install_common_extensions
+run_child() {
+  local result=0
+  /usr/bin/setsid --wait "$@" &
+  child_pid=$!
+  wait "$child_pid" || result=$?
+  child_pid=
+  return "$result"
 }
 
-cleanup_system() {
-  local pin
-
-  require_flatpak
-
-  flatpak pin --system 2>/dev/null | while IFS=' ' read -r pin _; do
-    case "${pin}" in
-      runtime/*) flatpak pin --system --remove "${pin}" || true ;;
+prepare_remote() {
+  local records name url options
+  records=$(remote_record)
+  while IFS=$'\t' read -r name url options; do
+    [ "$name" = org-system ] || continue
+    case "$url" in
+      https://dl.flathub.org/repo|https://dl.flathub.org/repo/) ;;
+      *) log "org-system has an unexpected URL: $url; refusing maintenance"; return 1 ;;
     esac
-  done
-
-  flatpak uninstall --system --unused -y --noninteractive
+    case ",$options," in
+      *,disabled,*|*,no-gpg-verify,*)
+        log "org-system is disabled or unsigned; refusing maintenance"; return 1 ;;
+    esac
+    "$flatpak_bin" --system remote-modify --enumerate --use-for-deps org-system
+  done <<< "$records"
 }
 
-repair_system() {
-  require_flatpak
-  flatpak repair --system
-  ensure_system
-}
+operation=${1:-}
+if [ "$#" -ne 1 ]; then operation=; fi
+case "$operation" in
+  ensure|cleanup|repair|update|setup|status) ;;
+  *) log 'Usage: current-flatpak-system-maintenance ensure|cleanup|repair|update|setup|status'; exit 64 ;;
+esac
+[ -x "$flatpak_bin" ] || { log 'flatpak is required'; exit 127; }
 
-status_system() {
-  require_flatpak
+if [ "$operation" = status ]; then
   printf 'System Flatpak remotes:\n'
-  flatpak --system remotes --show-details || true
+  "$flatpak_bin" --system remotes --show-disabled --show-details
   printf '\nSystem Flatpak apps:\n'
-  flatpak --system list --app --columns=application,branch,origin,installation || true
+  "$flatpak_bin" --system list --app --columns=application,branch,origin,installation
   printf '\nSystem Flatpak runtimes and extensions:\n'
-  flatpak --system list --runtime --columns=application,branch,origin,installation || true
-}
+  "$flatpak_bin" --system list --runtime --columns=application,branch,origin,installation
+  exit 0
+fi
 
-case "${1:-}" in
-  ensure) ensure_system ;;
-  cleanup) cleanup_system ;;
-  repair) repair_system ;;
-  status) status_system ;;
-  *)
-    cat >&2 <<'EOF'
-Usage: current-flatpak-system-maintenance ensure|cleanup|repair|status
+[ "$EUID" -eq 0 ] || { log 'system mutations require root (use sudo)'; exit 77; }
+# Restrict the lock only, not files deployed by Flatpak for other users.
+previous_umask=$(umask)
+umask 077
+exec 9>"$lock_file"
+umask "$previous_umask"
+/usr/bin/flock --exclusive 9
+# Keep FD 9 open through restoration, including in children during interruption.
+trap finish EXIT
+trap 'interrupted 129' HUP
+trap 'interrupted 130' INT
+trap 'interrupted 143' TERM
 
-Commands operate only on the system Flatpak installation.
-EOF
-    exit 64
+case "$operation" in
+  ensure) : ;; # Restore policy only; Flatpak owns dependency/extension selection.
+  cleanup) run_child "$flatpak_bin" --system uninstall --unused -y --noninteractive ;;
+  update)
+    prepare_remote
+    run_child "$flatpak_bin" --system update -y --noninteractive
+    run_child "$flatpak_bin" --system uninstall --unused -y --noninteractive
+    ;;
+  repair)
+    prepare_remote
+    run_child "$flatpak_bin" --system repair
+    ;;
+  setup)
+    # Wrap the entire BlueBuild v2 process, not separate pre/post lock holders.
+    prepare_remote
+    run_child "$setup_bin"
     ;;
 esac
