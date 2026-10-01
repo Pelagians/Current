@@ -1,22 +1,20 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-name: alma9-gnome-nvidia-580
-description: Current AlmaLinux 9 GNOME workstation image for the NVIDIA 580 lane.
+name: alma10-gnome-arm64
+description: Current ARM64 AlmaLinux 10 stable GNOME workstation image.
 base-image: quay.io/almalinuxorg/almalinux-bootc
-image-version: latest
+image-version: 10
 platforms:
-  - linux/amd64
+  - linux/arm64
 modules:
   - from-file: layers/shared/core-base.yml
   - from-file: layers/alma/core.yml
   - from-file: layers/shared/core.yml
-  - from-file: layers/alma9/core.yml
-  - from-file: layers/alma9/nvidia-580.yml
+  - from-file: layers/alma10/core.yml
   - from-file: layers/shared/flatpak-base.yml
   - from-file: layers/shared/workstation-common.yml
-  - from-file: layers/alma9/workstation.yml
+  - from-file: layers/alma10/workstation.yml
   - from-file: layers/shared/workstation-gnome.yml
-  - from-file: layers/alma9/gnome.yml
-  - from-file: layers/shared/nvidia-workstation.yml
-  - from-file: layers/alma9/nvidia-workstation.yml
+  - from-file: layers/shared/workstation-gnome-modern.yml
+  - from-file: layers/alma10/gnome.yml
   - type: initramfs
   - type: signing

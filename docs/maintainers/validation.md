@@ -22,3 +22,8 @@ verification. They never start/stop the runner's display manager. Workstation
 image layers also call the installed helper's `--check gnome|cosmic` mode to
 validate native service/config/session and helper/generator/service contracts.
 Booted tests remain required by [workstation rebase qualification](workstation-rebase-qualification.md).
+
+Architecture tests run through the image-matrix validator. They check the native
+rebase picker, legacy matrix compatibility, explicit platforms, and architecture
+before role in CI. Native ARM build/boot qualification is tracked in
+[ARM candidate status](arm-image-lanes.md).

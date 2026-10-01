@@ -73,7 +73,6 @@ modules:
         - libcamera-tools
         - libsane-hpaio
         - logrotate
-        - microcode_ctl
         - nftables
         - orca
         - pavucontrol
@@ -94,10 +93,19 @@ modules:
         - switcheroo-control
         - system-config-printer-udev
         - systemd-container
-        - thermald
         - usbutils
         - vim-enhanced
         - wireplumber
         - wl-clipboard
         - wpa_supplicant
         - xdg-user-dirs
+
+  # Intel microcode and thermal management belong only on x86 workstations.
+  - type: containerfile
+    snippets:
+      - >-
+        RUN case "$(uname -m)" in
+        x86_64) dnf -y install microcode_ctl thermald ;;
+        aarch64) : ;;
+        *) echo "Unsupported workstation architecture" >&2; exit 1 ;;
+        esac

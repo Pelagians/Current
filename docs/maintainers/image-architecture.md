@@ -1,6 +1,8 @@
 # Image Architecture
 
-The repo models Current by role first, and the supported image set is rendered directly from the matrix manifest.
+The matrix selects CPU architecture before server/workstation role. The image
+set is rendered directly from the single matrix manifest. Desktop and capability
+layer ownership remains shared across architectures.
 
 ## Authoritative image tree
 
@@ -55,6 +57,7 @@ It is consumed by:
 The TSV schema is intentionally small:
 
 - `job`
+- `architecture` (`x86_64` or `aarch64`)
 - `platform`
 - `role`
 - `environment`
@@ -158,3 +161,11 @@ The public tags are uniform and short.
 ## Registry namespace
 
 Current image references use `ghcr.io/pelagians/<image>:<tag>`.
+
+## Architecture-first builds
+
+CI first selects x64 or ARM64, then reuses the server/workstation workflow for
+that architecture. Every recipe declares its OCI platform. Existing x64 names
+and paths are preserved; six standard ARM candidates use `-arm64` names and
+`recipes/images/arm64/` paths. See [ARM candidates](arm-image-lanes.md) for package
+differences, rebase-picker compatibility and pending qualification.

@@ -3,6 +3,8 @@ name: alma9-server-nvidia-580
 description: Current AlmaLinux 9 NVIDIA 580 server image with admin/operator tooling and pinned proprietary prebuilt kernel modules.
 base-image: quay.io/almalinuxorg/almalinux-bootc
 image-version: latest
+platforms:
+  - linux/amd64
 modules:
   - from-file: layers/shared/core-base.yml
   - from-file: layers/alma/core.yml

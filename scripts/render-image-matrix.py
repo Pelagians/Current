@@ -11,7 +11,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MATRIX_FILE = ROOT / 'files/base/runtime/usr/share/current/image-matrix.tsv'
-FIELDS = ['job', 'platform', 'role', 'environment', 'driver', 'image', 'recipe']
+FIELDS = ['job', 'architecture', 'platform', 'role', 'environment', 'driver', 'image', 'recipe']
+ALLOWED_ARCHITECTURES = ('x86_64', 'aarch64')
 ALLOWED_PLATFORMS = ('alma9', 'alma10', 'fedora')
 ALLOWED_JOBS = ('server-images', 'workstation-images')
 ALLOWED_ROLES = ('server', 'workstation')
@@ -36,15 +37,17 @@ def recipe_ref(recipe: str) -> str:
 
 def expected_image(row: dict[str, str]) -> str:
     base = f"{row['platform']}-{row['environment']}"
-    return base if row['driver'] == 'standard' else f"{base}-{row['driver']}"
+    image = base if row['driver'] == 'standard' else f"{base}-{row['driver']}"
+    return image + ('-arm64' if row['architecture'] == 'aarch64' else '')
 
 
 def expected_recipe(row: dict[str, str]) -> str:
     suffix = RECIPE_SUFFIXES[row['driver']]
+    prefix = 'recipes/images/arm64' if row['architecture'] == 'aarch64' else 'recipes/images'
     if row['role'] == 'server':
-        return f"recipes/images/server/{row['platform']}/server{suffix}.yml"
+        return f"{prefix}/server/{row['platform']}/server{suffix}.yml"
     return (
-        f"recipes/images/workstation/{row['environment']}/{row['platform']}/"
+        f"{prefix}/workstation/{row['environment']}/{row['platform']}/"
         f"core{suffix}.yml"
     )
 
@@ -73,7 +76,7 @@ def load_rows() -> list[dict[str, str]]:
         rows: list[dict[str, str]] = []
         seen_images: set[str] = set()
         seen_recipes: set[str] = set()
-        seen_keys: set[tuple[str, str, str, str]] = set()
+        seen_keys: set[tuple[str, str, str, str, str]] = set()
 
         for line_number, raw_row in enumerate(reader, start=2):
             row = {field: (raw_row.get(field) or '').strip() for field in FIELDS}
@@ -84,6 +87,10 @@ def load_rows() -> list[dict[str, str]]:
                     + ', '.join(missing)
                 )
 
+            if row['architecture'] not in ALLOWED_ARCHITECTURES:
+                die(f"{MATRIX_FILE}:{line_number}: unsupported architecture: {row['architecture']}")
+            if row['architecture'] == 'aarch64' and (row['platform'] not in {'alma10', 'fedora'} or row['driver'] != 'standard'):
+                die(f"{MATRIX_FILE}:{line_number}: ARM64 currently supports only standard Alma 10/Fedora lanes")
             if row['job'] not in ALLOWED_JOBS:
                 die(f"{MATRIX_FILE}:{line_number}: unsupported job: {row['job']}")
             if row['platform'] not in ALLOWED_PLATFORMS:
@@ -117,7 +124,7 @@ def load_rows() -> list[dict[str, str]]:
             if row['recipe'] in seen_recipes:
                 die(f"{MATRIX_FILE}:{line_number}: duplicate recipe path: {row['recipe']}")
 
-            key = (row['platform'], row['role'], row['environment'], row['driver'])
+            key = (row['architecture'], row['platform'], row['role'], row['environment'], row['driver'])
             if key in seen_keys:
                 die(
                     f"{MATRIX_FILE}:{line_number}: duplicate platform/environment/driver "
@@ -145,7 +152,7 @@ def load_rows() -> list[dict[str, str]]:
 
 
 def filter_rows(rows: list[dict[str, str]], args: argparse.Namespace) -> list[dict[str, str]]:
-    for field in ('job', 'platform', 'role', 'environment', 'driver'):
+    for field in ('job', 'architecture', 'platform', 'role', 'environment', 'driver'):
         value = getattr(args, field, None)
         if value:
             rows = [row for row in rows if row[field] == value]
@@ -169,7 +176,7 @@ def cmd_gha(args: argparse.Namespace) -> int:
 def cmd_rebase(_: argparse.Namespace) -> int:
     for row in load_rows():
         print(
-            f"{display_role(row['role'])} | "
+            f"{row['architecture']} | {display_role(row['role'])} | "
             f"{display_environment(row['environment'])} | "
             f"{row['platform']} | {row['driver']} | {row['image']}:latest"
         )
@@ -181,6 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest='command', required=True)
 
     recipes = subparsers.add_parser('recipes', help='print supported recipe paths')
+    recipes.add_argument('--architecture', choices=sorted(ALLOWED_ARCHITECTURES))
     recipes.add_argument('--job', choices=sorted(ALLOWED_JOBS))
     recipes.add_argument('--platform', choices=sorted(ALLOWED_PLATFORMS))
     recipes.add_argument('--role', choices=sorted(ALLOWED_ROLES))
@@ -189,6 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
     recipes.set_defaults(func=cmd_recipes)
 
     gha = subparsers.add_parser('gha', help='emit a GitHub Actions matrix JSON array')
+    gha.add_argument('--architecture', choices=sorted(ALLOWED_ARCHITECTURES), required=True)
     gha.add_argument('--platform', choices=sorted(ALLOWED_PLATFORMS))
     gha.add_argument('job', choices=sorted(ALLOWED_JOBS))
     gha.set_defaults(func=cmd_gha)

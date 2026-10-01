@@ -4,10 +4,13 @@ name: fedora-cosmic
 description: Current Fedora edge COSMIC workstation image.
 base-image: quay.io/fedora/fedora-bootc
 image-version: latest
+platforms:
+  - linux/amd64
 modules:
   - from-file: layers/shared/core-base.yml
   - from-file: layers/shared/core.yml
   - from-file: layers/fedora/core.yml
+  - from-file: layers/fedora/rocm.yml
   - from-file: layers/shared/flatpak-base.yml
   - from-file: layers/shared/workstation-common.yml
   - from-file: layers/fedora/workstation.yml

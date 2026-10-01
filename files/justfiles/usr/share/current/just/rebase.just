@@ -44,29 +44,43 @@ rebase:
         ;;
     esac
 
-    expected_header=$'job	platform	role	environment	driver	image	recipe'
+    machine_arch="$(uname -m)"
+    case "$machine_arch" in
+      x86_64|amd64) machine_arch=x86_64 ;;
+      aarch64|arm64) machine_arch=aarch64 ;;
+      *) echo "Unsupported machine architecture: $machine_arch" >&2; exit 1 ;;
+    esac
+    expected_header=$'job\tarchitecture\tplatform\trole\tenvironment\tdriver\timage\trecipe'
+    legacy_header=$'job\tplatform\trole\tenvironment\tdriver\timage\trecipe'
     if ! IFS= read -r actual_header < "$matrix_file"; then
       echo "No image matrix entries were found at $matrix_url." >&2
       exit 1
     fi
-    actual_header="${actual_header%$''}"
-    if [ "$actual_header" != "$expected_header" ]; then
-      echo "Downloaded image matrix from $matrix_url, but it did not have the expected TSV header." >&2
-      exit 1
-    fi
+    actual_header="${actual_header%$'\r'}"
+    legacy=0
+    case "$actual_header" in
+      "$expected_header") ;;
+      "$legacy_header") legacy=1 ;; # Previous matrix is x86_64 only.
+      *) echo "Downloaded image matrix has an unsupported TSV header." >&2; exit 1 ;;
+    esac
 
     picker_status=0
-    picker_rows="$(awk -F $'	' '
+    picker_rows="$(awk -F $'\t' -v native_arch="$machine_arch" -v legacy="$legacy" '
       NR == 1 { next }
-      NF != 7 {
-        printf "Invalid image matrix row %d: expected 7 tab-separated fields.\n", NR > "/dev/stderr"
+      NF != (legacy ? 7 : 8) {
+        printf "Invalid image matrix row %d: wrong field count.\n", NR > "/dev/stderr"
         bad = 1
         next
       }
       {
+        arch = legacy ? "x86_64" : $2
+        if (arch != "x86_64" && arch != "aarch64") { bad = 1; next }
+        if (arch != native_arch) { next }
         found = 1
-        role = toupper(substr($3, 1, 1)) substr($3, 2)
-        environment = $4
+        offset = legacy ? 0 : 1
+        role_value = $(3 + offset)
+        role = toupper(substr(role_value, 1, 1)) substr(role_value, 2)
+        environment = $(4 + offset)
         if (environment == "gnome") {
           environment = "GNOME"
         } else if (environment == "cosmic") {
@@ -74,15 +88,11 @@ rebase:
         } else {
           environment = toupper(substr(environment, 1, 1)) substr(environment, 2)
         }
-        printf "%s | %s | %s | %s | %s:latest\n", role, environment, $2, $5, $6
+        printf "%s | %s | %s | %s | %s | %s:latest\n", arch, role, environment, $(2 + offset), $(5 + offset), $(6 + offset)
       }
       END {
-        if (bad) {
-          exit 3
-        }
-        if (!found) {
-          exit 2
-        }
+        if (bad) { exit 3 }
+        if (!found) { exit 2 }
       }
     ' "$matrix_file")" || picker_status=$?
 
@@ -90,7 +100,7 @@ rebase:
       0)
         ;;
       2)
-        echo "No image matrix entries were found at $matrix_url." >&2
+        echo "No $machine_arch image entries were found at $matrix_url." >&2
         exit 1
         ;;
       *)
@@ -99,11 +109,11 @@ rebase:
         ;;
     esac
 
-    sel="$(printf '%s\n' "$picker_rows" | fzf           --delimiter='|'           --with-nth=1,2,3,4           --header='Role | Environment | Platform | Driver'           --prompt='Select image: ')" || { echo "No image selected"; exit 1; }
+    sel="$(printf '%s\n' "$picker_rows" | fzf           --delimiter='|'           --with-nth=1,2,3,4,5           --header='Architecture | Role | Environment | Platform | Driver'           --prompt='Select image: ')" || { echo "No image selected"; exit 1; }
 
     test -n "$sel" || { echo "No image selected"; exit 1; }
 
-    tag="$(printf '%s\n' "$sel" | cut -d'|' -f5 | tr -d ' ')"
+    tag="$(printf '%s\n' "$sel" | cut -d'|' -f6 | tr -d ' ')"
     ref="${registry_namespace}/${tag}"
     echo "Selected: $ref"
     echo "Executing: sudo bootc switch $ref"

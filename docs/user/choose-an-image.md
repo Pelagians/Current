@@ -9,19 +9,26 @@ Public image names follow this technical grammar:
 
 Choose in this order.
 
-## 1. Pick a lane
+## 1. Pick the CPU architecture
+
+Existing image names are x86_64. Initial ARM64 candidate names add `-arm64`.
+The rebase picker filters to your running machine's architecture. ARM candidates
+cover standard Alma 10/Fedora server, GNOME and COSMIC recipes; image builds and
+boot qualification are still required before publication/support claims.
+
+## 2. Pick a lane
 
 - `alma9`: NVIDIA 580 compatibility lane
 - `alma10`: stable lane
 - `fedora`: edge lane, including akmod-built NVIDIA 580 images
 
-## 2. Pick an environment
+## 3. Pick an environment
 
 - `gnome`: the default documented workstation experience
 - `cosmic`: a parallel supported workstation experience
 - `server`: the headless admin/operator lane
 
-## 3. Pick a driver lane if the distro lane supports one
+## 4. Pick a driver lane if the distro lane supports one
 
 - images without a driver suffix are the standard lane
 - `nvidia-open`: newer supported NVIDIA GPUs on supported Alma 10 and Fedora images
@@ -52,4 +59,8 @@ Unsupported combinations are intentional.
 - Current AlmaLinux 10 Server: `alma10-server`
 - Current Fedora Server: `fedora-server`
 
-`current rebase` shows the full list grouped by role, environment, platform, and driver.
+`current rebase` shows matching images by architecture, role, environment,
+platform and driver. ARM candidate tags are `alma10-server-arm64`,
+`alma10-gnome-arm64`, `alma10-cosmic-arm64`, `fedora-server-arm64`,
+`fedora-gnome-arm64` and `fedora-cosmic-arm64`. See the
+[ARM maintainer status](../maintainers/arm-image-lanes.md) for qualification limits.

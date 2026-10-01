@@ -1,0 +1,15 @@
+modules:
+  # x86_64 ROCm userspace; included only by x64 recipes.
+  # Fedora ships ROCm packages directly, so this lane keeps the same userspace
+  # intent without carrying the EL-only vendor repo file.
+  - type: dnf
+    install:
+      install-weak-deps: false
+      skip-broken: true
+      packages:
+        - clinfo
+        - rocminfo
+        - rocm-hip-devel
+        - rocm-opencl-devel
+        - rocm-smi
+

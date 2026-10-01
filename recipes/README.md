@@ -21,7 +21,9 @@ recipes/images/
     fedora/
 ```
 
-The repo is role-first.
+CI selects architecture first, then server/workstation role. Existing x64 recipe
+paths remain in place; ARM candidates live under `images/arm64/`. Both reuse the
+same role and desktop layers. See [ARM candidate status](../docs/maintainers/arm-image-lanes.md).
 
 - `workstation` is the flagship desktop role.
 - `server` is the headless admin/operator role.

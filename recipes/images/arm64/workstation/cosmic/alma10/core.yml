@@ -1,23 +1,20 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-name: alma10-cosmic-nvidia-open
-description: Current AlmaLinux 10 stable COSMIC workstation image with the NVIDIA open kernel-module lane.
+name: alma10-cosmic-arm64
+description: Current ARM64 AlmaLinux 10 stable COSMIC workstation image.
 base-image: quay.io/almalinuxorg/almalinux-bootc
 image-version: 10
 platforms:
-  - linux/amd64
+  - linux/arm64
 modules:
   - from-file: layers/shared/core-base.yml
   - from-file: layers/alma/core.yml
   - from-file: layers/shared/core.yml
   - from-file: layers/alma10/core.yml
-  - from-file: layers/alma10/rocm.yml
-  - from-file: layers/shared/nvidia-open.yml
   - from-file: layers/shared/flatpak-base.yml
   - from-file: layers/shared/workstation-common.yml
   - from-file: layers/alma10/workstation.yml
   - from-file: layers/alma/cosmic.yml
   - from-file: layers/shared/workstation-cosmic.yml
-  - from-file: layers/shared/nvidia-workstation.yml
   - type: initramfs
   - type: signing

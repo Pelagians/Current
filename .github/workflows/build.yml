@@ -43,82 +43,34 @@ jobs:
         shell: pwsh
         run: ./scripts/verify-alma9-nvidia-580.ps1
 
-  define-image-matrix:
-    name: Define image matrix
-    runs-on: ubuntu-latest
-    outputs:
-      server_images: ${{ steps.render.outputs.server_images }}
-      workstation_images: ${{ steps.render.outputs.workstation_images }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: render
-        name: Render supported image matrices
-        run: |
-          set -euo pipefail
-
-          emit_output() {
-            local name="$1"
-            shift
-            {
-              printf '%s<<EOF\n' "$name"
-              "$@"
-              printf 'EOF\n'
-            } >> "$GITHUB_OUTPUT"
-          }
-
-          emit_output server_images python3 ./scripts/render-image-matrix.py gha server-images
-          emit_output workstation_images python3 ./scripts/render-image-matrix.py gha workstation-images
-
-  server-images:
-    name: Server Images (${{ matrix.name }})
-    if: ${{ needs.define-image-matrix.result == 'success' }}
+  x64-images:
+    name: X64 images
     needs:
       - validate-runtime-artifacts
       - validate-image-matrix
       - validate-alma9-nvidia-580
-      - define-image-matrix
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.define-image-matrix.outputs.server_images) }}
-    steps:
-      - name: Build Server image
-        uses: blue-build/github-action@v1.12
-        with:
-          recipe: ${{ matrix.recipe }}
-          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
-          registry_token: ${{ github.token }}
-          pr_event_number: ${{ github.event.number }}
-          maximize_build_space: true
+    uses: ./.github/workflows/build-architecture.yml
+    with:
+      architecture: x86_64
+      runner: ubuntu-latest
+    secrets: inherit
 
-  workstation-images:
-    name: Workstation Images (${{ matrix.name }})
-    if: ${{ needs.define-image-matrix.result == 'success' }}
+  arm64-images:
+    name: ARM64 images
     needs:
       - validate-runtime-artifacts
       - validate-image-matrix
       - validate-alma9-nvidia-580
-      - define-image-matrix
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.define-image-matrix.outputs.workstation_images) }}
-    steps:
-      - name: Build Workstation image
-        uses: blue-build/github-action@v1.12
-        with:
-          recipe: ${{ matrix.recipe }}
-          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
-          registry_token: ${{ github.token }}
-          pr_event_number: ${{ github.event.number }}
-          maximize_build_space: true
+    uses: ./.github/workflows/build-architecture.yml
+    with:
+      architecture: aarch64
+      runner: ubuntu-24.04-arm
+    secrets: inherit
