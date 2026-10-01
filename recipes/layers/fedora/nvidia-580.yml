@@ -18,7 +18,7 @@ modules:
         https://negativo17.org/repos/fedora-nvidia-580.repo;
         kernel_version="$(rpm -q kernel --queryformat "%{VERSION}-%{RELEASE}.%{ARCH}")";
         dnf -y --setopt=install_weak_deps=False install
-        "kernel-devel-matched-$(rpm -q kernel --queryformat "%{VERSION}")"
+        "kernel-devel-matched-${kernel_version}"
         akmods gcc-c++ kmod;
         cp /usr/sbin/akmodsbuild /usr/sbin/akmodsbuild.backup;
         sed -i "/if \[\[ -w \/var \]\] ; then/,/fi/d" /usr/sbin/akmodsbuild;
