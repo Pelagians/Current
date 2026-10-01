@@ -117,8 +117,8 @@ GNOME and COSMIC are workstation-environment implementations.
 - `shared/nvidia-base.yml` owns the common NVIDIA repo bootstrap, NVIDIA container toolkit setup, NVIDIA PCP PMDA package, copied NVIDIA support payloads, and kernel args.
 - `shared/nvidia-open-common.yml` owns the open-driver helper shim.
 - `shared/nvidia-common.yml` and `shared/nvidia-open.yml` own the Alma-family NVIDIA lanes.
-- `fedora/nvidia-open.yml` owns the Fedora x64 open-driver delta on top of the shared NVIDIA layers.
-- `fedora/nvidia-580.yml` selects the proprietary R580 contract; `fedora/nvidia-open-arm.yml` selects native ARM open modules. Both use `fedora/nvidia-akmod.yml` for the exact signed header pair, kernel-preserving transactions, image-time module build, flavour/vermagic verification and cleanup. ARM open CUDA uses Negativo17's `cuda`/`cuda-devel` packages explicitly.
+- `fedora/nvidia-open.yml` owns the architecture-specific Fedora open-driver dispatcher on top of the shared NVIDIA layers.
+- `fedora/nvidia-580.yml` selects the proprietary R580 contract; `fedora/nvidia-open.yml` selects NVIDIA CUDA packages on x64 and native Negativo17 open modules on ARM. Both use `fedora/nvidia-akmod.yml` for the exact signed header pair, kernel-preserving transactions, image-time module build, flavour/vermagic verification and cleanup. ARM open CUDA uses Negativo17's `cuda`/`cuda-devel` packages explicitly.
 
 ## Current namespace
 

@@ -5,6 +5,7 @@ base-image: quay.io/fedora/fedora-bootc
 image-version: latest
 platforms:
   - linux/amd64
+  - linux/arm64
 modules:
   - from-file: layers/shared/core-base.yml
   - from-file: layers/shared/core.yml
@@ -16,6 +17,6 @@ modules:
   - from-file: layers/fedora/workstation.yml
   - from-file: layers/shared/workstation-gnome.yml
   - from-file: layers/shared/workstation-gnome-modern.yml
-  - from-file: layers/shared/nvidia-workstation.yml
+  - from-file: layers/fedora/nvidia-open-workstation.yml
   - type: initramfs
   - type: signing

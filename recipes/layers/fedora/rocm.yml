@@ -1,15 +1,8 @@
 modules:
-  # x86_64 ROCm userspace; included only by x64 recipes.
-  # Fedora ships ROCm packages directly, so this lane keeps the same userspace
-  # intent without carrying the EL-only vendor repo file.
-  - type: dnf
-    install:
-      install-weak-deps: false
-      skip-broken: true
-      packages:
-        - clinfo
-        - rocminfo
-        - rocm-hip-devel
-        - rocm-opencl-devel
-        - rocm-smi
-
+  # Keep the existing x64 ROCm package intent; the complete ARM set is unavailable.
+  - type: containerfile
+    snippets:
+      - >-
+        RUN set -eux;
+        case "$(uname -m)" in x86_64) ;; aarch64) exit 0 ;; *) echo "Unsupported architecture" >&2; exit 1 ;; esac;
+        dnf -y --setopt=install_weak_deps=False --skip-broken install clinfo rocminfo rocm-hip-devel rocm-opencl-devel rocm-smi

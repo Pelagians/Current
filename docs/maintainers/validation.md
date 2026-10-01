@@ -23,10 +23,14 @@ image layers also call the installed helper's `--check gnome|cosmic` mode to
 validate native service/config/session and helper/generator/service contracts.
 Booted tests remain required by [workstation rebase qualification](workstation-rebase-qualification.md).
 
-Architecture tests and nine isolated Fedora NVIDIA build regressions run through the image-matrix validator. They check the native
+Ten architecture tests, ten publication/CPU-transaction tests and nine isolated Fedora NVIDIA build regressions run through the image-matrix validator. They check the native
 rebase picker, legacy matrix compatibility, explicit platforms, and architecture
 before role in CI. NVIDIA tests execute the actual header selection and module checks with temporary package/network stubs, including signed fallback, wrong package identity, signature rejection matching kernel modules, and retaining CUDA compiler headers during cleanup. Native ARM build/boot qualification is tracked in
-[ARM candidate status](arm-image-lanes.md).
+[ARM candidate status](arm-image-lanes.md). Publication fixtures cover missing,
+duplicate and stale native artifacts, source/platform validation, invalid indexes,
+signing failures, channel isolation and signing all indexes/aliases before any
+public channel advances. They never contact a registry. Real publication must
+pass [the gated CI publisher](image-publishing.md).
 
 Flatpak behavior checks are included in the runtime validator and can also run alone:
 

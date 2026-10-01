@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MATRIX_FILE = ROOT / 'files/base/runtime/usr/share/current/image-matrix.tsv'
-FIELDS = ['job', 'architecture', 'platform', 'role', 'environment', 'driver', 'image', 'recipe']
+FIELDS = ['job', 'architecture', 'platform', 'role', 'environment', 'driver', 'image', 'legacy-image', 'recipe']
 ALLOWED_ARCHITECTURES = ('x86_64', 'aarch64')
 ALLOWED_PLATFORMS = ('alma9', 'alma10', 'fedora')
 ALLOWED_JOBS = ('server-images', 'workstation-images')
@@ -43,12 +43,12 @@ def recipe_ref(recipe: str) -> str:
 def expected_image(row: dict[str, str]) -> str:
     base = f"{row['platform']}-{row['environment']}"
     image = base if row['driver'] == 'standard' else f"{base}-{row['driver']}"
-    return image + ('-arm64' if row['architecture'] == 'aarch64' else '')
+    return image
 
 
 def expected_recipe(row: dict[str, str]) -> str:
     suffix = RECIPE_SUFFIXES[row['driver']]
-    prefix = 'recipes/images/arm64' if row['architecture'] == 'aarch64' else 'recipes/images'
+    prefix = 'recipes/images'
     if row['role'] == 'server':
         return f"{prefix}/server/{row['platform']}/server{suffix}.yml"
     return (
@@ -79,8 +79,7 @@ def load_rows() -> list[dict[str, str]]:
             die('image matrix header must be exactly: ' + '	'.join(FIELDS))
 
         rows: list[dict[str, str]] = []
-        seen_images: set[str] = set()
-        seen_recipes: set[str] = set()
+        seen_images: set[tuple[str, str]] = set()
         seen_keys: set[tuple[str, str, str, str, str]] = set()
 
         for line_number, raw_row in enumerate(reader, start=2):
@@ -124,10 +123,11 @@ def load_rows() -> list[dict[str, str]]:
                     f"{MATRIX_FILE}:{line_number}: recipe path does not match the "
                     f"supported naming convention: {row['recipe']}"
                 )
-            if row['image'] in seen_images:
+            legacy_image = row['image'] + ('-arm64' if row['architecture'] == 'aarch64' else '')
+            if row['legacy-image'] != legacy_image:
+                die(f"{MATRIX_FILE}:{line_number}: incorrect migration alias: {row['legacy-image']}")
+            if (row['image'], row['architecture']) in seen_images:
                 die(f"{MATRIX_FILE}:{line_number}: duplicate image tag: {row['image']}")
-            if row['recipe'] in seen_recipes:
-                die(f"{MATRIX_FILE}:{line_number}: duplicate recipe path: {row['recipe']}")
 
             key = (row['architecture'], row['platform'], row['role'], row['environment'], row['driver'])
             if key in seen_keys:
@@ -148,8 +148,7 @@ def load_rows() -> list[dict[str, str]]:
                     'workstation-images job with gnome/cosmic environments'
                 )
 
-            seen_images.add(row['image'])
-            seen_recipes.add(row['recipe'])
+            seen_images.add((row['image'], row['architecture']))
             seen_keys.add(key)
             rows.append(row)
 
@@ -165,14 +164,16 @@ def filter_rows(rows: list[dict[str, str]], args: argparse.Namespace) -> list[di
 
 
 def cmd_recipes(args: argparse.Namespace) -> int:
-    for row in filter_rows(load_rows(), args):
-        print(row['recipe'])
+    for recipe in dict.fromkeys(row['recipe'] for row in filter_rows(load_rows(), args)):
+        print(recipe)
     return 0
 
 
 def cmd_gha(args: argparse.Namespace) -> int:
     rows = filter_rows(load_rows(), args)
-    payload = [{'name': row['image'], 'recipe': recipe_ref(row['recipe'])} for row in rows]
+    payload = [{'name': row['image'], 'recipe': recipe_ref(row['recipe']),
+                'platform': 'linux/arm64' if row['architecture'] == 'aarch64' else 'linux/amd64'}
+               for row in rows]
     json.dump(payload, sys.stdout, separators=(',', ':'))
     print()
     return 0

@@ -138,6 +138,6 @@ evidence, session persistence analysis, contamination tests and pending release 
 The same workstation reconciliation and desktop layers apply to ARM64. CPU
 architecture is selected before role in CI, while the destination desktop marker
 retains its existing contract. Intel microcode/thermald are installed only for
-x86_64, and ROCm source/install layers are included only by x64 recipes. See
+x86_64, and shared ROCm source/install layers execute only on x64. See
 [ARM image candidates](arm-image-lanes.md) for the initial lane set and pending
 build/boot qualification.

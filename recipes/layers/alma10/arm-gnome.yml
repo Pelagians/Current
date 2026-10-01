@@ -7,7 +7,7 @@ modules:
         . /etc/os-release;
         test "$ID" = almalinux;
         test "${VERSION_ID%%.*}" = 10;
-        test "$(uname -m)" = aarch64;
+        case "$(uname -m)" in x86_64) exit 0 ;; aarch64) ;; *) echo "Unsupported architecture" >&2; exit 1 ;; esac;
         dnf -y --setopt=install_weak_deps=False
         --repofrompath=current-alma-arm-devel,https://repo.almalinux.org/almalinux/10/devel/aarch64/os/
         --setopt=current-alma-arm-devel.includepkgs=loupe,glycin-loaders

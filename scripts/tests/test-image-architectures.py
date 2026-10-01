@@ -22,13 +22,15 @@ class Architectures(unittest.TestCase):
         rows = matrix.load_rows()
         self.assertEqual(sum(r['architecture'] == 'x86_64' for r in rows), 24)
         self.assertEqual(sum(r['architecture'] == 'aarch64' for r in rows), 21)
+        self.assertEqual(len({r['image'] for r in rows}), 24)
+        self.assertEqual(len({r['recipe'] for r in rows}), 24)
         for row in rows:
             self.assertTrue((ROOT / row['recipe']).is_file())
             self.assertEqual(row['image'], matrix.expected_image(row))
             self.assertEqual(row['recipe'], matrix.expected_recipe(row))
             if row['architecture'] == 'aarch64':
                 self.assertIn(row['driver'], matrix.ARM_DRIVERS[row['platform']])
-                self.assertTrue(row['image'].endswith('-arm64'))
+                self.assertEqual(row['legacy-image'], row['image'] + '-arm64')
 
     def test_ci_rendering_requires_architecture_and_filters_roles(self):
         import json
@@ -38,7 +40,7 @@ class Architectures(unittest.TestCase):
                                      'gha', '--architecture', arch, job], capture_output=True, text=True, check=True)
             rows = json.loads(result.stdout)
             self.assertEqual(len(rows), count)
-            self.assertTrue(all(r['name'].endswith('-arm64') == (arch == 'aarch64') for r in rows))
+            self.assertTrue(all(r['platform'] == ('linux/arm64' if arch == 'aarch64' else 'linux/amd64') for r in rows))
         result = subprocess.run(['python3', str(ROOT / 'scripts/render-image-matrix.py'),
                                  'gha', 'server-images'], capture_output=True)
         self.assertNotEqual(result.returncode, 0)
@@ -59,14 +61,16 @@ class Architectures(unittest.TestCase):
                     matrix.load_rows()
 
     def run_picker(self, architecture, legacy=False, expected_success=True,
-                   rows=None, selected_image=None):
+                   rows=None, selected_image=None, arch_matrix=False):
         with tempfile.TemporaryDirectory() as directory:
             tmp = Path(directory)
-            fields = [f for f in matrix.FIELDS if f != 'architecture'] if legacy else matrix.FIELDS
+            fields = [f for f in matrix.FIELDS if f not in ('architecture', 'legacy-image')] if legacy else [f for f in matrix.FIELDS if f != 'legacy-image'] if arch_matrix else matrix.FIELDS
             if rows is None:
                 rows = matrix.load_rows()
             if legacy:
                 rows = [r for r in rows if r['architecture'] == 'x86_64']
+            if arch_matrix:
+                rows = [dict(r, image=r['legacy-image']) for r in rows]
             file = tmp / 'matrix.tsv'
             with file.open('w') as handle:
                 writer = csv.DictWriter(handle, fieldnames=fields, delimiter='\t', extrasaction='ignore')
@@ -127,6 +131,10 @@ fi
         self.run_picker('x86_64', legacy=True)
         self.run_picker('aarch64', legacy=True, expected_success=False)
 
+    def test_picker_accepts_previous_architecture_matrix(self):
+        self.run_picker('x86_64', arch_matrix=True)
+        self.run_picker('aarch64', arch_matrix=True)
+
     def test_picker_rejects_unsupported_machine_architecture(self):
         result = self.run_picker('riscv64', expected_success=False)
         self.assertIn('Unsupported machine architecture: riscv64', result.stderr)
@@ -136,15 +144,14 @@ fi
             with self.subTest(arch=arch):
                 rows = matrix.load_rows()
                 row = next(r for r in rows if r['architecture'] == arch)
-                row['image'] = (row['image'] + '-arm64' if arch == 'x86_64'
-                                else row['image'].removesuffix('-arm64'))
+                row['image'] += '-arm64'
                 result = self.run_picker(arch, rows=rows, expected_success=False)
                 self.assertIn('image name does not match architecture', result.stderr)
 
     def test_picker_selects_each_fedora_arm_r580_image(self):
         for environment in ('server', 'gnome', 'cosmic'):
             with self.subTest(environment=environment):
-                self.run_picker('aarch64', selected_image=f'fedora-{environment}-nvidia-580-arm64')
+                self.run_picker('aarch64', selected_image=f'fedora-{environment}-nvidia-580')
 
     def test_cuda_repo_maps_native_arm_to_sbsa(self):
         layer = (ROOT / 'recipes/layers/shared/nvidia-cuda.yml').read_text()

@@ -11,11 +11,12 @@ Choose in this order.
 
 ## 1. Pick the CPU architecture
 
-Existing image names are x86_64. ARM64 candidate names add `-arm64`.
-The rebase picker filters to your running machine's architecture. ARM candidates
-cover standard/NVIDIA-open Alma 9 and Alma 10, and standard/NVIDIA-open/NVIDIA-580 Fedora
-server, GNOME and COSMIC recipes; image builds and
-boot qualification are still required before publication/support claims.
+Public image names are shared by x64 and ARM64. Each `:latest` OCI index contains
+only its supported architectures; bootc selects the matching native image.
+The rebase picker filters unsupported combinations before showing choices.
+Explicit `:latest-amd64` and `:latest-arm64` tags are available for diagnosis.
+Existing `-arm64:latest` image references remain updated as compatibility aliases.
+Boot/GPU qualification remains separate from a successful image build.
 
 ## 2. Pick a lane
 
@@ -39,9 +40,8 @@ boot qualification are still required before publication/support claims.
 
 The exact supported image list comes from `files/base/runtime/usr/share/current/image-matrix.tsv`; `current rebase` downloads that matrix from GitHub when it builds the picker.
 
-The PR matrix has 24 x64 and 21 ARM candidates. The table lists every x64
-name; the ARM column lists available equivalents by appending `-arm64` to each
-name in that row. Build success and boot/GPU qualification are separate gates.
+The matrix has 24 public image families backed by 24 x64 and 21 ARM builds.
+The names below apply to both CPUs wherever the ARM column lists support. Build success and boot/GPU qualification are separate gates.
 
 | Distro / driver | Server | GNOME | COSMIC | ARM equivalents |
 | --- | --- | --- | --- | --- |
@@ -70,7 +70,6 @@ restricted supplemental devel packages and remain experimental; see the
 - Current Fedora Server: `fedora-server`
 
 `current rebase` shows matching images by architecture, role, environment,
-platform and driver. ARM candidate names append `-arm64`, for example
-`alma9-gnome-arm64`, `alma10-server-nvidia-open-arm64` and
-`fedora-cosmic-nvidia-580-arm64`. See the
+platform and driver, then switches to the shared reference, for example
+`ghcr.io/pelagians/fedora-cosmic-nvidia-580:latest` on either CPU. See the
 [ARM maintainer status](../maintainers/arm-image-lanes.md) for qualification limits.

@@ -5,8 +5,11 @@ The architecture split happens before the server/workstation split in CI.
 The reusable workflow expands each architecture's server and workstation rows
 from the single shipped TSV manifest. x64 uses `ubuntu-latest`; ARM64 uses
 `ubuntu-24.04-arm`. Builds run natively, with an explicit `platforms` entry in
-every recipe. ARM images have distinct `-arm64` names, avoiding concurrent writes
-to the existing x64 image tags.
+every recipe. There are 24 shared recipes for 45 native builds. CI passes exactly
+one `--platform` to each native build, avoiding cross-CPU emulation. Public tags
+are assembled after both architecture workflows succeed; see
+[multi-architecture publishing](image-publishing.md). Existing `-arm64` references
+remain compatibility aliases.
 
 The manifest includes 21 ARM and 24 x64 candidates (45 total). Each row below provides server, GNOME
 and COSMIC recipes, reusing the existing role, desktop and bootc layers:
@@ -24,8 +27,8 @@ or an ARM installer ISO.
 ## Package differences
 
 ROCm installation is extracted into `layers/alma10/rocm.yml` and
-`layers/fedora/rocm.yml`, included by the existing x64 recipes. ARM recipes omit
-these layers: Fedora ARM metadata includes rocm-smi but does not include the
+`layers/fedora/rocm.yml`, included by shared recipes with x64-only transactions.
+ARM skips these transactions: Fedora ARM metadata includes rocm-smi but does not include the
 required rocminfo/rocm-hip-devel/rocm-opencl-devel set. The x64 package intent is
 preserved. Intel microcode and thermald installation is conditional on x86_64
 in the shared workstation substrate. Required ARM packages are not silently
@@ -39,13 +42,12 @@ The experimental ARM recipes use small distro/role-specific layers to install
 these packages before their normal shared transactions. Each transaction
 restricts devel to the required package names and direct missing subpackages
 (`glycin-loaders` or `fprintd`), verifies signatures with the base image's Alma
-key and leaves no repository configuration installed. No x64 recipe uses these
-layers; Alma 10 servers acquire neither desktop dependency.
+key and leaves no repository configuration installed. These layers exit before package/repository changes on x64; Alma 10 servers acquire neither desktop dependency.
 
 Alma [describes devel as a build dependency repository](https://wiki.almalinux.org/repos/AlmaLinux)
 and explicitly discourages runtime use. These ARM Alma lanes remain experimental
 pending an appropriate runtime package source and boot qualification. Successful
-candidate builds do not remove that limitation. Their package layers are
+candidate builds do not remove that limitation. Their architecture-guarded package layers are
 `alma9/arm-core.yml`, `alma10/arm-gnome.yml` and `alma10/arm-cosmic.yml`.
 
 Source inspection on 2026-09-30 confirmed:
@@ -100,8 +102,8 @@ images have no equivalent prebuilt ARM module-stream contract. ROCm's unavailabl
 ARM package set is another package-level difference. Server, GNOME and COSMIC
 are otherwise represented for every included distro/driver lane.
 
-COSMIC CI builds retry once after a 30-second delay when a first build fails.
-This covers observed COPR HTTP 503 responses after DNF exhausts its mirrors;
+Workstation CI builds retry once after a 30-second delay when a first build fails.
+This covers COSMIC COPR HTTP 503 responses and GNOME COPR connection failures;
 a second failure still fails CI, with both attempts' logs retained.
 
 References: [BlueBuild platform selection](https://blue-build.org/reference/recipe/#platforms),
@@ -120,11 +122,13 @@ Driver metadata: [Alma 9 ARM](https://nvidia.repo.almalinux.org/cuda/9/aarch64/)
 
 ## Matrix and rebase compatibility
 
-The TSV adds `architecture` immediately after `job`. Allowed values are
+The TSV records `architecture` immediately after `job`, a shared `image` name
+and an explicit `legacy-image` migration alias before `recipe`. Allowed values are
 `x86_64` and `aarch64`. CI rendering requires an explicit architecture filter.
 The updated `current rebase` filters to the running machine's architecture before
-showing choices. It also accepts the previous seven-column matrix as x86_64-only,
-so updated clients can read the existing stable manifest during rollout.
+showing choices, then uses the shared image reference. It also accepts the
+previous eight-column architecture matrix and the seven-column x86_64-only
+matrix so updated clients can read the existing stable manifest during rollout.
 
 Older clients reject the new header safely. Upgrade their current image with
 `bootc upgrade` to install the updated picker before using the new matrix, or
@@ -139,11 +143,11 @@ bash scripts/validate-runtime-artifacts.sh
 bash scripts/validate-image-matrix.sh
 python3 scripts/render-image-matrix.py gha --architecture aarch64 server-images
 python3 scripts/render-image-matrix.py gha --architecture aarch64 workstation-images
-bluebuild generate --platform linux/arm64 recipes/images/arm64/server/fedora/server.yml
-bluebuild build --platform linux/arm64 --no-sign recipes/images/arm64/server/fedora/server.yml
+bluebuild generate --platform linux/arm64 recipes/images/server/fedora/server.yml
+bluebuild build --platform linux/arm64 --no-sign recipes/images/server/fedora/server.yml
 ```
 
-The nine architecture tests exercise the actual rebase shell with isolated curl,
+The ten architecture tests exercise the actual rebase shell with isolated curl,
 fzf, uname and sudo stubs, including rejection of mismatched image names and
 selection of all three Fedora ARM R580 references, plus matrix validation,
 role/architecture filtering and the CUDA repository bootstrap with isolated
@@ -182,10 +186,14 @@ Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:
   with the restricted Rocky package source and signature checks. Fedora ARM
   open and Alma 9 ARM open/CUDA native dependency solves also completed.
 
-Before release, build all 21 candidates on the ARM runner, install on a
+The previous separate-name matrix passed all 45 image builds in
+[CI at b8a80def](https://github.com/Pelagians/Current/actions/runs/36815337245).
+That result predates the shared-recipe/index publishing change. The new publisher
+and native recipe contracts must pass their own full CI before release.
+
+Before release, install on a
 disposable generic ARM64 bootc machine, and perform fresh server/desktop boots.
 Then perform the [persistent workstation rebase qualification](workstation-rebase-qualification.md)
 on each ARM desktop pair. Record architecture, image digests, bootloader/kernel,
 greeter appearance, successful login, session identity and retained preferences.
-The current expanded full-matrix CI and all booted qualification remain
-pending. Container validation does not establish greeter or login behavior.
+Shared-recipe/index publishing CI and all booted qualification remain pending. Container validation does not establish greeter or login behavior.

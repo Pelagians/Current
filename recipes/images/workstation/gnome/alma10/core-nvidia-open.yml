@@ -5,6 +5,7 @@ base-image: quay.io/almalinuxorg/almalinux-bootc
 image-version: 10
 platforms:
   - linux/amd64
+  - linux/arm64
 modules:
   - from-file: layers/shared/core-base.yml
   - from-file: layers/alma/core.yml
@@ -16,6 +17,7 @@ modules:
   - from-file: layers/shared/workstation-common.yml
   - from-file: layers/alma10/workstation.yml
   - from-file: layers/shared/workstation-gnome.yml
+  - from-file: layers/alma10/arm-gnome.yml
   - from-file: layers/shared/workstation-gnome-modern.yml
   - from-file: layers/alma10/gnome.yml
   - from-file: layers/shared/nvidia-workstation.yml

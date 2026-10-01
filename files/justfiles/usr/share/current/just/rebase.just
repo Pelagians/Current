@@ -52,7 +52,8 @@ rebase:
         ;;
     esac
 
-    expected_header=$'job\tarchitecture\tplatform\trole\tenvironment\tdriver\timage\trecipe'
+    expected_header=$'job\tarchitecture\tplatform\trole\tenvironment\tdriver\timage\tlegacy-image\trecipe'
+    arch_header=$'job\tarchitecture\tplatform\trole\tenvironment\tdriver\timage\trecipe'
     legacy_header=$'job\tplatform\trole\tenvironment\tdriver\timage\trecipe'
     if ! IFS= read -r actual_header < "$matrix_file"; then
       echo "No image matrix entries were found at $matrix_url." >&2
@@ -60,16 +61,18 @@ rebase:
     fi
     actual_header="${actual_header%$'\r'}"
     legacy=0
+    multiarch=0
     case "$actual_header" in
-      "$expected_header") ;;
+      "$expected_header") multiarch=1 ;;
+      "$arch_header") ;;
       "$legacy_header") legacy=1 ;; # Previous matrix is x86_64 only.
       *) echo "Downloaded image matrix has an unsupported TSV header." >&2; exit 1 ;;
     esac
 
     picker_status=0
-    picker_rows="$(awk -F $'\t' -v native_arch="$machine_arch" -v legacy="$legacy" '
+    picker_rows="$(awk -F $'\t' -v native_arch="$machine_arch" -v legacy="$legacy" -v multiarch="$multiarch" '
       NR == 1 { next }
-      NF != (legacy ? 7 : 8) {
+      NF != (legacy ? 7 : (multiarch ? 9 : 8)) {
         printf "Invalid image matrix row %d: wrong field count.\n", NR > "/dev/stderr"
         bad = 1
         next
@@ -83,7 +86,10 @@ rebase:
         }
         offset = legacy ? 0 : 1
         image = $(6 + offset)
-        if ((image ~ /-arm64$/) != (arch == "aarch64")) {
+        expected = $(2 + offset) "-" $(4 + offset)
+        if ($(5 + offset) != "standard") { expected = expected "-" $(5 + offset) }
+        alias = image (arch == "aarch64" ? "-arm64" : "")
+        if (multiarch ? (image != expected || $8 != alias) : ((image ~ /-arm64$/) != (arch == "aarch64"))) {
           printf "Invalid image matrix row %d: image name does not match architecture %s.\n", NR, arch > "/dev/stderr"
           bad = 1
           next

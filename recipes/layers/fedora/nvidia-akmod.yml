@@ -5,6 +5,7 @@ modules:
     snippets:
       - >-
         RUN /usr/bin/bash -euxo pipefail -c '
+        if [[ "${CURRENT_NVIDIA_VARIANT}" == open && "$(uname -m)" == x86_64 ]]; then exit 0; fi;
         case "${CURRENT_NVIDIA_VARIANT}" in
         580) repo=fedora-nvidia-580; expected_license=NVIDIA ;;
         open) repo=fedora-nvidia; expected_license="Dual MIT/GPL" ;;

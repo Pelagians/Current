@@ -177,8 +177,8 @@ grep -q 'repo_gpgcheck=0' recipes/layers/shared/nvidia-base.yml
 grep -q 'gpgcheck=1' recipes/layers/shared/nvidia-base.yml
 grep -q 'ARG CURRENT_NVIDIA_VARIANT=580' recipes/layers/fedora/nvidia-580.yml
 grep -q 'from-file: layers/fedora/nvidia-akmod.yml' recipes/layers/fedora/nvidia-580.yml
-grep -q 'ARG CURRENT_NVIDIA_VARIANT=open' recipes/layers/fedora/nvidia-open-arm.yml
-grep -q 'from-file: layers/fedora/nvidia-akmod.yml' recipes/layers/fedora/nvidia-open-arm.yml
+grep -q 'ARG CURRENT_NVIDIA_VARIANT=open' recipes/layers/fedora/nvidia-open.yml
+grep -q 'from-file: layers/fedora/nvidia-akmod.yml' recipes/layers/fedora/nvidia-open.yml
 grep -q '580) repo=fedora-nvidia-580; expected_license=NVIDIA' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'open) repo=fedora-nvidia; expected_license="Dual MIT/GPL"' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'kernel-devel-matched' recipes/layers/fedora/nvidia-akmod.yml

@@ -40,8 +40,8 @@ current rebase
 
 The picker detects your running machine's CPU architecture and displays only
 matching images: x86_64 on x64, or aarch64 on ARM64. It prints the detected
-architecture and uses the selected image's exact name, including `-arm64` on
-ARM. Unsupported architectures, mismatched image names and a matrix with no
+architecture and uses the shared image name on both CPUs. The OCI index selects
+the native build. Unsupported architectures, mismatched image names and a matrix with no
 matching entries stop before `bootc switch` is called.
 
 This requires the updated picker and image matrix. Once released, use

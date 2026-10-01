@@ -145,8 +145,8 @@ NVIDIA ownership is split three ways:
 
 - `shared/nvidia-base.yml`: common repo bootstrap, NVIDIA container toolkit setup, NVIDIA PCP PMDA package, copied NVIDIA support payloads, and kernel args
 - `shared/nvidia-common.yml` / `shared/nvidia-open.yml`: Alma-family NVIDIA lane wiring
-- `fedora/nvidia-open.yml`: Fedora x64 open-driver delta on top of the shared NVIDIA base
-- `fedora/nvidia-580.yml` and `fedora/nvidia-open-arm.yml`: explicit driver contracts sharing the image-time build in `fedora/nvidia-akmod.yml`, with exact signed headers and module verification
+- `fedora/nvidia-open.yml`: architecture-specific Fedora open-driver dispatcher on top of the shared NVIDIA base
+- `fedora/nvidia-580.yml` and `fedora/nvidia-open.yml`: explicit driver contracts sharing the image-time build in `fedora/nvidia-akmod.yml`, with exact signed headers and module verification
 
 That keeps common repo bootstrap, container-toolkit wiring, copied support files, and driver-lane-specific package/build behavior separated instead of repeated across image recipes.
 
@@ -165,7 +165,8 @@ Current image references use `ghcr.io/pelagians/<image>:<tag>`.
 ## Architecture-first builds
 
 CI first selects x64 or ARM64, then reuses the server/workstation workflow for
-that architecture. Every recipe declares its OCI platform. Existing x64 names
-and paths are preserved; 21 ARM candidates use `-arm64` names and
-`recipes/images/arm64/` paths. See [ARM candidates](arm-image-lanes.md) for package
+that architecture. The 24 shared recipes declare supported OCI platforms; each
+CI build overrides that list with its single native platform. A gated publisher
+combines the 45 builds into signed public indexes and preserves existing ARM
+references as compatibility aliases. See [publishing](image-publishing.md). See [ARM candidates](arm-image-lanes.md) for package
 differences, rebase-picker compatibility and pending qualification.

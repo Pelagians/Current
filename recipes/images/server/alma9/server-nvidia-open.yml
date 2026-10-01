@@ -5,7 +5,9 @@ base-image: quay.io/almalinuxorg/almalinux-bootc
 image-version: 9
 platforms:
   - linux/amd64
+  - linux/arm64
 modules:
+  - from-file: layers/alma9/arm-core.yml
   - from-file: layers/shared/core-base.yml
   - from-file: layers/alma/core.yml
   - from-file: layers/shared/core.yml

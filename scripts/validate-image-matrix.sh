@@ -180,9 +180,6 @@ expected_fedora_nvidia_580_images = {
     'fedora-server-nvidia-580',
     'fedora-gnome-nvidia-580',
     'fedora-cosmic-nvidia-580',
-    'fedora-server-nvidia-580-arm64',
-    'fedora-gnome-nvidia-580-arm64',
-    'fedora-cosmic-nvidia-580-arm64',
 }
 actual_fedora_nvidia_580_images = {row['image'] for row in fedora_nvidia_580_rows}
 if actual_fedora_nvidia_580_images != expected_fedora_nvidia_580_images:
@@ -205,7 +202,7 @@ for row in rows:
         ('alma10', 'cosmic', 'arm-cosmic', root / 'recipes/layers/alma/cosmic.yml'),
     ):
         layer = root / 'recipes/layers' / platform / (name + '.yml')
-        expected = row['architecture'] == 'aarch64' and row['platform'] == platform
+        expected = row['platform'] == platform and any(r['image'] == row['image'] and r['architecture'] == 'aarch64' for r in rows)
         expected = expected and (environment is None or row['environment'] == environment)
         if graph.count(layer) != int(expected):
             die(f"{row['image']}: incorrect supplemental ARM package layer {layer}")
@@ -213,11 +210,14 @@ for row in rows:
             die(f"{row['image']}: {layer} must precede {before}")
     if row['platform'] in {'alma10', 'fedora'}:
         rocm = root / 'recipes/layers' / row['platform'] / 'rocm.yml'
-        if graph.count(rocm) != (1 if row['architecture'] == 'x86_64' else 0):
-            die(f"{row['image']} must include ROCm only on x86_64")
-    expected_platform = 'linux/arm64' if row['architecture'] == 'aarch64' else 'linux/amd64'
-    if f'platforms:\n  - {expected_platform}\n' not in text:
-        die(f"{row['image']} must explicitly select {expected_platform}")
+        if graph.count(rocm) != 1:
+            die(f"{row['image']} must include the architecture-guarded ROCm layer")
+    expected_platforms = {'linux/arm64' if r['architecture'] == 'aarch64' else 'linux/amd64'
+                          for r in rows if r['image'] == row['image']}
+    platforms = set(re.findall(r'^  - (linux/\S+)$', text, re.M))
+    if platforms != expected_platforms:
+        die(f"{row['image']} must explicitly select {expected_platforms}")
+
     if f"name: {row['image']}\n" not in text:
         die(f"{recipe}: recipe name must match manifest image")
 
@@ -297,15 +297,15 @@ for row in rows:
     elif fedora_nvidia_580_count != 0 or fedora_nvidia_580_workstation_count != 0:
         die(f"Image {row['image']} must not include Fedora NVIDIA 580 layers")
 
-    fedora_arm_open = root / 'recipes/layers/fedora/nvidia-open-arm.yml'
-    fedora_arm_open_workstation = root / 'recipes/layers/fedora/nvidia-open-arm-workstation.yml'
-    expected_arm_open = row['architecture'] == 'aarch64' and row['platform'] == 'fedora' and row['driver'] == 'nvidia-open'
-    if graph.count(fedora_arm_open) != int(expected_arm_open):
-        die(f"{row['image']}: incorrect Fedora ARM open-module source")
-    if graph.count(fedora_arm_open_workstation) != int(expected_arm_open and row['role'] == 'workstation'):
-        die(f"{row['image']}: incorrect Fedora ARM NVIDIA workstation layer")
-    if expected_arm_open and shared_nvidia_workstation_count:
-        die(f"{row['image']}: use the explicit Negativo17 ARM userspace source")
+    fedora_open = root / 'recipes/layers/fedora/nvidia-open.yml'
+    fedora_open_workstation = root / 'recipes/layers/fedora/nvidia-open-workstation.yml'
+    expected_open = row['platform'] == 'fedora' and row['driver'] == 'nvidia-open'
+    if graph.count(fedora_open) != int(expected_open):
+        die(f"{row['image']}: incorrect Fedora open-module source dispatcher")
+    if graph.count(fedora_open_workstation) != int(expected_open and row['role'] == 'workstation'):
+        die(f"{row['image']}: incorrect Fedora NVIDIA workstation dispatcher")
+    if expected_open and shared_nvidia_workstation_count:
+        die(f"{row['image']}: use the explicit architecture-specific userspace source")
 
 expected_singletons = {
     'pcp package': (r'^\s*-\s+pcp\s*$', 1),
@@ -372,3 +372,5 @@ done
 [[ "$(grep -Fc 'runs-on: ${{ inputs.runner }}' "$workflow_file")" == 3 ]]
 python3 scripts/tests/test-image-architectures.py
 python3 scripts/tests/test-fedora-nvidia.py
+
+python3 scripts/tests/test-image-publication.py
