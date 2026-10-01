@@ -192,6 +192,9 @@ class Publication(unittest.TestCase):
                     self.assertEqual(result.returncode == 0, arch != 'riscv64', result.stderr)
                     intended = 'x86_64' if layer.endswith('/rocm') else 'aarch64'
                     self.assertEqual((tmp / 'calls').exists(), arch == intended)
+                    if arch == intended and layer.endswith('/rocm'):
+                        args = (tmp / 'calls').read_text().split()
+                        self.assertLess(args.index('install'), args.index('--skip-broken'))
 
     def test_workflow_native_override_and_publication_gate(self):
         native = (ROOT / '.github/workflows/build-architecture.yml').read_text()
