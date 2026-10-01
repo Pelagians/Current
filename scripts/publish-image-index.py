@@ -36,9 +36,9 @@ def build_context():
     return revision, run_id, attempt, namespace
 
 
-def marker(architecture):
-    _, run_id, attempt, _ = build_context()
-    return f'run-{run_id}-{attempt}-{OCI_ARCH[architecture]}'
+def marker(architecture, attempt=None):
+    _, run_id, current_attempt, _ = build_context()
+    return f'run-{run_id}-{attempt or current_attempt}-{OCI_ARCH[architecture]}'
 
 
 def native_row(image, architecture):
@@ -66,13 +66,13 @@ def inspect_raw(ref):
     return json.loads(raw), 'sha256:' + hashlib.sha256(raw.encode()).hexdigest()
 
 
-def check_config(ref, architecture):
+def check_config(ref, architecture, attempt=None):
     config = json.loads(run('skopeo', 'inspect', '--config', 'docker://' + ref))
     revision, _, _, _ = build_context()
     labels = config.get('config', {}).get('Labels', {})
     if (config.get('os'), config.get('architecture')) != ('linux', OCI_ARCH[architecture]):
         raise ValueError(f'{ref}: wrong native image platform')
-    if labels.get('org.opencontainers.image.revision') != revision or labels.get('io.current.build') != marker(architecture):
+    if labels.get('org.opencontainers.image.revision') != revision or labels.get('io.current.build') != marker(architecture, attempt):
         raise ValueError(f'{ref}: image is from another commit or CI build')
 
 
@@ -114,8 +114,11 @@ def load_records(directory):
         key = (value['image'], value['architecture'])
         if key not in expected or key in records:
             raise ValueError(f'{path}: unexpected or duplicate native build')
-        if (value['revision'], value['run_id'], value['attempt'], value['namespace']) != (revision, run_id, attempt, namespace):
-            raise ValueError(f'{path}: native build is from another commit/run/attempt/registry')
+        if (value['revision'], value['run_id'], value['namespace']) != (revision, run_id, namespace):
+            raise ValueError(f'{path}: native build is from another commit/run/registry')
+        native_attempt = value['attempt']
+        if not isinstance(native_attempt, str) or not native_attempt.isdecimal() or not 1 <= int(native_attempt) <= int(attempt):
+            raise ValueError(f'{path}: invalid or future native build attempt')
         if not re.fullmatch(r'sha256:[0-9a-f]{64}', value['digest']):
             raise ValueError(f'{path}: invalid native digest')
         if not re.fullmatch(r'[0-9]+', value['version']):
@@ -177,7 +180,7 @@ def publish(directory):
     for (image, arch), record in sorted(records.items()):
         repo = namespace + '/' + image
         ref = repo + '@' + record['digest']
-        check_config(ref, arch)
+        check_config(ref, arch, record['attempt'])
         grouped.setdefault(image, {})[arch] = record['digest']
     staged = {}
     for image, children in grouped.items():

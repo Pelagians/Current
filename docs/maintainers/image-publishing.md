@@ -23,7 +23,7 @@ package/source guards; no new desktop, bootc or image-role model is introduced.
 After each successful build, `scripts/publish-image-index.py record` resolves its
 actual native digest, checks its config platform/revision/build identity and
 uploads a digest artifact. Provenance descriptors are excluded from OS children.
-Artifacts must cover every matrix row from the same commit, run and attempt;
+Artifacts must cover every matrix row from the same commit and run;
 paired architectures must also agree on their distro version.
 
 The publisher depends on both complete architecture workflows. It validates all
@@ -37,7 +37,7 @@ Each tag update is atomic. GHCR does not provide a transaction spanning 24
 repositories; cancellation or a registry failure during promotion can leave
 families at different releases, but every advanced family has a complete, signed
 index. Retry the publication after diagnosing the failure; do not construct an
-index from mutable native tags or mix artifacts from different runs/attempts.
+index from mutable native tags or mix artifacts from different commits/runs.
 
 ## Channels and reruns
 
@@ -53,10 +53,12 @@ Existing distro streams also advance: `:44` on stable Fedora, and `:pr-28-44`
 on its PR channel, for example. ARM compatibility repositories receive those
 streams too. Historical dated/SHA tags remain unchanged.
 
-Native artifacts from different attempts are intentionally rejected. After a
-failed native build, rerun **all jobs** so all 45 artifacts and their source
-labels agree on the attempt. Artifact uploads overwrite only their own previous
-native artifact. A failed-job-only rerun cannot publish a mixed-attempt release.
+After a transient native failure, rerun the failed jobs. Successful native
+artifacts from earlier attempts of this same run and source revision remain
+valid. Each registry config must match its own recorded attempt marker, and
+future or malformed attempts are rejected. Artifact uploads overwrite only
+their own previous native artifact. Promotion still requires all 45 verified
+builds; missing builds or artifacts from another run/revision cannot publish.
 
 The new nine-column matrix adds `legacy-image`. The new rebase picker accepts
 both previous matrix formats for rollout. Older pickers safely reject the new

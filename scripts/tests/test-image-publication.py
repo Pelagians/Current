@@ -37,22 +37,23 @@ class Publication(unittest.TestCase):
                          version={'alma9':'9','alma10':'10','fedora':'44'}[row['platform']])
             (self.directory / f'{index}.json').write_text(json.dumps(value))
 
-    def fake_registry(self, wrong_config=False, signing_failure=False, wrong_index=False):
+    def fake_registry(self, wrong_config=False, signing_failure=False, wrong_index=False, wrong_build=False):
         self.calls, indexes = [], {}
-        digests = {json.loads(p.read_text())['digest']: json.loads(p.read_text())['architecture']
+        digests = {json.loads(p.read_text())['digest']: json.loads(p.read_text())
                    for p in self.directory.glob('*.json')}
 
         def command(*args):
             self.calls.append(args)
             if args[:3] == ('skopeo', 'inspect', '--config'):
-                arch = digests[args[-1].split('@')[1]]
+                record = digests[args[-1].split('@')[1]]
+                arch = record['architecture']
                 return json.dumps(dict(os='linux', architecture='amd64' if wrong_config else pub.OCI_ARCH[arch],
                                        config=dict(Labels={'org.opencontainers.image.revision': ENV['GITHUB_SHA'],
-                                                           'io.current.build': pub.marker(arch)})))
+                                                           'io.current.build': pub.marker(arch, '99' if wrong_build else record['attempt'])})))
             if args[:4] == ('docker', 'buildx', 'imagetools', 'create'):
                 target = args[args.index('--tag') + 1]
                 if '--annotation' in args:
-                    descriptors = [{'platform': {'os': 'linux', 'architecture': pub.OCI_ARCH[digests[a.split('@')[1]]]},
+                    descriptors = [{'platform': {'os': 'linux', 'architecture': pub.OCI_ARCH[digests[a.split('@')[1]]['architecture']]},
                                     'digest': a.split('@')[1]} for a in args if '@' in a]
                     indexes[target] = dict(manifests=descriptors,
                                            annotations={'org.opencontainers.image.revision': ENV['GITHUB_SHA']})
@@ -68,6 +69,10 @@ class Publication(unittest.TestCase):
         return [c for c in self.calls if '--tag' in c and ':run-123-2' not in c[c.index('--tag') + 1]]
 
     def test_all_platforms_merge_and_sign_before_any_channel_advances(self):
+        # Failed-job reruns retain successful native builds from earlier attempts.
+        path = self.directory / '1.json'
+        older = json.loads(path.read_text()); older['attempt'] = '1'
+        path.write_text(json.dumps(older))
         with patch.object(pub, 'run', self.fake_registry()), redirect_stdout(io.StringIO()):
             pub.publish(self.directory)
         updates = self.mutable_updates()
@@ -86,14 +91,15 @@ class Publication(unittest.TestCase):
         self.assertFalse(any(c[:2] == ('cosign', 'sign') for c in self.calls[first:]))
 
     def test_missing_wrong_attempt_duplicate_and_invalid_digest_stop_before_registry_calls(self):
-        for change in ('missing', 'attempt', 'duplicate', 'digest', 'version'):
+        for change in ('missing', 'attempt', 'future_attempt', 'run_id', 'duplicate', 'digest', 'version'):
             with self.subTest(change=change):
                 path = self.directory / ('4.json' if change == 'version' else '1.json'); original = path.read_text()
                 value = json.loads(original)
                 if change == 'missing': path.unlink()
                 elif change == 'duplicate': (self.directory / 'duplicate.json').write_text(original)
                 else:
-                    value['version' if change == 'version' else 'attempt' if change == 'attempt' else 'digest'] = '99' if change == 'version' else 'wrong'
+                    field = 'attempt' if change in ('attempt', 'future_attempt') else 'version' if change == 'version' else 'run_id' if change == 'run_id' else 'digest'
+                    value[field] = '99' if change == 'version' else '3' if change == 'future_attempt' else 'wrong'
                     path.write_text(json.dumps(value))
                 with patch.object(pub, 'run') as run, self.assertRaises(ValueError):
                     pub.publish(self.directory)
@@ -102,9 +108,10 @@ class Publication(unittest.TestCase):
                 (self.directory / 'duplicate.json').unlink(missing_ok=True)
 
     def test_wrong_registry_platform_stops_before_publication(self):
-        with patch.object(pub, 'run', self.fake_registry(wrong_config=True)), self.assertRaisesRegex(ValueError, 'wrong native image platform'):
-            pub.publish(self.directory)
-        self.assertFalse(any(c[0] in ('docker', 'cosign') for c in self.calls))
+        for changes in ({'wrong_config': True}, {'wrong_build': True}):
+            with self.subTest(changes=changes), patch.object(pub, 'run', self.fake_registry(**changes)), self.assertRaises(ValueError):
+                pub.publish(self.directory)
+            self.assertFalse(any(c[0] in ('docker', 'cosign') for c in self.calls))
 
     def test_failed_signature_or_invalid_index_does_not_advance_channels(self):
         for changes in ({'signing_failure': True}, {'wrong_index': True}):
