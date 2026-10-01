@@ -19,9 +19,9 @@ ALLOWED_ROLES = ('server', 'workstation')
 ALLOWED_ENVIRONMENTS = ('cosmic', 'gnome', 'server')
 ALLOWED_DRIVERS = ('nvidia-580', 'nvidia-open', 'standard')
 ARM_DRIVERS = {
-    'alma9': ('standard',),
+    'alma9': ('standard', 'nvidia-open'),
     'alma10': ('standard', 'nvidia-open'),
-    'fedora': ('standard', 'nvidia-580'),
+    'fedora': ('standard', 'nvidia-580', 'nvidia-open'),
 }
 RECIPE_SUFFIXES = {
     'standard': '',

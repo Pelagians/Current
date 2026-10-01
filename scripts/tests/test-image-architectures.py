@@ -20,8 +20,8 @@ spec.loader.exec_module(matrix)
 class Architectures(unittest.TestCase):
     def test_manifest_counts_names_and_recipes(self):
         rows = matrix.load_rows()
-        self.assertEqual(sum(r['architecture'] == 'x86_64' for r in rows), 17)
-        self.assertEqual(sum(r['architecture'] == 'aarch64' for r in rows), 15)
+        self.assertEqual(sum(r['architecture'] == 'x86_64' for r in rows), 24)
+        self.assertEqual(sum(r['architecture'] == 'aarch64' for r in rows), 21)
         for row in rows:
             self.assertTrue((ROOT / row['recipe']).is_file())
             self.assertEqual(row['image'], matrix.expected_image(row))
@@ -32,8 +32,8 @@ class Architectures(unittest.TestCase):
 
     def test_ci_rendering_requires_architecture_and_filters_roles(self):
         import json
-        for arch, job, count in [('aarch64', 'server-images', 5), ('aarch64', 'workstation-images', 10),
-                                 ('x86_64', 'server-images', 5), ('x86_64', 'workstation-images', 12)]:
+        for arch, job, count in [('aarch64', 'server-images', 7), ('aarch64', 'workstation-images', 14),
+                                 ('x86_64', 'server-images', 8), ('x86_64', 'workstation-images', 16)]:
             result = subprocess.run(['python3', str(ROOT / 'scripts/render-image-matrix.py'),
                                      'gha', '--architecture', arch, job], capture_output=True, text=True, check=True)
             rows = json.loads(result.stdout)
@@ -45,7 +45,7 @@ class Architectures(unittest.TestCase):
 
     def test_rejects_unknown_architecture_and_unqualified_arm_driver(self):
         for changes in ({'architecture': 'riscv64'},
-                        {'architecture': 'aarch64', 'platform': 'fedora', 'driver': 'nvidia-open'},
+                        {'architecture': 'aarch64', 'platform': 'alma10', 'driver': 'nvidia-580'},
                         {'architecture': 'aarch64', 'platform': 'alma9', 'driver': 'nvidia-580'}):
             with tempfile.TemporaryDirectory() as directory:
                 file = Path(directory) / 'matrix.tsv'

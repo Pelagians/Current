@@ -200,6 +200,7 @@ for row in rows:
     # needs them. Install them before the existing common transaction.
     for platform, environment, name, before in (
         ('alma9', None, 'arm-core', core_base),
+        ('alma9', 'cosmic', 'arm-cosmic', root / 'recipes/layers/alma/cosmic.yml'),
         ('alma10', 'gnome', 'arm-gnome', root / 'recipes/layers/shared/workstation-gnome-modern.yml'),
         ('alma10', 'cosmic', 'arm-cosmic', root / 'recipes/layers/alma/cosmic.yml'),
     ):
@@ -274,7 +275,7 @@ for row in rows:
         die(f"NVIDIA image {row['image']} must include shared/nvidia-base.yml exactly once")
 
     alma9_nvidia_workstation_count = graph.count(alma9_nvidia_workstation)
-    if row['platform'] == 'alma9' and row['driver'] == 'nvidia-580' and row['role'] == 'workstation':
+    if row['platform'] == 'alma9' and row['driver'] != 'standard' and row['role'] == 'workstation':
         if alma9_nvidia_workstation_count != 1:
             die(f"Alma 9 NVIDIA workstation {row['image']} must include alma9/nvidia-workstation.yml exactly once")
     elif alma9_nvidia_workstation_count != 0:
@@ -295,6 +296,16 @@ for row in rows:
             die(f"Fedora NVIDIA 580 server {row['image']} must not include Fedora workstation-only NVIDIA layer")
     elif fedora_nvidia_580_count != 0 or fedora_nvidia_580_workstation_count != 0:
         die(f"Image {row['image']} must not include Fedora NVIDIA 580 layers")
+
+    fedora_arm_open = root / 'recipes/layers/fedora/nvidia-open-arm.yml'
+    fedora_arm_open_workstation = root / 'recipes/layers/fedora/nvidia-open-arm-workstation.yml'
+    expected_arm_open = row['architecture'] == 'aarch64' and row['platform'] == 'fedora' and row['driver'] == 'nvidia-open'
+    if graph.count(fedora_arm_open) != int(expected_arm_open):
+        die(f"{row['image']}: incorrect Fedora ARM open-module source")
+    if graph.count(fedora_arm_open_workstation) != int(expected_arm_open and row['role'] == 'workstation'):
+        die(f"{row['image']}: incorrect Fedora ARM NVIDIA workstation layer")
+    if expected_arm_open and shared_nvidia_workstation_count:
+        die(f"{row['image']}: use the explicit Negativo17 ARM userspace source")
 
 expected_singletons = {
     'pcp package': (r'^\s*-\s+pcp\s*$', 1),
@@ -360,3 +371,4 @@ done
 [[ "$(grep -Fc 'uses: ./.github/workflows/build-architecture.yml' .github/workflows/build.yml)" == 2 ]]
 [[ "$(grep -Fc 'runs-on: ${{ inputs.runner }}' "$workflow_file")" == 3 ]]
 python3 scripts/tests/test-image-architectures.py
+python3 scripts/tests/test-fedora-nvidia.py
