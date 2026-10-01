@@ -77,10 +77,25 @@ The six architecture tests exercise the actual rebase shell with isolated curl,
 fzf, uname and sudo stubs, plus matrix validation and role/architecture filtering.
 The workstation helper's separate tests are architecture independent.
 
+Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:
+
+- All six ARM recipes passed schema validation and Containerfile generation.
+- Fedora ARM server and COSMIC workstation full builds passed at `bd9c1978`.
+  Their local image IDs are `f3994c0df506` and `3c2ad54c1bd1`, respectively;
+  both report OCI architecture `arm64`. They were not pushed.
+- Both images passed `bootc container lint` with 13 checks passed, one skipped,
+  and one warning about runtime-directory content in `/run` and `/tmp`.
+- In a disposable container from the COSMIC image, the real generator/helper
+  repaired a stale GDM alias, enabled generic greetd link and selected-unit
+  mask. A second run was idempotent. Native unit graph verification passed.
+  The image installs only `cosmic.desktop` in its Wayland session directory.
+- Alma 10 ARM `cosmic-greeter-1.9.1-1.el10.aarch64` units, native configuration
+  and PAM payload were compared with x64 and are byte-for-byte identical.
+
 Before release, build all six candidates on the ARM runner, install on a
 disposable generic ARM64 bootc machine, and perform fresh server/desktop boots.
 Then perform the [persistent workstation rebase qualification](workstation-rebase-qualification.md)
 on each ARM desktop pair. Record architecture, image digests, bootloader/kernel,
 greeter appearance, successful login, session identity and retained preferences.
-Full image builds and booted qualification remain pending until those results
-are recorded; recipe generation and source availability alone are insufficient.
+The remaining ARM full builds, remote CI and all booted qualification remain
+pending. Container validation does not establish greeter or login behavior.

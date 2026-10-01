@@ -12,8 +12,10 @@ Binary RPMs were downloaded and their payloads extracted without installing them
 | Fedora 44 | cosmic-greeter-1.8.0-3.fc44.x86_64 | Fedora updates repository |
 | Alma 9 | cosmic-greeter-1.9.1-1.el9.x86_64 | ligenix/enterprise-cosmic, epel-9-x86_64 |
 | Alma 10 | cosmic-greeter-1.9.1-1.el10.x86_64 | ligenix/enterprise-cosmic, rhel+epel-10-x86_64 |
+| Fedora 44 ARM | cosmic-greeter-1.8.0-3.fc44.aarch64 | Native Fedora ARM COSMIC image build |
+| Alma 10 ARM | cosmic-greeter-1.9.1-1.el10.aarch64 | ligenix/enterprise-cosmic, rhel+epel-10-aarch64 |
 
-All three native `cosmic-greeter.service` files have the same contract:
+All inspected native `cosmic-greeter.service` files have the same contract:
 
 ```ini
 [Unit]
@@ -178,5 +180,11 @@ finds no ordering cycle for either destination. Tests preserve home and greeter
 preference fixtures and exercise invalid/missing contracts and failed selection.
 
 Booted results: **pending**. No disposable bootc workstation was available during
-implementation. Full image build results and visual greeter/login/session checks
-must be attached before claiming the requested rebase convergence is qualified.
+implementation. The native Fedora ARM COSMIC full build passed its greeter
+contract checks. A disposable container from that image also repaired all three
+contaminations together, passed idempotence and verified the installed unit graph
+without an ordering cycle. Its Wayland session directory contains only
+`cosmic.desktop`. See [ARM build results](arm-image-lanes.md).
+
+The remaining image builds and visual greeter/login/session checks must be
+attached before claiming the requested rebase convergence is qualified.

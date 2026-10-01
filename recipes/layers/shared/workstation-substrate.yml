@@ -105,7 +105,7 @@ modules:
     snippets:
       - >-
         RUN case "$(uname -m)" in
-        x86_64) dnf -y install microcode_ctl thermald ;;
+        x86_64) dnf -y --setopt=install_weak_deps=False install microcode_ctl thermald ;;
         aarch64) : ;;
         *) echo "Unsupported workstation architecture" >&2; exit 1 ;;
         esac
