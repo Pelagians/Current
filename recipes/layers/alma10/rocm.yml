@@ -1,0 +1,9 @@
+modules:
+  # Keep the existing x64 ROCm package intent; the complete ARM set is unavailable.
+  - type: containerfile
+    snippets:
+      - >-
+        RUN --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,ro set -eux;
+        case "$(uname -m)" in x86_64) ;; aarch64) exit 0 ;; *) echo "Unsupported architecture" >&2; exit 1 ;; esac;
+        cp /tmp/files/dnf/rocm.repo /etc/yum.repos.d/rocm.repo; rpm --import https://repo.radeon.com/rocm/rocm.gpg.key;
+        dnf -y --setopt=install_weak_deps=False install --skip-broken clinfo amd-smi-lib rocminfo rocm-hip-sdk rocm-ml-sdk rocm-opencl-sdk rocm-smi-lib

@@ -1,41 +1,6 @@
 modules:
-  # Fedora NVIDIA 580 lane modeled after BlueBuild's Fedora images.
-  #
-  # Negativo17's Fedora 580 repo publishes akmod source packages rather than
-  # Alma-style kernel-specific prebuilt kmod RPMs. Build the proprietary 580
-  # modules during the image build, verify the resulting modules, then remove
-  # the akmod/kernel-devel build path so the final image carries the built
-  # module tree instead of depending on a first-boot build.
   - from-file: layers/shared/nvidia-base.yml
-
   - type: containerfile
     snippets:
-      - >-
-        RUN /usr/bin/bash -euxo pipefail -c '
-        chmod 1777 /var/tmp;
-        curl -fLsS --retry 5
-        -o /etc/yum.repos.d/fedora-nvidia-580.repo
-        https://negativo17.org/repos/fedora-nvidia-580.repo;
-        kernel_version="$(rpm -q kernel --queryformat "%{VERSION}-%{RELEASE}.%{ARCH}")";
-        dnf -y --setopt=install_weak_deps=False install
-        "kernel-devel-matched-$(rpm -q kernel --queryformat "%{VERSION}")"
-        akmods gcc-c++ kmod;
-        cp /usr/sbin/akmodsbuild /usr/sbin/akmodsbuild.backup;
-        sed -i "/if \[\[ -w \/var \]\] ; then/,/fi/d" /usr/sbin/akmodsbuild;
-        dnf -y --setopt=install_weak_deps=False
-        --enablerepo=fedora-nvidia-580
-        install akmod-nvidia nvidia-kmod-common nvidia-modprobe;
-        akmods --force --kernels "${kernel_version}" --kmod nvidia ||
-        (cat /var/cache/akmods/nvidia/*.failed.log && exit 1);
-        mv /usr/sbin/akmodsbuild.backup /usr/sbin/akmodsbuild;
-        modinfo
-        /usr/lib/modules/${kernel_version}/extra/nvidia/nvidia{,-drm,-modeset,-peermem,-uvm}.ko.xz
-        >/tmp/current-nvidia-580-modinfo.txt;
-        depmod "${kernel_version}";
-        dnf -y --setopt=install_weak_deps=False
-        --enablerepo=fedora-nvidia-580
-        install nvidia-driver nvidia-persistenced nvidia-driver-cuda;
-        dnf -y remove akmod-nvidia akmods kernel-devel kernel-headers;
-        rm -f /etc/yum.repos.d/fedora-nvidia-580.repo;
-        ldconfig
-        '
+      - ARG CURRENT_NVIDIA_VARIANT=580
+  - from-file: layers/fedora/nvidia-akmod.yml

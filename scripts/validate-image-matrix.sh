@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 
 matrix_file="files/base/runtime/usr/share/current/image-matrix.tsv"
 matrix_script="scripts/render-image-matrix.py"
-workflow_file=".github/workflows/build.yml"
+workflow_file=".github/workflows/build-architecture.yml"
 
 supported_recipes="$(python3 "$matrix_script" recipes | sort)"
 actual_recipes="$(find recipes/images -type f -name '*.yml' | sort)"
@@ -67,18 +67,13 @@ json_check() {
 while IFS= read -r platform; do
   [ -n "$platform" ] || continue
   python3 "$matrix_script" recipes --platform "$platform" >/dev/null
-done < <(tail -n +2 "$matrix_file" | cut -f2 | sort -u)
+done < <(tail -n +2 "$matrix_file" | cut -f3 | sort -u)
 
-while IFS= read -r job; do
-  [ -n "$job" ] || continue
-  python3 "$matrix_script" gha "$job" | json_check >/dev/null
-done < <(tail -n +2 "$matrix_file" | cut -f1 | sort -u)
-
-while IFS=$'\t' read -r job platform; do
-  [ -n "$job" ] || continue
-  [ -n "$platform" ] || continue
-  python3 "$matrix_script" gha --platform "$platform" "$job" | json_check >/dev/null
-done < <(tail -n +2 "$matrix_file" | cut -f1,2 | sort -u)
+for architecture in x86_64 aarch64; do
+  for job in server-images workstation-images; do
+    python3 "$matrix_script" gha --architecture "$architecture" "$job" | json_check >/dev/null
+  done
+done
 
 python3 "$matrix_script" rebase | grep -q .
 
@@ -175,10 +170,10 @@ fedora_nvidia_580_rows = [
     row for row in rows
     if row['platform'] == 'fedora' and row['driver'] == 'nvidia-580'
 ]
-if len(fedora_nvidia_580_rows) != 3:
+if len(fedora_nvidia_580_rows) != 6:
     die(
-        'Expected exactly three Fedora NVIDIA 580 rows in the image matrix '
-        f'(server, GNOME, COSMIC); found {len(fedora_nvidia_580_rows)}'
+        'Expected exactly six Fedora NVIDIA 580 rows in the image matrix '
+        f'(server, GNOME, COSMIC on both architectures); found {len(fedora_nvidia_580_rows)}'
     )
 
 expected_fedora_nvidia_580_images = {
@@ -197,6 +192,34 @@ if actual_fedora_nvidia_580_images != expected_fedora_nvidia_580_images:
 for row in rows:
     recipe = root / row['recipe']
     graph = recipe_graph(recipe)
+    text = recipe.read_text(encoding='utf-8')
+    # Supplemental Alma packages are restricted to the ARM image/role that
+    # needs them. Install them before the existing common transaction.
+    for platform, environment, name, before in (
+        ('alma9', None, 'arm-core', core_base),
+        ('alma9', 'cosmic', 'arm-cosmic', root / 'recipes/layers/alma/cosmic.yml'),
+        ('alma10', 'gnome', 'arm-gnome', root / 'recipes/layers/shared/workstation-gnome-modern.yml'),
+        ('alma10', 'cosmic', 'arm-cosmic', root / 'recipes/layers/alma/cosmic.yml'),
+    ):
+        layer = root / 'recipes/layers' / platform / (name + '.yml')
+        expected = row['platform'] == platform and any(r['image'] == row['image'] and r['architecture'] == 'aarch64' for r in rows)
+        expected = expected and (environment is None or row['environment'] == environment)
+        if graph.count(layer) != int(expected):
+            die(f"{row['image']}: incorrect supplemental ARM package layer {layer}")
+        if expected and not graph.index(layer) < graph.index(before):
+            die(f"{row['image']}: {layer} must precede {before}")
+    if row['platform'] in {'alma10', 'fedora'}:
+        rocm = root / 'recipes/layers' / row['platform'] / 'rocm.yml'
+        if graph.count(rocm) != 1:
+            die(f"{row['image']} must include the architecture-guarded ROCm layer")
+    expected_platforms = {'linux/arm64' if r['architecture'] == 'aarch64' else 'linux/amd64'
+                          for r in rows if r['image'] == row['image']}
+    platforms = set(re.findall(r'^  - (linux/\S+)$', text, re.M))
+    if platforms != expected_platforms:
+        die(f"{row['image']} must explicitly select {expected_platforms}")
+
+    if f"name: {row['image']}\n" not in text:
+        die(f"{recipe}: recipe name must match manifest image")
 
     if graph.count(core_base) != 1:
         die(f"{row['image']} must include shared/core-base.yml exactly once")
@@ -252,7 +275,7 @@ for row in rows:
         die(f"NVIDIA image {row['image']} must include shared/nvidia-base.yml exactly once")
 
     alma9_nvidia_workstation_count = graph.count(alma9_nvidia_workstation)
-    if row['platform'] == 'alma9' and row['driver'] == 'nvidia-580' and row['role'] == 'workstation':
+    if row['platform'] == 'alma9' and row['driver'] != 'standard' and row['role'] == 'workstation':
         if alma9_nvidia_workstation_count != 1:
             die(f"Alma 9 NVIDIA workstation {row['image']} must include alma9/nvidia-workstation.yml exactly once")
     elif alma9_nvidia_workstation_count != 0:
@@ -273,6 +296,16 @@ for row in rows:
             die(f"Fedora NVIDIA 580 server {row['image']} must not include Fedora workstation-only NVIDIA layer")
     elif fedora_nvidia_580_count != 0 or fedora_nvidia_580_workstation_count != 0:
         die(f"Image {row['image']} must not include Fedora NVIDIA 580 layers")
+
+    fedora_open = root / 'recipes/layers/fedora/nvidia-open.yml'
+    fedora_open_workstation = root / 'recipes/layers/fedora/nvidia-open-workstation.yml'
+    expected_open = row['platform'] == 'fedora' and row['driver'] == 'nvidia-open'
+    if graph.count(fedora_open) != int(expected_open):
+        die(f"{row['image']}: incorrect Fedora open-module source dispatcher")
+    if graph.count(fedora_open_workstation) != int(expected_open and row['role'] == 'workstation'):
+        die(f"{row['image']}: incorrect Fedora NVIDIA workstation dispatcher")
+    if expected_open and shared_nvidia_workstation_count:
+        die(f"{row['image']}: use the explicit architecture-specific userspace source")
 
 expected_singletons = {
     'pcp package': (r'^\s*-\s+pcp\s*$', 1),
@@ -295,10 +328,8 @@ required_workflow_snippets=(
   'define-image-matrix:'
   'server_images: ${{ steps.render.outputs.server_images }}'
   'workstation_images: ${{ steps.render.outputs.workstation_images }}'
-  'validate-alma9-nvidia-580:'
-  './scripts/verify-alma9-nvidia-580.ps1'
-  'emit_output server_images python3 ./scripts/render-image-matrix.py gha server-images'
-  'emit_output workstation_images python3 ./scripts/render-image-matrix.py gha workstation-images'
+  "emit_output server_images python3 ./scripts/render-image-matrix.py gha --architecture '\${{ inputs.architecture }}' server-images"
+  "emit_output workstation_images python3 ./scripts/render-image-matrix.py gha --architecture '\${{ inputs.architecture }}' workstation-images"
   'include: ${{ fromJSON(needs.define-image-matrix.outputs.server_images) }}'
   'include: ${{ fromJSON(needs.define-image-matrix.outputs.workstation_images) }}'
 )
@@ -332,3 +363,14 @@ if grep -Fq -- 'recipe: /images/' "$workflow_file"; then
   printf 'Workflow still contains hard-coded recipe entries instead of manifest-driven matrices.\n' >&2
   exit 1
 fi
+
+# Architecture is selected by the caller before the reusable role split.
+for snippet in 'x64-images:' 'arm64-images:' 'architecture: x86_64' 'architecture: aarch64' 'runner: ubuntu-latest' 'runner: ubuntu-24.04-arm'; do
+  grep -Fq "$snippet" .github/workflows/build.yml || { echo "Missing architecture-first CI wiring: $snippet" >&2; exit 1; }
+done
+[[ "$(grep -Fc 'uses: ./.github/workflows/build-architecture.yml' .github/workflows/build.yml)" == 2 ]]
+[[ "$(grep -Fc 'runs-on: ${{ inputs.runner }}' "$workflow_file")" == 3 ]]
+python3 scripts/tests/test-image-architectures.py
+python3 scripts/tests/test-fedora-nvidia.py
+
+python3 scripts/tests/test-image-publication.py

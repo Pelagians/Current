@@ -57,9 +57,5 @@ modules:
           command -v cosmic-greeter-daemon >/dev/null; \
           command -v gnome-keyring-daemon >/dev/null; \
           find /usr/share/wayland-sessions -maxdepth 1 -type f -iname '*cosmic*.desktop' | grep -q .; \
-          test -f /usr/lib/systemd/system/cosmic-greeter.service; \
-          test -f /usr/lib/systemd/system/greetd.service; \
-          test -f /etc/greetd/cosmic-greeter.toml; \
-          { test -f /etc/pam.d/cosmic-greeter || test -f /usr/lib/pam.d/cosmic-greeter; }; \
           find /usr/lib /usr/lib64 -path '*/security/pam_gnome_keyring.so' -type f | grep -q .; \
-          grep -q 'command = "cosmic-greeter-start"' /etc/greetd/cosmic-greeter.toml
+          /usr/libexec/current-workstation-dm-apply --check cosmic

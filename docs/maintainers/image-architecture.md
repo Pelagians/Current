@@ -1,6 +1,8 @@
 # Image Architecture
 
-The repo models Current by role first, and the supported image set is rendered directly from the matrix manifest.
+The matrix selects CPU architecture before server/workstation role. The image
+set is rendered directly from the single matrix manifest. Desktop and capability
+layer ownership remains shared across architectures.
 
 ## Authoritative image tree
 
@@ -55,6 +57,7 @@ It is consumed by:
 The TSV schema is intentionally small:
 
 - `job`
+- `architecture` (`x86_64` or `aarch64`)
 - `platform`
 - `role`
 - `environment`
@@ -142,8 +145,8 @@ NVIDIA ownership is split three ways:
 
 - `shared/nvidia-base.yml`: common repo bootstrap, NVIDIA container toolkit setup, NVIDIA PCP PMDA package, copied NVIDIA support payloads, and kernel args
 - `shared/nvidia-common.yml` / `shared/nvidia-open.yml`: Alma-family NVIDIA lane wiring
-- `fedora/nvidia-open.yml`: Fedora open-driver delta on top of the shared NVIDIA base
-- `fedora/nvidia-580.yml`: Fedora proprietary R580 lane that builds Negativo17 akmods during image build and verifies the resulting modules
+- `fedora/nvidia-open.yml`: architecture-specific Fedora open-driver dispatcher on top of the shared NVIDIA base
+- `fedora/nvidia-580.yml` and `fedora/nvidia-open.yml`: explicit driver contracts sharing the image-time build in `fedora/nvidia-akmod.yml`, with exact signed headers and module verification
 
 That keeps common repo bootstrap, container-toolkit wiring, copied support files, and driver-lane-specific package/build behavior separated instead of repeated across image recipes.
 
@@ -158,3 +161,12 @@ The public tags are uniform and short.
 ## Registry namespace
 
 Current image references use `ghcr.io/pelagians/<image>:<tag>`.
+
+## Architecture-first builds
+
+CI first selects x64 or ARM64, then reuses the server/workstation workflow for
+that architecture. The 24 shared recipes declare supported OCI platforms; each
+CI build overrides that list with its single native platform. A gated publisher
+combines the 45 builds into signed public indexes and preserves existing ARM
+references as compatibility aliases. See [publishing](image-publishing.md). See [ARM candidates](arm-image-lanes.md) for package
+differences, rebase-picker compatibility and pending qualification.

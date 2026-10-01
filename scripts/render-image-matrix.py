@@ -11,12 +11,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MATRIX_FILE = ROOT / 'files/base/runtime/usr/share/current/image-matrix.tsv'
-FIELDS = ['job', 'platform', 'role', 'environment', 'driver', 'image', 'recipe']
+FIELDS = ['job', 'architecture', 'platform', 'role', 'environment', 'driver', 'image', 'legacy-image', 'recipe']
+ALLOWED_ARCHITECTURES = ('x86_64', 'aarch64')
 ALLOWED_PLATFORMS = ('alma9', 'alma10', 'fedora')
 ALLOWED_JOBS = ('server-images', 'workstation-images')
 ALLOWED_ROLES = ('server', 'workstation')
 ALLOWED_ENVIRONMENTS = ('cosmic', 'gnome', 'server')
 ALLOWED_DRIVERS = ('nvidia-580', 'nvidia-open', 'standard')
+ARM_DRIVERS = {
+    'alma9': ('standard', 'nvidia-open'),
+    'alma10': ('standard', 'nvidia-open'),
+    'fedora': ('standard', 'nvidia-580', 'nvidia-open'),
+}
 RECIPE_SUFFIXES = {
     'standard': '',
     'nvidia-open': '-nvidia-open',
@@ -36,15 +42,17 @@ def recipe_ref(recipe: str) -> str:
 
 def expected_image(row: dict[str, str]) -> str:
     base = f"{row['platform']}-{row['environment']}"
-    return base if row['driver'] == 'standard' else f"{base}-{row['driver']}"
+    image = base if row['driver'] == 'standard' else f"{base}-{row['driver']}"
+    return image
 
 
 def expected_recipe(row: dict[str, str]) -> str:
     suffix = RECIPE_SUFFIXES[row['driver']]
+    prefix = 'recipes/images'
     if row['role'] == 'server':
-        return f"recipes/images/server/{row['platform']}/server{suffix}.yml"
+        return f"{prefix}/server/{row['platform']}/server{suffix}.yml"
     return (
-        f"recipes/images/workstation/{row['environment']}/{row['platform']}/"
+        f"{prefix}/workstation/{row['environment']}/{row['platform']}/"
         f"core{suffix}.yml"
     )
 
@@ -71,9 +79,8 @@ def load_rows() -> list[dict[str, str]]:
             die('image matrix header must be exactly: ' + '	'.join(FIELDS))
 
         rows: list[dict[str, str]] = []
-        seen_images: set[str] = set()
-        seen_recipes: set[str] = set()
-        seen_keys: set[tuple[str, str, str, str]] = set()
+        seen_images: set[tuple[str, str]] = set()
+        seen_keys: set[tuple[str, str, str, str, str]] = set()
 
         for line_number, raw_row in enumerate(reader, start=2):
             row = {field: (raw_row.get(field) or '').strip() for field in FIELDS}
@@ -84,6 +91,10 @@ def load_rows() -> list[dict[str, str]]:
                     + ', '.join(missing)
                 )
 
+            if row['architecture'] not in ALLOWED_ARCHITECTURES:
+                die(f"{MATRIX_FILE}:{line_number}: unsupported architecture: {row['architecture']}")
+            if row['architecture'] == 'aarch64' and row['driver'] not in ARM_DRIVERS.get(row['platform'], ()):
+                die(f"{MATRIX_FILE}:{line_number}: unsupported ARM64 platform/driver contract: {row['platform']}/{row['driver']}")
             if row['job'] not in ALLOWED_JOBS:
                 die(f"{MATRIX_FILE}:{line_number}: unsupported job: {row['job']}")
             if row['platform'] not in ALLOWED_PLATFORMS:
@@ -112,12 +123,13 @@ def load_rows() -> list[dict[str, str]]:
                     f"{MATRIX_FILE}:{line_number}: recipe path does not match the "
                     f"supported naming convention: {row['recipe']}"
                 )
-            if row['image'] in seen_images:
+            legacy_image = row['image'] + ('-arm64' if row['architecture'] == 'aarch64' else '')
+            if row['legacy-image'] != legacy_image:
+                die(f"{MATRIX_FILE}:{line_number}: incorrect migration alias: {row['legacy-image']}")
+            if (row['image'], row['architecture']) in seen_images:
                 die(f"{MATRIX_FILE}:{line_number}: duplicate image tag: {row['image']}")
-            if row['recipe'] in seen_recipes:
-                die(f"{MATRIX_FILE}:{line_number}: duplicate recipe path: {row['recipe']}")
 
-            key = (row['platform'], row['role'], row['environment'], row['driver'])
+            key = (row['architecture'], row['platform'], row['role'], row['environment'], row['driver'])
             if key in seen_keys:
                 die(
                     f"{MATRIX_FILE}:{line_number}: duplicate platform/environment/driver "
@@ -136,8 +148,7 @@ def load_rows() -> list[dict[str, str]]:
                     'workstation-images job with gnome/cosmic environments'
                 )
 
-            seen_images.add(row['image'])
-            seen_recipes.add(row['recipe'])
+            seen_images.add((row['image'], row['architecture']))
             seen_keys.add(key)
             rows.append(row)
 
@@ -145,7 +156,7 @@ def load_rows() -> list[dict[str, str]]:
 
 
 def filter_rows(rows: list[dict[str, str]], args: argparse.Namespace) -> list[dict[str, str]]:
-    for field in ('job', 'platform', 'role', 'environment', 'driver'):
+    for field in ('job', 'architecture', 'platform', 'role', 'environment', 'driver'):
         value = getattr(args, field, None)
         if value:
             rows = [row for row in rows if row[field] == value]
@@ -153,14 +164,16 @@ def filter_rows(rows: list[dict[str, str]], args: argparse.Namespace) -> list[di
 
 
 def cmd_recipes(args: argparse.Namespace) -> int:
-    for row in filter_rows(load_rows(), args):
-        print(row['recipe'])
+    for recipe in dict.fromkeys(row['recipe'] for row in filter_rows(load_rows(), args)):
+        print(recipe)
     return 0
 
 
 def cmd_gha(args: argparse.Namespace) -> int:
     rows = filter_rows(load_rows(), args)
-    payload = [{'name': row['image'], 'recipe': recipe_ref(row['recipe'])} for row in rows]
+    payload = [{'name': row['image'], 'recipe': recipe_ref(row['recipe']),
+                'platform': 'linux/arm64' if row['architecture'] == 'aarch64' else 'linux/amd64'}
+               for row in rows]
     json.dump(payload, sys.stdout, separators=(',', ':'))
     print()
     return 0
@@ -169,7 +182,7 @@ def cmd_gha(args: argparse.Namespace) -> int:
 def cmd_rebase(_: argparse.Namespace) -> int:
     for row in load_rows():
         print(
-            f"{display_role(row['role'])} | "
+            f"{row['architecture']} | {display_role(row['role'])} | "
             f"{display_environment(row['environment'])} | "
             f"{row['platform']} | {row['driver']} | {row['image']}:latest"
         )
@@ -181,6 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest='command', required=True)
 
     recipes = subparsers.add_parser('recipes', help='print supported recipe paths')
+    recipes.add_argument('--architecture', choices=sorted(ALLOWED_ARCHITECTURES))
     recipes.add_argument('--job', choices=sorted(ALLOWED_JOBS))
     recipes.add_argument('--platform', choices=sorted(ALLOWED_PLATFORMS))
     recipes.add_argument('--role', choices=sorted(ALLOWED_ROLES))
@@ -189,6 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     recipes.set_defaults(func=cmd_recipes)
 
     gha = subparsers.add_parser('gha', help='emit a GitHub Actions matrix JSON array')
+    gha.add_argument('--architecture', choices=sorted(ALLOWED_ARCHITECTURES), required=True)
     gha.add_argument('--platform', choices=sorted(ALLOWED_PLATFORMS))
     gha.add_argument('job', choices=sorted(ALLOWED_JOBS))
     gha.set_defaults(func=cmd_gha)

@@ -1,0 +1,19 @@
+modules:
+  - type: containerfile
+    snippets:
+      - >-
+        RUN set -eux;
+        case "$(uname -m)" in
+        x86_64) repo=cuda-fedora44-x86_64 ;;
+        aarch64) repo=fedora-nvidia;
+        curl -fLsS --retry 5 -o /etc/yum.repos.d/fedora-nvidia.repo https://negativo17.org/repos/fedora-nvidia.repo ;;
+        *) echo "Unsupported architecture" >&2; exit 1 ;;
+        esac;
+        dnf -y --setopt=install_weak_deps=False --enablerepo="$repo"
+        install libnvidia-cfg libnvidia-fbc nvidia-libXNVCtrl nvidia-settings;
+        if [ "$repo" = fedora-nvidia ]; then rm -f /etc/yum.repos.d/fedora-nvidia.repo; fi;
+        ldconfig
+  - type: kargs
+    kargs:
+      - nvidia-drm.modeset=1
+      - nvidia-drm.fbdev=1

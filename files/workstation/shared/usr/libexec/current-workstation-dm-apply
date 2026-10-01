@@ -1,222 +1,299 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
 
+# Tests source this file and set root_dir; production always uses the host root.
+root_dir=""
 desktop_env_file="/usr/share/current/workstation/desktop.env"
+managed_units=(gdm.service cosmic-greeter.service greetd.service)
 
 log() {
-  printf 'current-workstation-dm-apply: %s\n' "$*"
+  printf 'current-workstation-dm-apply: %s\n' "$*" >&2
 }
 
-have_unit() {
-  local unit="$1"
-  [[ -f "/usr/lib/systemd/system/${unit}" || -f "/etc/systemd/system/${unit}" ]] \
-    || systemctl list-unit-files "${unit}" --no-legend >/dev/null 2>&1
+fail() {
+  log "$*"
+  return 1
 }
 
-disable_unit() {
-  local unit="$1"
-  if have_unit "${unit}"; then
-    systemctl disable "${unit}" >/dev/null 2>&1 || true
-  fi
-}
-
-stop_unit() {
-  local unit="$1"
-  if have_unit "${unit}"; then
-    systemctl stop --no-block "${unit}" >/dev/null 2>&1 || true
-  fi
-}
-
-reset_failed_unit() {
-  local unit="$1"
-  if have_unit "${unit}"; then
-    systemctl reset-failed "${unit}" >/dev/null 2>&1 || true
-  fi
-}
-
-retire_unit() {
-  local unit="$1"
-  disable_unit "${unit}"
-  stop_unit "${unit}"
-  reset_failed_unit "${unit}"
-}
-
-enable_unit() {
-  local unit="$1"
-  if ! have_unit "${unit}"; then
-    return 1
-  fi
-
-  systemctl enable --force "${unit}" >/dev/null 2>&1
-}
-
-start_unit() {
-  local unit="$1"
-  # Queue the display-manager start in the current boot transaction without
-  # blocking on a unit that is explicitly ordered after this helper.
-  systemctl start --no-block "${unit}" >/dev/null 2>&1
-}
-
-cleanup_display_manager_links() {
-  rm -f \
-    /etc/systemd/system/display-manager.service \
-    /etc/systemd/system/graphical.target.wants/gdm.service \
-    /etc/systemd/system/graphical.target.wants/cosmic-greeter.service \
-    /etc/systemd/system/graphical.target.wants/greetd.service
-}
-
-ensure_graphical_default() {
-  local default_target
-  default_target="$(readlink -f /etc/systemd/system/default.target 2>/dev/null || true)"
-  if [[ "${default_target}" != "/usr/lib/systemd/system/graphical.target" ]]; then
-    systemctl set-default graphical.target >/dev/null 2>&1 || true
-  fi
-}
-
-ensure_display_manager_alias() {
-  if [[ ! -L /etc/systemd/system/display-manager.service ]]; then
-    log "display-manager.service alias was not recreated for ${1}"
-    return 1
-  fi
-}
-
-pam_gnome_keyring_available() {
-  [[ -f /usr/lib/security/pam_gnome_keyring.so || -f /usr/lib64/security/pam_gnome_keyring.so ]]
-}
-
-insert_line_after_match() {
-  local file="$1"
-  local match="$2"
-  local line="$3"
-  local tmp
-
-  if grep -Fqx "${line}" "${file}"; then
-    return 0
-  fi
-
-  tmp="$(mktemp)"
-  awk -v pattern="${match}" -v line="${line}" '
-    {
-      print
-      if (!inserted && $0 ~ pattern) {
-        print line
-        inserted=1
-      }
+# Read the inspected INI/TOML scalar contracts without sourcing configuration.
+config_value() {
+  awk -v section="$2" -v key="$3" '
+    /^[[:space:]]*\[/ { line=$0; gsub(/^[[:space:]]*\[|\][[:space:]]*$/, "", line); active=(line==section); next }
+    active && $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+      sub(/^[^=]*=[[:space:]]*/, ""); sub(/[[:space:]]*$/, ""); print
     }
-    END {
-      if (!inserted) {
-        print line
-      }
-    }
-  ' "${file}" > "${tmp}"
-  cat "${tmp}" > "${file}"
-  rm -f "${tmp}"
+  ' "$1"
 }
 
-ensure_cosmic_keyring_pam() {
-  local pam_file="${1:-/etc/pam.d/cosmic-greeter}"
-  local vendor_pam_file="${2:-/usr/lib/pam.d/cosmic-greeter}"
-  local managed_marker="# Managed by Current from /usr/lib/pam.d/cosmic-greeter"
-  local tmp
+validate_destination() {
+  local marker="${root_dir}${desktop_env_file}"
+  [[ -r "$marker" ]] || { fail "desktop marker is missing: $marker"; return 1; }
+  # The image marker is data, not shell code or a retained /etc preference.
+  case "$(cat "$marker")" in
+    CURRENT_DESKTOP=gnome) desktop=gnome; selected=gdm.service; session=gnome.desktop ;;
+    CURRENT_DESKTOP=cosmic) desktop=cosmic; selected=cosmic-greeter.service; session=cosmic.desktop ;;
+    *) fail "invalid CURRENT_DESKTOP in $marker (expected gnome or cosmic)"; return 1 ;;
+  esac
+  vendor_unit="${root_dir}/usr/lib/systemd/system/${selected}"
+  [[ -f "$vendor_unit" ]] || { fail "missing destination unit: $selected ($vendor_unit)"; return 1; }
+  [[ "$(config_value "$vendor_unit" Install Alias)" == display-manager.service ]] || {
+    fail "$selected does not provide Alias=display-manager.service"; return 1;
+  }
+  [[ -r "${root_dir}/usr/share/wayland-sessions/$session" ]] || {
+    fail "missing destination session: $session"; return 1;
+  }
+  local session_file="${root_dir}/usr/share/wayland-sessions/$session"
+  local executable="/usr/bin/gnome-session" exec_value
+  if [[ "$selected" == cosmic-greeter.service ]]; then
+    executable="/usr/bin/start-cosmic"
+    [[ "$(config_value "$vendor_unit" Service ExecStart)" == 'greetd --config /etc/greetd/cosmic-greeter.toml' ||
+       "$(config_value "$vendor_unit" Service ExecStart)" == '/usr/bin/greetd --config /etc/greetd/cosmic-greeter.toml' ]] || {
+      fail "unexpected COSMIC ExecStart; expected native greetd --config /etc/greetd/cosmic-greeter.toml"; return 1;
+    }
+    [[ -r "${root_dir}/etc/greetd/cosmic-greeter.toml" ]] || {
+      fail "missing COSMIC configuration: /etc/greetd/cosmic-greeter.toml"; return 1;
+    }
+    [[ -r "${root_dir}/etc/pam.d/cosmic-greeter" || -r "${root_dir}/usr/lib/pam.d/cosmic-greeter" ]] || {
+      fail "missing COSMIC PAM stack in /etc/pam.d or /usr/lib/pam.d"; return 1;
+    }
+    if current_pam_override; then
+      [[ -r "${root_dir}/usr/lib/pam.d/cosmic-greeter" ]] || {
+        fail "missing vendor PAM stack for Current-owned COSMIC override"; return 1;
+      }
+    fi
+    local config="${root_dir}/etc/greetd/cosmic-greeter.toml"
+    [[ "$(config_value "$config" general service)" == '"cosmic-greeter"' &&
+       "$(config_value "$config" default_session command)" == '"cosmic-greeter-start"' &&
+       "$(config_value "$config" default_session user)" == '"cosmic-greeter"' ]] || {
+      fail "invalid COSMIC service/command/user in $config"; return 1;
+    }
+    for exec_value in greetd cosmic-greeter-start cosmic-greeter-daemon cosmic-comp; do
+      [[ -x "${root_dir}/usr/bin/$exec_value" ]] || { fail "missing COSMIC executable: $exec_value"; return 1; }
+    done
+  else
+    # Fedora installs /usr/bin/gdm; Alma 9/10 install /usr/sbin/gdm.
+    exec_value="$(config_value "$vendor_unit" Service ExecStart)"
+    case "$exec_value" in
+      /usr/bin/gdm|/usr/sbin/gdm) ;;
+      *) fail "invalid GDM ExecStart: $exec_value"; return 1 ;;
+    esac
+    [[ -x "${root_dir}$exec_value" ]] || { fail "missing GDM executable: $exec_value"; return 1; }
+    [[ -r "${root_dir}/etc/gdm/custom.conf" ]] || {
+      fail "missing GDM configuration: /etc/gdm/custom.conf"; return 1;
+    }
+  fi
+  exec_value="$(config_value "$session_file" 'Desktop Entry' Exec)"
+  # Alma 9's GNOME entry uses a PATH-resolved gnome-session command.
+  if [[ "$desktop" == gnome && "${exec_value%% *}" == gnome-session ]]; then
+    exec_value="/usr/bin/$exec_value"
+  fi
+  [[ "${exec_value%% *}" == "$executable" && -x "${root_dir}$executable" &&
+     "$(config_value "$session_file" 'Desktop Entry' DesktopNames)" =~ ^${desktop^^}\;?$ ]] || {
+    fail "invalid destination session contract: $session_file ($exec_value)"; return 1;
+  }
+  validate_ownership
+}
 
-  # Recent COSMIC packages ship the PAM stack under /usr/lib. PAM reads that
-  # location until an /etc override exists. Regenerate only our own override
-  # on each boot so package updates to the vendor stack are not hidden.
-  if [[ -L "${pam_file}" ]]; then
-    log "COSMIC PAM file is a symlink; leaving it untouched: ${pam_file}"
-    return 0
+current_pam_override() {
+  local pam="${root_dir}/etc/pam.d/cosmic-greeter"
+  [[ -f "$pam" && ! -L "$pam" &&
+     "$(head -n 1 "$pam")" == '# Managed by Current from /usr/lib/pam.d/cosmic-greeter' ]]
+}
+
+retire_current_pam_override() {
+  if [[ "$desktop" == cosmic ]] && current_pam_override; then
+    rm -f "${root_dir}/etc/pam.d/cosmic-greeter" || { fail "failed to retire Current-owned COSMIC PAM override"; return 1; }
+    log "retired Current-owned COSMIC PAM override; using native vendor stack"
   fi
-  if [[ ! -f "${pam_file}" && ! -f "${vendor_pam_file}" ]]; then
-    log "COSMIC PAM file is missing from /etc/pam.d and /usr/lib/pam.d"
-    return 1
-  fi
-  if ! pam_gnome_keyring_available; then
-    log "pam_gnome_keyring.so is not installed; skipping COSMIC keyring PAM reconciliation"
-    return 0
-  fi
-  if [[ -f "${vendor_pam_file}" ]] &&
-     { [[ ! -e "${pam_file}" ]] || [[ "$(head -n 1 "${pam_file}")" == "${managed_marker}" ]]; }; then
-    tmp="$(mktemp "$(dirname "${pam_file}")/.cosmic-greeter.XXXXXX")"
-    if ! { printf '%s\n' "${managed_marker}"; cat "${vendor_pam_file}"; } > "${tmp}" ||
-       ! chmod 0644 "${tmp}" || ! mv -f "${tmp}" "${pam_file}"; then
-      rm -f "${tmp}"
-      log "failed to install COSMIC PAM override from ${vendor_pam_file}"
+}
+
+validate_ownership() {
+  local system_dir="${root_dir}/etc/systemd/system" path target
+  for path in display-manager.service "$selected"; do
+    if [[ -e "$system_dir/$path" && ! -L "$system_dir/$path" ]]; then
+      fail "administrator unit override at $system_dir/$path; use /etc/current/workstation-dm-unmanaged to take ownership"
       return 1
     fi
-  fi
+    if [[ -L "$system_dir/$path" ]]; then
+      target="$(readlink "$system_dir/$path")"
+      managed_link_target "$target" || {
+        fail "administrator alias at $system_dir/$path -> $target; use /etc/current/workstation-dm-unmanaged"; return 1;
+      }
+    fi
+  done
+}
 
-  insert_line_after_match "${pam_file}" '^auth[[:space:]].*login([[:space:]]|$)' 'auth optional pam_gnome_keyring.so'
-  insert_line_after_match "${pam_file}" '^session[[:space:]].*login([[:space:]]|$)' 'session optional pam_gnome_keyring.so auto_start'
+managed_link_target() {
+  local target="$1" unit directory
+  [[ "$target" == /dev/null ]] && return 0
+  [[ "$target" == /* ]] || target="/etc/systemd/system/$target"
+  # Normalize relative paths without following masks or administrator symlinks.
+  target="$(realpath --canonicalize-missing --no-symlinks "${root_dir}$target")" || return 1
+  for unit in "${managed_units[@]}"; do
+    for directory in /usr/lib/systemd/system /lib/systemd/system /etc/systemd/system; do
+      [[ "$target" == "${root_dir}${directory}/$unit" ]] && return 0
+    done
+  done
+  return 1
+}
+
+retire_selected_link() {
+  local path="${root_dir}/etc/systemd/system/$selected"
+  if [[ -L "$path" ]]; then
+    rm -f "$path" || { fail "failed to retire managed unit link: $path"; return 1; }
+    log "retired stale managed unit link for $selected"
+  fi
+}
+
+normalize_selected_alias() {
+  local alias="${root_dir}/etc/systemd/system/display-manager.service" target
+  [[ -L "$alias" ]] || return 0
+  target="$(readlink "$alias")" || return 1
+  [[ "$target" == /* ]] || target="/etc/systemd/system/$target"
+  target="$(realpath --canonicalize-missing --no-symlinks "${root_dir}$target")" || return 1
+  # systemctl may consider a relative name alias correct even when its former
+  # linked unit has been retired. Point that equivalent name at the vendor unit.
+  if [[ "$target" == "${root_dir}/etc/systemd/system/$selected" ]]; then
+    ln -sfn "/usr/lib/systemd/system/$selected" "$alias" || return 1
+  fi
+}
+
+persistent_systemctl() {
+  # Offline operations avoid implicit reloads halfway through reconciliation.
+  systemctl --root="${root_dir:-/}" --no-reload "$@"
+}
+
+verify_alias() {
+  local alias="${root_dir}/etc/systemd/system/display-manager.service" target resolved
+  [[ -L "$alias" ]] || { fail "display-manager.service is not a symlink for $selected"; return 1; }
+  target="$(readlink "$alias")"
+  [[ "$target" != /dev/null ]] || { fail "wrong or masked display-manager.service alias: /dev/null"; return 1; }
+  if [[ "$target" == /* ]]; then
+    target="${root_dir}${target}"
+  else
+    target="$(dirname "$alias")/$target"
+  fi
+  resolved="$(readlink -e "$target")" || {
+    fail "dangling display-manager.service alias: $(readlink "$alias")"; return 1;
+  }
+  [[ "$resolved" == "$(readlink -e "$vendor_unit")" ]] || {
+    fail "wrong or masked display-manager.service alias: $resolved (expected $selected)"; return 1;
+  }
+}
+
+select_destination() {
+  local system_dir="${root_dir}/etc/systemd/system" saved path
+  mkdir -p "$system_dir" || return 1
+  saved="$(mktemp -d)" || return 1
+  for path in display-manager.service "$selected"; do
+    if [[ -L "$system_dir/$path" ]]; then
+      cp -a "$system_dir/$path" "$saved/$path" || { rm -rf "$saved"; return 1; }
+    fi
+  done
+  if [[ "$(readlink "$system_dir/$selected" || :)" == /dev/null ]]; then
+    log "removing stale mask on selected $selected"
+  fi
+  if persistent_systemctl unmask "$selected" display-manager.service &&
+     retire_selected_link &&
+     persistent_systemctl enable --force "$selected" && normalize_selected_alias && verify_alias; then
+    rm -rf "$saved"
+    return 0
+  fi
+  log "failed to select $selected; restoring previous alias and selected-unit mask"
+  for path in display-manager.service "$selected"; do
+    rm -f "$system_dir/$path"
+    if [[ -L "$saved/$path" ]]; then cp -a "$saved/$path" "$system_dir/$path"; fi
+  done
+  rm -rf "$saved"
+  return 1
+}
+
+retire_competitors() {
+  local unit link
+  for unit in "${managed_units[@]}"; do
+    [[ "$unit" != "$selected" ]] || continue
+    if [[ -f "${root_dir}/usr/lib/systemd/system/$unit" ]]; then
+      persistent_systemctl disable "$unit" || { fail "failed to disable competitor $unit"; return 1; }
+    fi
+    # Even an absent package can leave a dangling enablement link after rebase.
+    while IFS= read -r -d '' link; do
+      rm -f "$link" || { fail "failed to remove stale enablement: $link"; return 1; }
+    done < <(
+      find "${root_dir}/etc/systemd/system" -path '*.wants/*' -type l -name "$unit" -print0
+    )
+  done
+}
+
+# Called before systemd loads units, and again on daemon-reload. Only write into
+# the supplied generator directory: /etc repair belongs to the oneshot service.
+generate_units() {
+  local early="${2:-$1}" unit competitors=""
+  validate_destination || return 1
+  validate_current_wiring || return 1
+  mkdir -p "$early/$selected.d" || return 1
+  ln -s "$vendor_unit" "$early/$selected" || return 1
+  ln -s "$vendor_unit" "$early/display-manager.service" || return 1
+  ln -s "${root_dir}/usr/lib/systemd/system/graphical.target" "$early/default.target" || return 1
+  for unit in "${managed_units[@]}"; do
+    [[ "$unit" != "$selected" ]] || continue
+    ln -s /dev/null "$early/$unit" || return 1
+    competitors+=" $unit"
+  done
+  cat > "$early/$selected.d/50-current-workstation.conf" <<EOF
+[Unit]
+Requires=current-workstation-dm-apply.service
+After=current-workstation-dm-apply.service
+Conflicts=$competitors
+EOF
+}
+
+validate_current_wiring() {
+  local helper="${root_dir}/usr/libexec/current-workstation-dm-apply"
+  local generator="${root_dir}/usr/lib/systemd/system-generators/current-workstation-dm-generator"
+  local service="${root_dir}/usr/lib/systemd/system/current-workstation-dm-apply.service"
+  [[ -x "$helper" && -x "$generator" && -r "$service" ]] || {
+    fail "missing executable helper/generator or reconciliation service"; return 1;
+  }
+  { bash -n "$helper" && bash -n "$generator"; } || { fail "helper/generator syntax check failed"; return 1; }
+  [[ "$(config_value "$service" Service ExecStart)" == /usr/libexec/current-workstation-dm-apply &&
+     "$(config_value "$service" Service Type)" == oneshot &&
+     "$(config_value "$service" Service RemainAfterExit)" == yes &&
+     "$(config_value "$service" Unit Before)" == graphical.target &&
+     "$(config_value "$service" Unit After)" == local-fs.target &&
+     "$(config_value "$service" Install WantedBy)" == multi-user.target ]] || {
+    fail "invalid helper/service ordering contract"; return 1;
+  }
+  grep -Fqx 'exec /usr/libexec/current-workstation-dm-apply --generate "$@"' "$generator" || {
+    fail "generator does not delegate to the shared reconciliation helper"; return 1;
+  }
 }
 
 main() {
-  if [[ ! -r "${desktop_env_file}" ]]; then
+  if [[ "${1:-}" != --check && -e "${root_dir}/etc/current/workstation-dm-unmanaged" ]]; then
+    log "administrator owns display-manager selection (workstation-dm-unmanaged)"
     return 0
   fi
-
-  # shellcheck disable=SC1090
-  . "${desktop_env_file}"
-
-  ensure_graphical_default
-  cleanup_display_manager_links
-  systemctl daemon-reload >/dev/null 2>&1 || true
-
-  case "${CURRENT_DESKTOP:-}" in
-  gnome)
-    log "selecting GDM for GNOME"
-    retire_unit cosmic-greeter.service
-    retire_unit greetd.service
-    if ! enable_unit gdm.service; then
-      log "gdm.service is not available"
-      exit 1
-    fi
-    ensure_display_manager_alias "gdm.service"
-    if ! start_unit gdm.service; then
-      log "failed to start gdm.service"
-      exit 1
-    fi
-    ;;
-  cosmic)
-    log "selecting COSMIC display manager"
-    retire_unit gdm.service
-    ensure_cosmic_keyring_pam || true
-    if have_unit cosmic-greeter.service; then
-      retire_unit greetd.service
-      if ! enable_unit cosmic-greeter.service; then
-        log "failed to enable cosmic-greeter.service"
-        exit 1
-      fi
-      ensure_display_manager_alias "cosmic-greeter.service"
-      if ! start_unit cosmic-greeter.service; then
-        log "failed to start cosmic-greeter.service"
-        exit 1
-      fi
-    elif have_unit greetd.service; then
-      retire_unit cosmic-greeter.service
-      if ! enable_unit greetd.service; then
-        log "failed to enable greetd.service"
-        exit 1
-      fi
-      ensure_display_manager_alias "greetd.service"
-      if ! start_unit greetd.service; then
-        log "failed to start greetd.service"
-        exit 1
-      fi
-    else
-      log "neither cosmic-greeter.service nor greetd.service is available"
-      exit 1
-    fi
-    ;;
-  "")
-    log "desktop marker is empty"
-    exit 1
-    ;;
-  *)
-    log "unsupported desktop marker: ${CURRENT_DESKTOP}"
-    exit 1
-    ;;
-  esac
+  if [[ "${1:-}" == --generate ]]; then
+    shift
+    generate_units "$@"
+    return
+  fi
+  validate_destination || return 1
+  if [[ "${1:-}" == --check ]]; then
+    [[ "${2:-}" == "$desktop" ]] || { fail "expected desktop ${2:-<missing>}, marker selects $desktop"; return 1; }
+    validate_current_wiring || return 1
+    log "validated $desktop: $selected, $session and native configuration"
+    return 0
+  fi
+  [[ $# == 0 ]] || { fail "unexpected argument: $1"; return 1; }
+  log "selecting $selected ($session)"
+  select_destination || return 1
+  retire_current_pam_override || return 1
+  # Only retire the old owner after the replacement has been selected and checked.
+  retire_competitors || return 1
+  verify_alias || return 1
+  persistent_systemctl set-default graphical.target || { fail "failed to set graphical.target"; return 1; }
+  log "selected $selected; persistent alias verified"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

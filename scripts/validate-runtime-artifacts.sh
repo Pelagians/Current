@@ -8,6 +8,8 @@ command -v python3 >/dev/null 2>&1 || { printf 'Missing required tool: python3
 
 bash -n files/scripts/just-el9.sh
 bash -n files/workstation/shared/usr/libexec/current-workstation-dm-apply
+bash -n files/workstation/shared/usr/lib/systemd/system-generators/current-workstation-dm-generator
+python3 scripts/tests/test-workstation-dm.py
 bash -n files/flatpak/base/usr/libexec/current-flatpak-session-env
 bash -n files/flatpak/cleanup/usr/libexec/current-flatpak-system-maintenance
 bash -n files/nvidia/usr/local/libexec/current/current-pcp-nvidia-pmda-apply
@@ -173,13 +175,19 @@ grep -q '^        - pcp-pmda-nvidia-gpu$' recipes/layers/shared/nvidia-base.yml
 grep -q 'nvidia-container-toolkit.repo' recipes/layers/shared/nvidia-base.yml
 grep -q 'repo_gpgcheck=0' recipes/layers/shared/nvidia-base.yml
 grep -q 'gpgcheck=1' recipes/layers/shared/nvidia-base.yml
-grep -q 'fedora-nvidia-580.repo' recipes/layers/fedora/nvidia-580.yml
-grep -q 'https://negativo17.org/repos/fedora-nvidia-580.repo' recipes/layers/fedora/nvidia-580.yml
-grep -q 'kernel-devel-matched' recipes/layers/fedora/nvidia-580.yml
-grep -q 'akmods --force --kernels' recipes/layers/fedora/nvidia-580.yml
-grep -q 'modinfo' recipes/layers/fedora/nvidia-580.yml
-grep -q 'dnf -y remove akmod-nvidia akmods kernel-devel kernel-headers' recipes/layers/fedora/nvidia-580.yml
-grep -q 'nvidia-driver nvidia-persistenced nvidia-driver-cuda' recipes/layers/fedora/nvidia-580.yml
+grep -q 'ARG CURRENT_NVIDIA_VARIANT=580' recipes/layers/fedora/nvidia-580.yml
+grep -q 'from-file: layers/fedora/nvidia-akmod.yml' recipes/layers/fedora/nvidia-580.yml
+grep -q 'ARG CURRENT_NVIDIA_VARIANT=open' recipes/layers/fedora/nvidia-open.yml
+grep -q 'from-file: layers/fedora/nvidia-akmod.yml' recipes/layers/fedora/nvidia-open.yml
+grep -q '580) repo=fedora-nvidia-580; expected_license=NVIDIA' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'open) repo=fedora-nvidia; expected_license="Dual MIT/GPL"' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'kernel-devel-matched' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'localpkg_gpgcheck=True' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'akmods --force --kernels' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'modinfo -F vermagic' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'build_packages=(akmod-nvidia akmods kernel-devel)' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'rpm -q cuda cuda-devel cuda-nvcc cuda-gcc' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'nvidia-driver nvidia-persistenced nvidia-driver-cuda' recipes/layers/fedora/nvidia-akmod.yml
 ! grep -q 'libva-nvidia-driver' recipes/layers/fedora/nvidia-580.yml
 grep -q 'fedora-nvidia-580.repo' recipes/layers/fedora/nvidia-580-workstation.yml
 grep -q 'https://negativo17.org/repos/fedora-nvidia-580.repo' recipes/layers/fedora/nvidia-580-workstation.yml

@@ -4,9 +4,10 @@ These are the intentional lane differences that remain between the Alma distro l
 
 ## Alma 9
 
-- supports only the NVIDIA 580 compatibility lane in the public matrix
-- supports `server`, `gnome`, and `cosmic` environments on that lane
-- does not support standard images or `nvidia-open`
+- provides standard and NVIDIA open server/GNOME/COSMIC candidates on x64 and ARM
+- retains the proprietary NVIDIA 580 compatibility lane on x64
+- ARM has no equivalent prebuilt proprietary R580 module-stream contract
+- uses version 9 explicitly for new standard/open recipes
 
 The internal layer file now matches the public lane naming: `recipes/layers/alma9/nvidia-580.yml`.
 

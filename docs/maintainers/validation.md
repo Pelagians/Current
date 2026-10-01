@@ -11,6 +11,27 @@ The runtime validator checks shared payloads, image support files, workstation h
 
 The image-matrix validator checks that recipes, CI, and the shipped matrix describe the same supported image set.
 
+Workstation regression checks run automatically through the runtime validator:
+
+```bash
+python3 scripts/tests/test-workstation-dm.py
+```
+
+They use temporary roots, real offline `systemctl`, and native systemd dependency
+verification. They never start/stop the runner's display manager. Workstation
+image layers also call the installed helper's `--check gnome|cosmic` mode to
+validate native service/config/session and helper/generator/service contracts.
+Booted tests remain required by [workstation rebase qualification](workstation-rebase-qualification.md).
+
+Ten architecture tests, ten publication/CPU-transaction tests and nine isolated Fedora NVIDIA build regressions run through the image-matrix validator. They check the native
+rebase picker, legacy matrix compatibility, explicit platforms, and architecture
+before role in CI. NVIDIA tests execute the actual header selection and module checks with temporary package/network stubs, including signed fallback, wrong package identity, signature rejection matching kernel modules, and retaining CUDA compiler headers during cleanup. Native ARM build/boot qualification is tracked in
+[ARM candidate status](arm-image-lanes.md). Publication fixtures cover missing,
+duplicate and stale native artifacts, source/platform validation, invalid indexes,
+signing failures, channel isolation and signing all indexes/aliases before any
+public channel advances. They never contact a registry. Real publication must
+pass [the gated CI publisher](image-publishing.md).
+
 Flatpak behavior checks are included in the runtime validator and can also run alone:
 
 ```bash

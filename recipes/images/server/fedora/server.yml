@@ -4,10 +4,14 @@ name: fedora-server
 description: Current Fedora edge server image with admin/operator tooling.
 base-image: quay.io/fedora/fedora-bootc
 image-version: latest
+platforms:
+  - linux/amd64
+  - linux/arm64
 modules:
   - from-file: layers/shared/core-base.yml
   - from-file: layers/shared/core.yml
   - from-file: layers/fedora/core.yml
+  - from-file: layers/fedora/rocm.yml
   - from-file: layers/fedora/ceph-host.yml
   - type: initramfs
   - type: signing

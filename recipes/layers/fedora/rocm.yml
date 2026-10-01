@@ -1,0 +1,8 @@
+modules:
+  # Keep the existing x64 ROCm package intent; the complete ARM set is unavailable.
+  - type: containerfile
+    snippets:
+      - >-
+        RUN set -eux;
+        case "$(uname -m)" in x86_64) ;; aarch64) exit 0 ;; *) echo "Unsupported architecture" >&2; exit 1 ;; esac;
+        dnf -y --setopt=install_weak_deps=False install --skip-broken clinfo rocminfo rocm-hip-devel rocm-opencl-devel rocm-smi

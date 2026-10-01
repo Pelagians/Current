@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+name: alma9-server
+description: Current AlmaLinux 9 server image with the standard driver lane.
+base-image: quay.io/almalinuxorg/almalinux-bootc
+image-version: 9
+platforms:
+  - linux/amd64
+  - linux/arm64
+modules:
+  - from-file: layers/alma9/arm-core.yml
+  - from-file: layers/shared/core-base.yml
+  - from-file: layers/alma/core.yml
+  - from-file: layers/shared/core.yml
+  - from-file: layers/alma9/core.yml
+  - from-file: layers/alma9/ceph-host.yml
+  - type: initramfs
+  - type: signing

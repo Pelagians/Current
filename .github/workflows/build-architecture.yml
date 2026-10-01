@@ -1,0 +1,149 @@
+name: Build one architecture
+
+on:
+  workflow_call:
+    inputs:
+      architecture:
+        required: true
+        type: string
+      runner:
+        required: true
+        type: string
+
+jobs:
+  define-image-matrix:
+    name: Define image matrix
+    runs-on: ${{ inputs.runner }}
+    outputs:
+      server_images: ${{ steps.render.outputs.server_images }}
+      workstation_images: ${{ steps.render.outputs.workstation_images }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: render
+        name: Render supported image matrices
+        run: |
+          set -euo pipefail
+
+          emit_output() {
+            local name="$1"
+            shift
+            {
+              printf '%s<<EOF\n' "$name"
+              "$@"
+              printf 'EOF\n'
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          emit_output server_images python3 ./scripts/render-image-matrix.py gha --architecture '${{ inputs.architecture }}' server-images
+          emit_output workstation_images python3 ./scripts/render-image-matrix.py gha --architecture '${{ inputs.architecture }}' workstation-images
+
+  server-images:
+    name: Server Images (${{ matrix.name }})
+    if: ${{ needs.define-image-matrix.result == 'success' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    needs:
+      - define-image-matrix
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.define-image-matrix.outputs.server_images) }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: prepare
+        name: Prepare isolated native staging recipe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+          recipe="$(python3 scripts/publish-image-index.py prepare --image '${{ matrix.name }}' --architecture '${{ inputs.architecture }}')"
+          printf 'recipe=%s\n' "$recipe" >> "$GITHUB_OUTPUT"
+      - name: Build Server image
+        uses: blue-build/github-action@v1.13
+        with:
+          recipe: ${{ steps.prepare.outputs.recipe }}
+          skip_checkout: true
+          build_opts: --platform ${{ matrix.platform }}
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+          maximize_build_space: true
+      - name: Record verified native digest
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | skopeo login ghcr.io -u '${{ github.actor }}' --password-stdin
+          python3 scripts/publish-image-index.py record --image '${{ matrix.name }}' --architecture '${{ inputs.architecture }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ inputs.architecture }}-${{ matrix.name }}
+          path: native-digests/*.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+
+  workstation-images:
+    name: Workstation Images (${{ matrix.name }})
+    if: ${{ needs.define-image-matrix.result == 'success' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    needs:
+      - define-image-matrix
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.define-image-matrix.outputs.workstation_images) }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: prepare
+        name: Prepare isolated native staging recipe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+          recipe="$(python3 scripts/publish-image-index.py prepare --image '${{ matrix.name }}' --architecture '${{ inputs.architecture }}')"
+          printf 'recipe=%s\n' "$recipe" >> "$GITHUB_OUTPUT"
+      - name: Build Workstation image
+        id: build
+        continue-on-error: true
+        uses: blue-build/github-action@v1.13
+        with:
+          recipe: ${{ steps.prepare.outputs.recipe }}
+          skip_checkout: true
+          build_opts: --platform ${{ matrix.platform }}
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+          maximize_build_space: true
+      # Both desktops use COPR. Retry a transient failed build once; never skip packages.
+      - name: Wait before workstation retry
+        if: ${{ steps.build.outcome == 'failure' }}
+        run: sleep 30
+      - name: Retry workstation image
+        if: ${{ steps.build.outcome == 'failure' }}
+        uses: blue-build/github-action@v1.13
+        with:
+          recipe: ${{ steps.prepare.outputs.recipe }}
+          skip_checkout: true
+          build_opts: --platform ${{ matrix.platform }}
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+          maximize_build_space: true
+      - name: Record verified native digest
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | skopeo login ghcr.io -u '${{ github.actor }}' --password-stdin
+          python3 scripts/publish-image-index.py record --image '${{ matrix.name }}' --architecture '${{ inputs.architecture }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ inputs.architecture }}-${{ matrix.name }}
+          path: native-digests/*.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
