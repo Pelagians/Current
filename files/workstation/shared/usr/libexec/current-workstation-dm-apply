@@ -36,7 +36,7 @@ validate_destination() {
   esac
   vendor_unit="${root_dir}/usr/lib/systemd/system/${selected}"
   [[ -f "$vendor_unit" ]] || { fail "missing destination unit: $selected ($vendor_unit)"; return 1; }
-  grep -Eq '^Alias=.*\bdisplay-manager\.service\b' "$vendor_unit" || {
+  [[ "$(config_value "$vendor_unit" Install Alias)" == display-manager.service ]] || {
     fail "$selected does not provide Alias=display-manager.service"; return 1;
   }
   [[ -r "${root_dir}/usr/share/wayland-sessions/$session" ]] || {
@@ -75,7 +75,7 @@ validate_destination() {
   fi
   exec_value="$(config_value "$session_file" 'Desktop Entry' Exec)"
   [[ "${exec_value%% *}" == "$executable" && -x "${root_dir}$executable" &&
-     "$(config_value "$session_file" 'Desktop Entry' DesktopNames)" == "${desktop^^}" ]] || {
+     "$(config_value "$session_file" 'Desktop Entry' DesktopNames)" =~ ^${desktop^^}\;?$ ]] || {
     fail "invalid destination session contract: $session_file ($exec_value)"; return 1;
   }
   validate_ownership
@@ -107,6 +107,7 @@ verify_alias() {
   local alias="${root_dir}/etc/systemd/system/display-manager.service" target resolved
   [[ -L "$alias" ]] || { fail "display-manager.service is not a symlink for $selected"; return 1; }
   target="$(readlink "$alias")"
+  [[ "$target" != /dev/null ]] || { fail "wrong or masked display-manager.service alias: /dev/null"; return 1; }
   if [[ "$target" == /* ]]; then
     target="${root_dir}${target}"
   else
@@ -154,7 +155,9 @@ retire_competitors() {
       persistent_systemctl disable "$unit" || { fail "failed to disable competitor $unit"; return 1; }
     fi
     # Even an absent package can leave a dangling enablement link after rebase.
-    while IFS= read -r -d '' link; do rm -f "$link"; done < <(
+    while IFS= read -r -d '' link; do
+      rm -f "$link" || { fail "failed to remove stale enablement: $link"; return 1; }
+    done < <(
       find "${root_dir}/etc/systemd/system" -path '*.wants/*' -type l -name "$unit" -print0
     )
   done
@@ -165,6 +168,7 @@ retire_competitors() {
 generate_units() {
   local early="${2:-$1}" unit competitors=""
   validate_destination || return 1
+  validate_current_wiring || return 1
   mkdir -p "$early/$selected.d" || return 1
   ln -s "$vendor_unit" "$early/$selected" || return 1
   ln -s "$vendor_unit" "$early/display-manager.service" || return 1
@@ -182,8 +186,29 @@ Conflicts=$competitors
 EOF
 }
 
+validate_current_wiring() {
+  local helper="${root_dir}/usr/libexec/current-workstation-dm-apply"
+  local generator="${root_dir}/usr/lib/systemd/system-generators/current-workstation-dm-generator"
+  local service="${root_dir}/usr/lib/systemd/system/current-workstation-dm-apply.service"
+  [[ -x "$helper" && -x "$generator" && -r "$service" ]] || {
+    fail "missing executable helper/generator or reconciliation service"; return 1;
+  }
+  { bash -n "$helper" && bash -n "$generator"; } || { fail "helper/generator syntax check failed"; return 1; }
+  [[ "$(config_value "$service" Service ExecStart)" == /usr/libexec/current-workstation-dm-apply &&
+     "$(config_value "$service" Service Type)" == oneshot &&
+     "$(config_value "$service" Service RemainAfterExit)" == yes &&
+     "$(config_value "$service" Unit Before)" == graphical.target &&
+     "$(config_value "$service" Unit After)" == local-fs.target &&
+     "$(config_value "$service" Install WantedBy)" == multi-user.target ]] || {
+    fail "invalid helper/service ordering contract"; return 1;
+  }
+  grep -Fqx 'exec /usr/libexec/current-workstation-dm-apply --generate "$@"' "$generator" || {
+    fail "generator does not delegate to the shared reconciliation helper"; return 1;
+  }
+}
+
 main() {
-  if [[ -e "${root_dir}/etc/current/workstation-dm-unmanaged" ]]; then
+  if [[ "${1:-}" != --check && -e "${root_dir}/etc/current/workstation-dm-unmanaged" ]]; then
     log "administrator owns display-manager selection (workstation-dm-unmanaged)"
     return 0
   fi
@@ -195,6 +220,7 @@ main() {
   validate_destination || return 1
   if [[ "${1:-}" == --check ]]; then
     [[ "${2:-}" == "$desktop" ]] || { fail "expected desktop ${2:-<missing>}, marker selects $desktop"; return 1; }
+    validate_current_wiring || return 1
     log "validated $desktop: $selected, $session and native configuration"
     return 0
   fi

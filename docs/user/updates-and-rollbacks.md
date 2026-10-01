@@ -49,3 +49,26 @@ Then reboot into the previous deployment.
 ## User-space updates
 
 `current update-user` refreshes user Flatpaks, Homebrew when present on workstation images, and Distrobox containers.
+
+## Workstation desktop ownership
+
+The destination workstation image selects its native graphical login manager:
+GDM for GNOME, COSMIC greeter for COSMIC. Current repairs stale managed masks,
+aliases and enablement before graphical login starts. It preserves user homes,
+dconf, AccountsService and COSMIC desktop preferences. A failure is recorded in
+`journalctl -b -u current-workstation-dm-apply.service`; native greeter startup
+failures are recorded in that manager's own journal.
+
+Administrators who manage login-manager selection themselves can opt out:
+
+```bash
+sudo mkdir -p /etc/current
+sudo touch /etc/current/workstation-dm-unmanaged
+sudo systemctl daemon-reload
+```
+
+After opting out, configure your own manager and default target. Current stops
+repairing their selection. Remove the marker and reboot to restore Current's
+ownership. Ordinary workstation rebases do not require this opt-out or manual
+`systemctl` repair commands. Booted convergence qualification is tracked in the
+[maintainer procedure](../maintainers/workstation-rebase-qualification.md).

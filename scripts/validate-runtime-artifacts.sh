@@ -8,6 +8,8 @@ command -v python3 >/dev/null 2>&1 || { printf 'Missing required tool: python3
 
 bash -n files/scripts/just-el9.sh
 bash -n files/workstation/shared/usr/libexec/current-workstation-dm-apply
+bash -n files/workstation/shared/usr/lib/systemd/system-generators/current-workstation-dm-generator
+python3 scripts/tests/test-workstation-dm.py
 bash -n files/flatpak/base/usr/libexec/current-flatpak-session-env
 bash -n files/flatpak/cleanup/usr/libexec/current-flatpak-system-maintenance
 bash -n files/nvidia/usr/local/libexec/current/current-pcp-nvidia-pmda-apply

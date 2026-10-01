@@ -91,3 +91,41 @@ Alma 9 also adds `libva-utils` in `recipes/layers/alma9/workstation.yml` because
 Alma 9 NVIDIA workstations add `recipes/layers/alma9/nvidia-workstation.yml` for the EPEL `libva-nvidia-driver` VAAPI backend. That layer is deliberately not included by the Alma 9 NVIDIA server recipe.
 
 That keeps display/session and browser/media NVIDIA extras separate from the core lane plumbing in the shared NVIDIA layers.
+
+## Display-manager ownership across rebases
+
+`/usr/share/current/workstation/desktop.env` remains the destination image's
+family marker. The shared helper validates the marker, packaged unit, greeter
+configuration and session entry before modifying persistent selection.
+
+A small systemd generator delegates to that helper before units are loaded. Its
+`generator.early` output selects the native destination unit and graphical
+default target, overriding stale managed aliases/masks in `/etc`, and masks only
+the two competing managed units. The selected manager requires and follows the
+oneshot reconciliation service. That service repairs persistent enablement and
+verifies the alias resolves to the expected vendor unit. It stays active after
+success, so another dependency cannot rerun reconciliation during the same boot.
+There are no asynchronous service start/stop calls or mid-reconciliation reloads.
+The ordinary graphical target starts the selected manager after successful repair.
+
+GNOME uses `gdm.service`; COSMIC uses `cosmic-greeter.service` with
+`/etc/greetd/cosmic-greeter.toml` on Fedora, Alma 9 and Alma 10. Generic
+`greetd.service` is never the fallback. Native COSMIC PAM under `/usr/lib/pam.d`
+is accepted, with administrator `/etc/pam.d` precedence and no PAM rewrites.
+
+The policy owns the three managed units' masks/enablement, display-manager alias
+and graphical default. It does not remove arbitrary services or write user
+session preferences. Regular administrator unit replacements and aliases to
+unrelated managers are rejected with an opt-out diagnostic. Drop-ins and other
+configuration remain administrator-owned; changing native commands or desktop
+ownership requires the explicit opt-out below.
+
+Create `/etc/current/workstation-dm-unmanaged` to take ownership of login-manager
+selection. Both generator and helper then leave state untouched. Run
+`systemctl daemon-reload` after creating/removing that marker, outside an active
+reconciliation, and configure/start the desired manager yourself. Opting back in
+requires a reboot for the normal first-boot policy. This is a single ownership
+opt-out, not a desktop configuration framework.
+
+See [rebase qualification](workstation-rebase-qualification.md) for package
+evidence, session persistence analysis, contamination tests and pending release gates.
