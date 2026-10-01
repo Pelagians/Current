@@ -8,14 +8,14 @@ from the single shipped TSV manifest. x64 uses `ubuntu-latest`; ARM64 uses
 every recipe. ARM images have distinct `-arm64` names, avoiding concurrent writes
 to the existing x64 image tags.
 
-The manifest includes 15 ARM candidates. Each row below provides server, GNOME
+The manifest includes 21 ARM and 24 x64 candidates (45 total). Each row below provides server, GNOME
 and COSMIC recipes, reusing the existing role, desktop and bootc layers:
 
 | Distro | ARM driver lanes | Candidate count |
 | --- | --- | --- |
-| Alma 9 | standard | 3 |
+| Alma 9 | standard, NVIDIA open | 6 |
 | Alma 10 | standard, NVIDIA open | 6 |
-| Fedora | standard, NVIDIA 580 | 6 |
+| Fedora | standard, NVIDIA open, NVIDIA 580 | 9 |
 
 Driver support requires package builds and hardware qualification. These are generic aarch64
 bootc/UEFI candidates; they do not provide an Apple Silicon/Asahi hardware port
@@ -61,30 +61,46 @@ Source inspection on 2026-09-30 confirmed:
 - Brave's ARM repository provides `brave-origin`; existing workstation app
   policy remains the same.
 
-Alma 10's native NVIDIA repository provides `nvidia-open-kmod` and the driver,
-CUDA and workstation userspace packages for aarch64. NVIDIA's CUDA repository
-uses `sbsa`, rather than `aarch64`, in its RHEL ARM paths and repository IDs;
-the shared bootstrap explicitly maps those names. Fedora's Negativo17 R580
-repository provides native aarch64 akmod source and userspace packages, so ARM
-recipes reuse the same image-time module build and verification as x64.
-The first CI run also exposed an incomplete Fedora kernel-devel selector on both
-architectures. R580 now requests the installed kernel's full version, release
-and architecture, avoiding both unmatched version-only queries and a header
-upgrade to a different kernel.
+Alma 9 and Alma 10's native NVIDIA repositories provide `nvidia-open-kmod`
+and matching driver/userspace packages for aarch64. Alma 9 additionally verifies
+that `modinfo -k <image-kernel> nvidia` resolves an open module after the kABI
+package scripts and depmod. NVIDIA's CUDA repository uses `sbsa`, rather than
+`aarch64`, in RHEL ARM paths and repository IDs; the bootstrap maps them explicitly.
 
-Two x64 driver contracts have no exact ARM counterpart in the inspected sources:
+Fedora ARM open images use Negativo17's native Fedora repository. Its current
+615 akmod source is open-only, and it supplies matching driver, workstation and
+CUDA (`cuda` / `cuda-devel`, including nvcc) packages. This is an explicit ARM
+source contract. Fedora x64 open images retain their existing NVIDIA repository
+contract. The Fedora 44 NVIDIA SBSA repository itself still lacks the complete
+driver set. NVIDIA's upstream open modules support aarch64 and Turing or later
+GPUs; CPU support alone does not qualify every ARM board or GPU combination.
 
-- Alma 9 ARM lacks the prebuilt proprietary R580 module-stream contract used
-  by x64. Its module metadata offers DKMS variants instead; ARM Alma 9 therefore
-  exposes standard images, rather than claiming proprietary legacy GPU parity.
-- Fedora 44's NVIDIA `sbsa` CUDA repository has six packages and lacks the
-  required `kmod-nvidia-open-dkms`, `nvidia-open` and driver package set. There
-  are no Fedora ARM open-driver candidates. An ARM URL existing is insufficient.
+Fedora R580 on both CPUs and Fedora ARM open share an image-time akmod build.
+The header transaction installs both `kernel-devel` and `kernel-devel-matched`
+for the installed kernel's full version/release/architecture. If the matching
+pair has left the runtime repositories, it fetches the official signed Fedora
+Koji build using the installed kernel's signer. Downloaded package identities
+must match, and DNF verifies signatures with `localpkg_gpgcheck=True`. Subsequent
+transactions exclude kernel replacement: akmods must not pull a newer matched
+pair and replace the base kernel. Module flavour, all five module files and
+vermagic are verified before and after build-package cleanup.
 
-This establishes candidate source availability, not a complete dependency solve
-or boot qualification. The native package commands, session contracts and PAM
-checks in the workstation layers still fail the image build if an expected
-contract is missing.
+Alma 9 ARM COSMIC also needs `fprintd-pam`, which is absent from Alma 9's ARM
+runtime and devel repositories. `alma9/arm-cosmic.yml` restricts a transaction to
+Rocky 9's signed native `fprintd`, `fprintd-pam` and `libfprint` packages from its
+devel repository. The native installation succeeds with signature checks;
+all other dependencies come from the image's normal repositories. No repository
+configuration persists. This additional EL9 source remains experimental and
+needs production-source and boot qualification alongside Alma's devel packages.
+
+The remaining image-count asymmetry is Alma 9 proprietary R580: three x64
+images have no equivalent prebuilt ARM module-stream contract. ROCm's unavailable
+ARM package set is another package-level difference. Server, GNOME and COSMIC
+are otherwise represented for every included distro/driver lane.
+
+COSMIC CI builds retry once after a 30-second delay when a first build fails.
+This covers observed COPR HTTP 503 responses after DNF exhausts its mirrors;
+a second failure still fails CI, with both attempts' logs retained.
 
 References: [BlueBuild platform selection](https://blue-build.org/reference/recipe/#platforms),
 [GitHub ARM runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
@@ -94,6 +110,10 @@ Driver metadata: [Alma 9 ARM](https://nvidia.repo.almalinux.org/cuda/9/aarch64/)
 [Alma 10 ARM](https://nvidia.repo.almalinux.org/cuda/10/aarch64/),
 [NVIDIA RHEL 10 SBSA](https://developer.download.nvidia.com/compute/cuda/repos/rhel10/sbsa/),
 [Fedora R580 ARM](https://negativo17.org/repos/nvidia-580/fedora-44/aarch64/),
+[Fedora open ARM](https://negativo17.org/repos/nvidia/fedora-44/aarch64/),
+[NVIDIA open source CPU/GPU support](https://github.com/NVIDIA/open-gpu-kernel-modules),
+[Rocky 9 devel ARM](https://dl.rockylinux.org/pub/rocky/9/devel/aarch64/os/),
+[Fedora signed Koji builds](https://kojipkgs.fedoraproject.org/packages/kernel/),
 [Fedora 44 CUDA SBSA](https://developer.download.nvidia.com/compute/cuda/repos/fedora44/sbsa/).
 
 ## Matrix and rebase compatibility
@@ -147,11 +167,21 @@ Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:
   its loaders, plus the COSMIC greeter's fingerprint PAM dependency.
 - Alma 10 ARM `cosmic-greeter-1.9.1-1.el10.aarch64` units, native configuration
   and PAM payload were compared with x64 and are byte-for-byte identical.
+- The expanded 45 candidates (24 x64 / 21 ARM) passed native BlueBuild
+  schema validation and Containerfile generation.
+- A disposable native Fedora ARM server container built all five R580 modules
+  for the base kernel `7.2.7-200.fc44.aarch64`, verified core licence and every
+  vermagic, installed userspace, and passed the same checks after cleanup.
+  The signed Koji fallback and kernel-preserving dependency transactions ran
+  in this test. It did not load modules on the host or exercise GPU hardware.
+- Alma 9 ARM fingerprint PAM installation passed in a disposable EL9 container
+  with the restricted Rocky package source and signature checks. Fedora ARM
+  open and Alma 9 ARM open/CUDA native dependency solves also completed.
 
-Before release, build all 15 candidates on the ARM runner, install on a
+Before release, build all 21 candidates on the ARM runner, install on a
 disposable generic ARM64 bootc machine, and perform fresh server/desktop boots.
 Then perform the [persistent workstation rebase qualification](workstation-rebase-qualification.md)
 on each ARM desktop pair. Record architecture, image digests, bootloader/kernel,
 greeter appearance, successful login, session identity and retained preferences.
-The remaining ARM full builds, remote CI and all booted qualification remain
+The current expanded full-matrix CI and all booted qualification remain
 pending. Container validation does not establish greeter or login behavior.

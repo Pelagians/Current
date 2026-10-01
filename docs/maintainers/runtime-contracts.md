@@ -25,7 +25,7 @@ Current delegated layers:
 
 `recipes/layers/shared/core.yml` owns the small distro-neutral host/operator package baseline shared by every supported image. It runs after `shared/core-base.yml` and any distro-family repository setup needed to make the shared package set available.
 
-ROCm userspace is not a universal cross-image promise. It belongs to the platform lanes that can support the package set cleanly, currently Alma 10 and Fedora. Alma 9 should remain focused on the NVIDIA 580 compatibility lane.
+ROCm userspace is not a universal cross-image promise. It belongs to the platform lanes that can support the package set cleanly, currently Alma 10 and Fedora. Alma 9 omits ROCm across its standard, open and R580 lanes.
 
 ## Distro core deltas
 
@@ -117,8 +117,8 @@ GNOME and COSMIC are workstation-environment implementations.
 - `shared/nvidia-base.yml` owns the common NVIDIA repo bootstrap, NVIDIA container toolkit setup, NVIDIA PCP PMDA package, copied NVIDIA support payloads, and kernel args.
 - `shared/nvidia-open-common.yml` owns the open-driver helper shim.
 - `shared/nvidia-common.yml` and `shared/nvidia-open.yml` own the Alma-family NVIDIA lanes.
-- `fedora/nvidia-open.yml` owns only the Fedora-specific open-driver delta on top of the shared NVIDIA layers.
-- `fedora/nvidia-580.yml` owns the Fedora-specific proprietary R580 akmod build path: Negativo17 repo setup, matched kernel-devel install, akmods build, `modinfo` verification, userspace package install, and akmod/kernel-devel cleanup.
+- `fedora/nvidia-open.yml` owns the Fedora x64 open-driver delta on top of the shared NVIDIA layers.
+- `fedora/nvidia-580.yml` selects the proprietary R580 contract; `fedora/nvidia-open-arm.yml` selects native ARM open modules. Both use `fedora/nvidia-akmod.yml` for the exact signed header pair, kernel-preserving transactions, image-time module build, flavour/vermagic verification and cleanup. ARM open CUDA uses Negativo17's `cuda`/`cuda-devel` packages explicitly.
 
 ## Current namespace
 
