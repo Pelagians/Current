@@ -11,5 +11,7 @@ COSMIC uses the native packaged `cosmic-greeter.service` with
 is not a fallback. The shared helper validates this contract and repairs service
 ownership at boot. The packaged `/usr/lib/pam.d/cosmic-greeter` stack already
 includes keyring support; administrator PAM overrides remain intact.
+Old overrides marked `# Managed by Current from /usr/lib/pam.d/cosmic-greeter`
+are retired after validating the replacement vendor stack and manager selection.
 
 The shipped `cosmic-portals.conf` follows COSMIC upstream preference order: `cosmic;gtk` with `gnome-keyring` for the Secret portal.

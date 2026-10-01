@@ -9,6 +9,7 @@ modules:
       packages:
         - flatpak
         - flatpak-selinux
+        - util-linux # flock serializes startup and interactive maintenance
         - xdg-desktop-portal
 
   - type: files
@@ -37,8 +38,7 @@ modules:
           title: Flathub (system, managed)
         install:
           # Common shared app baseline. Runtime dependencies are installed by
-          # Flatpak, and the startup hook warms common extensions for the
-          # installed freedesktop runtime branches.
+          # Flatpak, including hardware-appropriate runtime extensions.
           - com.github.marhkb.Pods
           - com.usebottles.bottles
           - io.github.dvlv.boxbuddyrs

@@ -121,6 +121,37 @@ fi
         self.assert_owner("cosmic-greeter.service")
         self.assertFalse((self.root / "etc/pam.d/cosmic-greeter").exists())
 
+    def test_current_pam_override_is_retired_and_admin_overrides_preserved(self):
+        self.marker("cosmic")
+        pam = self.root / "etc/pam.d/cosmic-greeter"
+        self.write("etc/pam.d/cosmic-greeter",
+                   "# Managed by Current from /usr/lib/pam.d/cosmic-greeter\nauth include obsolete\n")
+        self.assertIn("retired Current-owned", self.run_helper())
+        self.assertFalse(pam.exists())
+        self.write("etc/pam.d/cosmic-greeter", "auth include custom-admin\n")
+        before = pam.read_bytes()
+        self.run_helper()
+        self.assertEqual(pam.read_bytes(), before)
+        pam.unlink()
+        pam.symlink_to(self.root / "usr/lib/pam.d/cosmic-greeter")
+        before = self.state()
+        self.run_helper()
+        self.assertEqual(self.state(), before)
+        pam.unlink()
+        (self.root / "usr/lib/pam.d/cosmic-greeter").unlink()
+        self.write("etc/pam.d/cosmic-greeter", "auth include legacy-local\n")
+        self.run_helper()
+        self.assertEqual(pam.read_text(), "auth include legacy-local\n")
+
+    def test_current_pam_override_requires_vendor_before_cleanup(self):
+        self.marker("cosmic")
+        self.write("etc/pam.d/cosmic-greeter",
+                   "# Managed by Current from /usr/lib/pam.d/cosmic-greeter\nauth include obsolete\n")
+        (self.root / "usr/lib/pam.d/cosmic-greeter").unlink()
+        before = self.state()
+        self.assertIn("missing vendor PAM", self.run_helper(success=False))
+        self.assertEqual(before, self.state())
+
     def test_selected_masks_are_removed(self):
         for desktop, unit in (("gnome", "gdm.service"), ("cosmic", "cosmic-greeter.service")):
             with self.subTest(desktop=desktop):

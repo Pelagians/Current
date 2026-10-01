@@ -52,6 +52,9 @@ The COSMIC session file is `/usr/share/wayland-sessions/cosmic.desktop`, with
 `Exec=/usr/bin/start-cosmic` and `DesktopNames=COSMIC`. Native PAM is installed
 at `/usr/lib/pam.d/cosmic-greeter` and already includes optional keyring unlock
 and session startup. An administrator's `/etc/pam.d` override takes precedence.
+An override carrying Current's exact generated ownership marker is retired only
+after checking the vendor stack exists and successfully selecting the manager.
+Unmarked administrator files and symlinks are preserved.
 
 Generic `greetd.service` instead has `ExecStart=greetd` and uses
 `/etc/greetd/config.toml`. It also declares the display-manager alias. Current

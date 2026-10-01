@@ -112,6 +112,9 @@ GNOME uses `gdm.service`; COSMIC uses `cosmic-greeter.service` with
 `/etc/greetd/cosmic-greeter.toml` on Fedora, Alma 9 and Alma 10. Generic
 `greetd.service` is never the fallback. Native COSMIC PAM under `/usr/lib/pam.d`
 is accepted, with administrator `/etc/pam.d` precedence and no PAM rewrites.
+The helper retires an old override only when its first line is Current's exact
+ownership marker and the native vendor stack exists. This lets vendor PAM
+updates take effect without deleting administrator overrides or symlinks.
 
 The policy owns the three managed units' masks/enablement, display-manager alias
 and graphical default. It does not remove arbitrary services or write user

@@ -12,10 +12,14 @@ modules:
         - cosmic-panel
         - cosmic-app-library
         - cosmic-applets
+        - cosmic-edit
         - cosmic-files
+        - cosmic-idle
         - cosmic-launcher
+        - cosmic-monitor
         - cosmic-notifications
         - cosmic-osd
+        - cosmic-player
         - cosmic-settings
         - cosmic-settings-daemon
         - cosmic-store
@@ -48,6 +52,7 @@ modules:
           command -v cosmic-files >/dev/null; \
           command -v cosmic-settings >/dev/null; \
           command -v cosmic-store >/dev/null; \
+          rpm -q cosmic-edit cosmic-idle cosmic-monitor cosmic-player; \
           command -v cosmic-greeter-start >/dev/null; \
           command -v cosmic-greeter-daemon >/dev/null; \
           command -v gnome-keyring-daemon >/dev/null; \

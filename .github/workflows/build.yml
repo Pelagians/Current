@@ -23,6 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           bash ./scripts/validate-runtime-artifacts.sh
+          bash ./scripts/test-cosmic-pam.sh
 
   validate-image-matrix:
     name: Validate image matrix

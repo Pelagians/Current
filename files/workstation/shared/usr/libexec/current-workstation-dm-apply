@@ -56,6 +56,11 @@ validate_destination() {
     [[ -r "${root_dir}/etc/pam.d/cosmic-greeter" || -r "${root_dir}/usr/lib/pam.d/cosmic-greeter" ]] || {
       fail "missing COSMIC PAM stack in /etc/pam.d or /usr/lib/pam.d"; return 1;
     }
+    if current_pam_override; then
+      [[ -r "${root_dir}/usr/lib/pam.d/cosmic-greeter" ]] || {
+        fail "missing vendor PAM stack for Current-owned COSMIC override"; return 1;
+      }
+    fi
     local config="${root_dir}/etc/greetd/cosmic-greeter.toml"
     [[ "$(config_value "$config" general service)" == '"cosmic-greeter"' &&
        "$(config_value "$config" default_session command)" == '"cosmic-greeter-start"' &&
@@ -87,6 +92,19 @@ validate_destination() {
     fail "invalid destination session contract: $session_file ($exec_value)"; return 1;
   }
   validate_ownership
+}
+
+current_pam_override() {
+  local pam="${root_dir}/etc/pam.d/cosmic-greeter"
+  [[ -f "$pam" && ! -L "$pam" &&
+     "$(head -n 1 "$pam")" == '# Managed by Current from /usr/lib/pam.d/cosmic-greeter' ]]
+}
+
+retire_current_pam_override() {
+  if [[ "$desktop" == cosmic ]] && current_pam_override; then
+    rm -f "${root_dir}/etc/pam.d/cosmic-greeter" || { fail "failed to retire Current-owned COSMIC PAM override"; return 1; }
+    log "retired Current-owned COSMIC PAM override; using native vendor stack"
+  fi
 }
 
 validate_ownership() {
@@ -235,6 +253,7 @@ main() {
   [[ $# == 0 ]] || { fail "unexpected argument: $1"; return 1; }
   log "selecting $selected ($session)"
   select_destination || return 1
+  retire_current_pam_override || return 1
   # Only retire the old owner after the replacement has been selected and checked.
   retire_competitors || return 1
   verify_alias || return 1

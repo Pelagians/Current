@@ -1,10 +1,27 @@
-# Update System Flatpaks and OS Image
+# Update System Flatpaks and OS Image independently.
 update-system:
-  sudo flatpak update --system -y
-  current flatpak-clean-system
-  sudo /usr/libexec/current-flatpak-system-maintenance ensure
-  sudo bootc upgrade
-  @echo "bootc auto-apply is disabled in Current; reboot during your maintenance window to activate the staged image update"
+    #!/usr/bin/env bash
+    set -uo pipefail
+    flatpak_result=0
+    bootc_result=0
+    sudo /usr/libexec/current-flatpak-system-maintenance update || flatpak_result=$?
+    sudo bootc upgrade || bootc_result=$?
+    printf '\nCurrent system update summary:\n\n'
+    if [ "$flatpak_result" -eq 0 ]; then
+      printf 'System Flatpaks: OK\n'
+    else
+      printf 'System Flatpaks: FAILED (exit %s)\n' "$flatpak_result"
+    fi
+    if [ "$bootc_result" -eq 0 ]; then
+      printf 'OS image:        upgrade completed (staged if an update was available)\n'
+      printf 'bootc auto-apply is disabled; reboot during your maintenance window to activate a staged update.\n'
+    else
+      printf 'OS image:        FAILED (exit %s)\n' "$bootc_result"
+    fi
+    if [ "$flatpak_result" -ne 0 ] || [ "$bootc_result" -ne 0 ]; then
+      printf 'Overall result: failure in one or more stages\n'
+      exit 1
+    fi
 
 # Clean Unused System Flatpaks
 flatpak-clean-system:
@@ -110,7 +127,7 @@ update-user:
       "$brew_bin" upgrade
     }
 
-    flatpak update --user -y
+    flatpak --user update -y --noninteractive
     update_homebrew
     repair_distrobox_helper_paths
     distrobox-upgrade --all
@@ -146,12 +163,25 @@ update-firmware:
   sudo fwupdmgr get-updates
   sudo fwupdmgr update
 
-# Update Everything
+# Update independent categories, preserving failures in the final status.
 update-all:
-  current update-system
-  current update-user
-  current update-podman
-  current update-firmware
+    #!/usr/bin/env bash
+    set -uo pipefail
+    failed=0
+    summary=()
+    for category in system user podman firmware; do
+      result=0
+      current "update-$category" || result=$?
+      if [ "$result" -eq 0 ]; then
+        summary+=("$category: OK")
+      else
+        summary+=("$category: FAILED (exit $result)")
+        failed=1
+      fi
+    done
+    printf '\nCurrent update-all summary:\n\n'
+    printf '%s\n' "${summary[@]}"
+    exit "$failed"
 
 # Update Chooser
 update:
