@@ -15,13 +15,23 @@ fail() {
   return 1
 }
 
+# Read the inspected INI/TOML scalar contracts without sourcing configuration.
+config_value() {
+  awk -v section="$2" -v key="$3" '
+    /^[[:space:]]*\[/ { line=$0; gsub(/^[[:space:]]*\[|\][[:space:]]*$/, "", line); active=(line==section); next }
+    active && $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+      sub(/^[^=]*=[[:space:]]*/, ""); sub(/[[:space:]]*$/, ""); print
+    }
+  ' "$1"
+}
+
 validate_destination() {
   local marker="${root_dir}${desktop_env_file}"
   [[ -r "$marker" ]] || { fail "desktop marker is missing: $marker"; return 1; }
   # The image marker is data, not shell code or a retained /etc preference.
   case "$(cat "$marker")" in
-    CURRENT_DESKTOP=gnome) selected=gdm.service; session=gnome.desktop ;;
-    CURRENT_DESKTOP=cosmic) selected=cosmic-greeter.service; session=cosmic.desktop ;;
+    CURRENT_DESKTOP=gnome) desktop=gnome; selected=gdm.service; session=gnome.desktop ;;
+    CURRENT_DESKTOP=cosmic) desktop=cosmic; selected=cosmic-greeter.service; session=cosmic.desktop ;;
     *) fail "invalid CURRENT_DESKTOP in $marker (expected gnome or cosmic)"; return 1 ;;
   esac
   vendor_unit="${root_dir}/usr/lib/systemd/system/${selected}"
@@ -32,18 +42,42 @@ validate_destination() {
   [[ -r "${root_dir}/usr/share/wayland-sessions/$session" ]] || {
     fail "missing destination session: $session"; return 1;
   }
+  local session_file="${root_dir}/usr/share/wayland-sessions/$session"
+  local executable="/usr/bin/gnome-session" exec_value
   if [[ "$selected" == cosmic-greeter.service ]]; then
+    executable="/usr/bin/start-cosmic"
+    [[ "$(config_value "$vendor_unit" Service ExecStart)" == 'greetd --config /etc/greetd/cosmic-greeter.toml' ||
+       "$(config_value "$vendor_unit" Service ExecStart)" == '/usr/bin/greetd --config /etc/greetd/cosmic-greeter.toml' ]] || {
+      fail "unexpected COSMIC ExecStart; expected native greetd --config /etc/greetd/cosmic-greeter.toml"; return 1;
+    }
     [[ -r "${root_dir}/etc/greetd/cosmic-greeter.toml" ]] || {
       fail "missing COSMIC configuration: /etc/greetd/cosmic-greeter.toml"; return 1;
     }
     [[ -r "${root_dir}/etc/pam.d/cosmic-greeter" || -r "${root_dir}/usr/lib/pam.d/cosmic-greeter" ]] || {
       fail "missing COSMIC PAM stack in /etc/pam.d or /usr/lib/pam.d"; return 1;
     }
+    local config="${root_dir}/etc/greetd/cosmic-greeter.toml"
+    [[ "$(config_value "$config" general service)" == '"cosmic-greeter"' &&
+       "$(config_value "$config" default_session command)" == '"cosmic-greeter-start"' &&
+       "$(config_value "$config" default_session user)" == '"cosmic-greeter"' ]] || {
+      fail "invalid COSMIC service/command/user in $config"; return 1;
+    }
+    for exec_value in greetd cosmic-greeter-start cosmic-greeter-daemon cosmic-comp; do
+      [[ -x "${root_dir}/usr/bin/$exec_value" ]] || { fail "missing COSMIC executable: $exec_value"; return 1; }
+    done
   else
+    [[ "$(config_value "$vendor_unit" Service ExecStart)" == /usr/bin/gdm && -x "${root_dir}/usr/bin/gdm" ]] || {
+      fail "invalid GDM ExecStart or missing /usr/bin/gdm"; return 1;
+    }
     [[ -r "${root_dir}/etc/gdm/custom.conf" ]] || {
       fail "missing GDM configuration: /etc/gdm/custom.conf"; return 1;
     }
   fi
+  exec_value="$(config_value "$session_file" 'Desktop Entry' Exec)"
+  [[ "${exec_value%% *}" == "$executable" && -x "${root_dir}$executable" &&
+     "$(config_value "$session_file" 'Desktop Entry' DesktopNames)" == "${desktop^^}" ]] || {
+    fail "invalid destination session contract: $session_file ($exec_value)"; return 1;
+  }
   validate_ownership
 }
 
@@ -126,56 +160,6 @@ retire_competitors() {
   done
 }
 
-pam_gnome_keyring_available() {
-  [[ -f /usr/lib/security/pam_gnome_keyring.so || -f /usr/lib64/security/pam_gnome_keyring.so ]]
-}
-
-insert_line_after_match() {
-  local file="$1"
-  local match="$2"
-  local line="$3"
-  local tmp
-
-  if grep -Fqx "${line}" "${file}"; then
-    return 0
-  fi
-
-  tmp="$(mktemp)"
-  awk -v match="${match}" -v line="${line}" '
-    {
-      print
-      if (!inserted && $0 ~ match) {
-        print line
-        inserted=1
-      }
-    }
-    END {
-      if (!inserted) {
-        print line
-      }
-    }
-  ' "${file}" > "${tmp}"
-  cat "${tmp}" > "${file}"
-  rm -f "${tmp}"
-}
-
-ensure_cosmic_keyring_pam() {
-  local pam_file="/etc/pam.d/cosmic-greeter"
-
-  if [[ ! -f "${pam_file}" ]]; then
-    log "COSMIC PAM file is missing: ${pam_file}"
-    return 1
-  fi
-
-  if ! pam_gnome_keyring_available; then
-    log "pam_gnome_keyring.so is not installed; skipping COSMIC keyring PAM reconciliation"
-    return 0
-  fi
-
-  insert_line_after_match "${pam_file}" '^auth[[:space:]].*login([[:space:]]|$)' 'auth optional pam_gnome_keyring.so'
-  insert_line_after_match "${pam_file}" '^session[[:space:]].*login([[:space:]]|$)' 'session optional pam_gnome_keyring.so auto_start'
-}
-
 # Called before systemd loads units, and again on daemon-reload. Only write into
 # the supplied generator directory: /etc repair belongs to the oneshot service.
 generate_units() {
@@ -209,15 +193,18 @@ main() {
     return
   fi
   validate_destination || return 1
+  if [[ "${1:-}" == --check ]]; then
+    [[ "${2:-}" == "$desktop" ]] || { fail "expected desktop ${2:-<missing>}, marker selects $desktop"; return 1; }
+    log "validated $desktop: $selected, $session and native configuration"
+    return 0
+  fi
+  [[ $# == 0 ]] || { fail "unexpected argument: $1"; return 1; }
   log "selecting $selected ($session)"
   select_destination || return 1
   # Only retire the old owner after the replacement has been selected and checked.
   retire_competitors || return 1
   verify_alias || return 1
   persistent_systemctl set-default graphical.target || { fail "failed to set graphical.target"; return 1; }
-  if [[ "$selected" == cosmic-greeter.service && -f "${root_dir}/etc/pam.d/cosmic-greeter" ]]; then
-    ensure_cosmic_keyring_pam || return 1
-  fi
   log "selected $selected; persistent alias verified"
 }
 
