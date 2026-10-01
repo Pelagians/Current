@@ -1,0 +1,9 @@
+modules:
+  # NVIDIA's Fedora SBSA repo lacks the driver stack; Negativo17 publishes
+  # native ARM open modules and CUDA packages. Build against the image kernel.
+  - from-file: layers/shared/nvidia-base.yml
+  - type: containerfile
+    snippets:
+      - RUN test "$(uname -m)" = aarch64
+      - ARG CURRENT_NVIDIA_VARIANT=open
+  - from-file: layers/fedora/nvidia-akmod.yml

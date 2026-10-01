@@ -1,0 +1,74 @@
+modules:
+  # Shared image-time build for the two explicit Negativo17 driver contracts.
+  # Build ARGs select the recipe contract and do not persist in the runtime env.
+  - type: containerfile
+    snippets:
+      - >-
+        RUN /usr/bin/bash -euxo pipefail -c '
+        case "${CURRENT_NVIDIA_VARIANT}" in
+        580) repo=fedora-nvidia-580; expected_license=NVIDIA ;;
+        open) repo=fedora-nvidia; expected_license="Dual MIT/GPL" ;;
+        *) echo "Invalid NVIDIA build variant" >&2; exit 1 ;;
+        esac;
+        mkdir -p /var/tmp;
+        chmod 1777 /var/tmp;
+        curl -fLsS --retry 5 -o "/etc/yum.repos.d/${repo}.repo"
+        "https://negativo17.org/repos/${repo}.repo";
+        kernel_version="$(rpm -q kernel --queryformat "%{VERSION}-%{RELEASE}.%{ARCH}")";
+        if dnf repoquery --available --qf "%{name}"
+        "kernel-devel-matched-${kernel_version}" | grep -qx kernel-devel-matched; then
+        dnf -y --setopt=install_weak_deps=False install
+        "kernel-devel-${kernel_version}" "kernel-devel-matched-${kernel_version}";
+        else
+        echo "Matching kernel-devel absent from repos; fetching signed Fedora Koji build ${kernel_version}" >&2;
+        kernel_ver="$(rpm -q kernel --queryformat "%{VERSION}")";
+        kernel_rel="$(rpm -q kernel --queryformat "%{RELEASE}")";
+        kernel_arch="$(rpm -q kernel --queryformat "%{ARCH}")";
+        signer="$(rpm -q kernel --queryformat "%{RSAHEADER:pgpsig}" | sed "s/.*Key ID //")";
+        [[ "$signer" =~ ^[0-9a-f]{16}$ && "$kernel_ver" =~ ^[0-9.]+$ &&
+        "$kernel_rel" =~ ^[0-9A-Za-z._]+$ && "$kernel_arch" =~ ^(x86_64|aarch64)$ ]];
+        header_rpms=();
+        for package in kernel-devel kernel-devel-matched; do
+        header_rpm="/tmp/${package}-${kernel_version}.rpm";
+        curl -fLsS --retry 5 -o "$header_rpm"
+        "https://kojipkgs.fedoraproject.org/packages/kernel/${kernel_ver}/${kernel_rel}/data/signed/${signer: -8}/${kernel_arch}/${package}-${kernel_version}.rpm";
+        [[ "$(rpm -qp "$header_rpm" --queryformat "%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}")" == "${package} ${kernel_version}" ]];
+        header_rpms+=("$header_rpm");
+        done;
+        dnf -y --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=True install "${header_rpms[@]}";
+        rm -f "${header_rpms[@]}";
+        fi;
+        test -d "/usr/src/kernels/${kernel_version}";
+        kernel_guard="kernel,kernel-core,kernel-modules*,kernel-devel,kernel-devel-matched";
+        dnf -y --setopt=install_weak_deps=False --exclude="$kernel_guard" install akmods gcc-c++ kmod;
+        cp /usr/sbin/akmodsbuild /usr/sbin/akmodsbuild.backup;
+        sed -i "/if \[\[ -w \/var \]\] ; then/,/fi/d" /usr/sbin/akmodsbuild;
+        dnf -y --setopt=install_weak_deps=False --exclude="$kernel_guard" --enablerepo="$repo"
+        install akmod-nvidia nvidia-kmod-common nvidia-modprobe;
+        akmods --force --kernels "${kernel_version}" --kmod nvidia ||
+        (cat /var/cache/akmods/nvidia/*.failed.log && exit 1);
+        mv /usr/sbin/akmodsbuild.backup /usr/sbin/akmodsbuild;
+        verify_modules() {
+        for module in nvidia nvidia-drm nvidia-modeset nvidia-peermem nvidia-uvm; do
+        path="$(find "/usr/lib/modules/${kernel_version}/extra/nvidia" -maxdepth 1 -type f -name "${module}.ko*" -print -quit)";
+        test -n "$path";
+        if [[ "$module" == nvidia ]]; then
+        [[ "$(modinfo -F license "$path")" == "$expected_license" ]];
+        fi;
+        [[ "$(modinfo -F vermagic "$path")" == "${kernel_version} "* ]];
+        done;
+        };
+        verify_modules;
+        depmod "${kernel_version}";
+        dnf -y --setopt=install_weak_deps=False --exclude="$kernel_guard" --enablerepo="$repo"
+        install nvidia-driver nvidia-persistenced nvidia-driver-cuda;
+        if [[ "${CURRENT_NVIDIA_VARIANT}" == open ]]; then
+        dnf -y --setopt=install_weak_deps=False --exclude="$kernel_guard" --enablerepo="$repo" install cuda cuda-devel;
+        test -x /usr/bin/nvcc;
+        fi;
+        dnf -y remove akmod-nvidia akmods kernel-devel kernel-headers;
+        [[ "$(rpm -q kernel-core --queryformat "%{VERSION}-%{RELEASE}.%{ARCH}")" == "$kernel_version" ]];
+        verify_modules;
+        rm -f "/etc/yum.repos.d/${repo}.repo";
+        ldconfig
+        '
