@@ -143,9 +143,11 @@ bluebuild generate --platform linux/arm64 recipes/images/arm64/server/fedora/ser
 bluebuild build --platform linux/arm64 --no-sign recipes/images/arm64/server/fedora/server.yml
 ```
 
-The seven architecture tests exercise the actual rebase shell with isolated curl,
-fzf, uname and sudo stubs, plus matrix validation, role/architecture filtering and
-the CUDA repository bootstrap with isolated curl/dnf/uname stubs.
+The nine architecture tests exercise the actual rebase shell with isolated curl,
+fzf, uname and sudo stubs, including rejection of mismatched image names and
+selection of all three Fedora ARM R580 references, plus matrix validation,
+role/architecture filtering and the CUDA repository bootstrap with isolated
+curl/dnf/uname stubs.
 The workstation helper's separate tests are architecture independent.
 
 Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:

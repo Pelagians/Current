@@ -38,6 +38,16 @@ To switch roles, environments, distro lanes, or driver lanes:
 current rebase
 ```
 
+The picker detects your running machine's CPU architecture and displays only
+matching images: x86_64 on x64, or aarch64 on ARM64. It prints the detected
+architecture and uses the selected image's exact name, including `-arm64` on
+ARM. Unsupported architectures, mismatched image names and a matrix with no
+matching entries stop before `bootc switch` is called.
+
+This requires the updated picker and image matrix. Once released, use
+`sudo bootc upgrade` and reboot to install the updated picker on an older image.
+CPU architecture cannot be changed by rebasing.
+
 Workstation images re-apply the expected display manager on boot after a switch so GNOME and COSMIC rebases do not leave stale `display-manager.service` state behind.
 
 ## Rollback

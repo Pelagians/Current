@@ -5,6 +5,14 @@ rebase:
     command -v fzf >/dev/null || { echo "Missing 'fzf'."; exit 1; }
     command -v curl >/dev/null || { echo "Missing 'curl'."; exit 1; }
 
+    machine_arch="$(uname -m)"
+    case "$machine_arch" in
+      x86_64|amd64) machine_arch=x86_64 ;;
+      aarch64|arm64) machine_arch=aarch64 ;;
+      *) echo "Unsupported machine architecture: $machine_arch" >&2; exit 1 ;;
+    esac
+    echo "Detected architecture: $machine_arch (showing matching images only)."
+
     default_matrix_url="https://raw.githubusercontent.com/Pelagians/Current/stable/files/base/runtime/usr/share/current/image-matrix.tsv"
     matrix_url="${CURRENT_IMAGE_MATRIX_URL:-$default_matrix_url}"
     registry_namespace="${CURRENT_REGISTRY_NAMESPACE:-ghcr.io/pelagians}"
@@ -44,12 +52,6 @@ rebase:
         ;;
     esac
 
-    machine_arch="$(uname -m)"
-    case "$machine_arch" in
-      x86_64|amd64) machine_arch=x86_64 ;;
-      aarch64|arm64) machine_arch=aarch64 ;;
-      *) echo "Unsupported machine architecture: $machine_arch" >&2; exit 1 ;;
-    esac
     expected_header=$'job\tarchitecture\tplatform\trole\tenvironment\tdriver\timage\trecipe'
     legacy_header=$'job\tplatform\trole\tenvironment\tdriver\timage\trecipe'
     if ! IFS= read -r actual_header < "$matrix_file"; then
@@ -74,10 +76,20 @@ rebase:
       }
       {
         arch = legacy ? "x86_64" : $2
-        if (arch != "x86_64" && arch != "aarch64") { bad = 1; next }
+        if (arch != "x86_64" && arch != "aarch64") {
+          printf "Invalid image matrix row %d: unsupported architecture %s.\n", NR, arch > "/dev/stderr"
+          bad = 1
+          next
+        }
+        offset = legacy ? 0 : 1
+        image = $(6 + offset)
+        if ((image ~ /-arm64$/) != (arch == "aarch64")) {
+          printf "Invalid image matrix row %d: image name does not match architecture %s.\n", NR, arch > "/dev/stderr"
+          bad = 1
+          next
+        }
         if (arch != native_arch) { next }
         found = 1
-        offset = legacy ? 0 : 1
         role_value = $(3 + offset)
         role = toupper(substr(role_value, 1, 1)) substr(role_value, 2)
         environment = $(4 + offset)
@@ -88,7 +100,7 @@ rebase:
         } else {
           environment = toupper(substr(environment, 1, 1)) substr(environment, 2)
         }
-        printf "%s | %s | %s | %s | %s | %s:latest\n", arch, role, environment, $(2 + offset), $(5 + offset), $(6 + offset)
+        printf "%s | %s | %s | %s | %s | %s:latest\n", arch, role, environment, $(2 + offset), $(5 + offset), image
       }
       END {
         if (bad) { exit 3 }
@@ -109,7 +121,11 @@ rebase:
         ;;
     esac
 
-    sel="$(printf '%s\n' "$picker_rows" | fzf           --delimiter='|'           --with-nth=1,2,3,4,5           --header='Architecture | Role | Environment | Platform | Driver'           --prompt='Select image: ')" || { echo "No image selected"; exit 1; }
+    sel="$(printf '%s\n' "$picker_rows" | fzf \
+      --delimiter='|' \
+      --with-nth=1,2,3,4,5 \
+      --header='Architecture | Role | Environment | Platform | Driver' \
+      --prompt="Select $machine_arch image: ")" || { echo "No image selected"; exit 1; }
 
     test -n "$sel" || { echo "No image selected"; exit 1; }
 

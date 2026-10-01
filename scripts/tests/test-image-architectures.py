@@ -58,11 +58,13 @@ class Architectures(unittest.TestCase):
                 with patch.object(matrix, 'MATRIX_FILE', file), self.assertRaises(SystemExit):
                     matrix.load_rows()
 
-    def run_picker(self, architecture, legacy=False, expected_success=True):
+    def run_picker(self, architecture, legacy=False, expected_success=True,
+                   rows=None, selected_image=None):
         with tempfile.TemporaryDirectory() as directory:
             tmp = Path(directory)
             fields = [f for f in matrix.FIELDS if f != 'architecture'] if legacy else matrix.FIELDS
-            rows = matrix.load_rows()
+            if rows is None:
+                rows = matrix.load_rows()
             if legacy:
                 rows = [r for r in rows if r['architecture'] == 'x86_64']
             file = tmp / 'matrix.tsv'
@@ -81,7 +83,11 @@ printf 200
 ''',
                 'fzf': '''#!/bin/bash
 cat > "$TEST_DIR/choices"
-head -n 1 "$TEST_DIR/choices"
+if [[ -n "$TEST_SELECTION" ]]; then
+  awk -F'|' -v image="$TEST_SELECTION:latest" '$6 == " " image { print; exit }' "$TEST_DIR/choices"
+else
+  head -n 1 "$TEST_DIR/choices"
+fi
 ''',
                 'uname': '#!/bin/bash\nprintf "%s\\n" "$TEST_ARCH"\n',
                 'sudo': '#!/bin/bash\nprintf "%s\\n" "$*" > "$TEST_DIR/sudo-call"\n',
@@ -93,6 +99,7 @@ head -n 1 "$TEST_DIR/choices"
             recipe = tmp / 'picker.sh'
             recipe.write_text('\n'.join(line.removeprefix('    ') for line in body) + '\n')
             env = dict(os.environ, TEST_ARCH=architecture, TEST_DIR=str(tmp), TEST_MATRIX=str(file),
+                       TEST_SELECTION=selected_image or '',
                        PATH=str(tmp) + ':' + os.environ['PATH'])
             result = subprocess.run(['bash', str(recipe)], env=env, text=True, capture_output=True)
             if expected_success:
@@ -100,12 +107,17 @@ head -n 1 "$TEST_DIR/choices"
                 choices = (tmp / 'choices').read_text().splitlines()
                 native = 'aarch64' if architecture in ('aarch64', 'arm64') else 'x86_64'
                 self.assertTrue(all(line.startswith(native + ' | ') for line in choices))
+                expected_images = [r['image'] for r in rows if r['architecture'] == native]
+                self.assertEqual([line.split('|')[5].strip().removesuffix(':latest')
+                                  for line in choices], expected_images)
+                self.assertIn('Detected architecture: ' + native, result.stdout)
                 sudo_call = (tmp / 'sudo-call').read_text()
-                self.assertIn('bootc switch ghcr.io/pelagians/', sudo_call)
-                self.assertEqual('-arm64:latest' in sudo_call, native == 'aarch64')
+                self.assertEqual(sudo_call, 'bootc switch ghcr.io/pelagians/' +
+                                 (selected_image or expected_images[0]) + ':latest\n')
             else:
                 self.assertNotEqual(result.returncode, 0)
                 self.assertFalse((tmp / 'sudo-call').exists())
+            return result
 
     def test_picker_filters_x64_and_arm64_and_architecture_aliases(self):
         for arch in ('x86_64', 'aarch64', 'amd64', 'arm64'):
@@ -116,7 +128,23 @@ head -n 1 "$TEST_DIR/choices"
         self.run_picker('aarch64', legacy=True, expected_success=False)
 
     def test_picker_rejects_unsupported_machine_architecture(self):
-        self.run_picker('riscv64', expected_success=False)
+        result = self.run_picker('riscv64', expected_success=False)
+        self.assertIn('Unsupported machine architecture: riscv64', result.stderr)
+
+    def test_picker_rejects_image_names_mislabeled_with_another_architecture(self):
+        for arch in ('x86_64', 'aarch64'):
+            with self.subTest(arch=arch):
+                rows = matrix.load_rows()
+                row = next(r for r in rows if r['architecture'] == arch)
+                row['image'] = (row['image'] + '-arm64' if arch == 'x86_64'
+                                else row['image'].removesuffix('-arm64'))
+                result = self.run_picker(arch, rows=rows, expected_success=False)
+                self.assertIn('image name does not match architecture', result.stderr)
+
+    def test_picker_selects_each_fedora_arm_r580_image(self):
+        for environment in ('server', 'gnome', 'cosmic'):
+            with self.subTest(environment=environment):
+                self.run_picker('aarch64', selected_image=f'fedora-{environment}-nvidia-580-arm64')
 
     def test_cuda_repo_maps_native_arm_to_sbsa(self):
         layer = (ROOT / 'recipes/layers/shared/nvidia-cuda.yml').read_text()
