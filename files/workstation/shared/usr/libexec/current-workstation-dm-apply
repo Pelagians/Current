@@ -116,12 +116,46 @@ validate_ownership() {
     fi
     if [[ -L "$system_dir/$path" ]]; then
       target="$(readlink "$system_dir/$path")"
-      case "$target" in
-        /dev/null|*/gdm.service|*/cosmic-greeter.service|*/greetd.service) ;;
-        *) fail "administrator alias at $system_dir/$path -> $target; use /etc/current/workstation-dm-unmanaged"; return 1 ;;
-      esac
+      managed_link_target "$target" || {
+        fail "administrator alias at $system_dir/$path -> $target; use /etc/current/workstation-dm-unmanaged"; return 1;
+      }
     fi
   done
+}
+
+managed_link_target() {
+  local target="$1" unit directory
+  [[ "$target" == /dev/null ]] && return 0
+  [[ "$target" == /* ]] || target="/etc/systemd/system/$target"
+  # Normalize relative paths without following masks or administrator symlinks.
+  target="$(realpath --canonicalize-missing --no-symlinks "${root_dir}$target")" || return 1
+  for unit in "${managed_units[@]}"; do
+    for directory in /usr/lib/systemd/system /lib/systemd/system /etc/systemd/system; do
+      [[ "$target" == "${root_dir}${directory}/$unit" ]] && return 0
+    done
+  done
+  return 1
+}
+
+retire_selected_link() {
+  local path="${root_dir}/etc/systemd/system/$selected"
+  if [[ -L "$path" ]]; then
+    rm -f "$path" || { fail "failed to retire managed unit link: $path"; return 1; }
+    log "retired stale managed unit link for $selected"
+  fi
+}
+
+normalize_selected_alias() {
+  local alias="${root_dir}/etc/systemd/system/display-manager.service" target
+  [[ -L "$alias" ]] || return 0
+  target="$(readlink "$alias")" || return 1
+  [[ "$target" == /* ]] || target="/etc/systemd/system/$target"
+  target="$(realpath --canonicalize-missing --no-symlinks "${root_dir}$target")" || return 1
+  # systemctl may consider a relative name alias correct even when its former
+  # linked unit has been retired. Point that equivalent name at the vendor unit.
+  if [[ "$target" == "${root_dir}/etc/systemd/system/$selected" ]]; then
+    ln -sfn "/usr/lib/systemd/system/$selected" "$alias" || return 1
+  fi
 }
 
 persistent_systemctl() {
@@ -160,7 +194,8 @@ select_destination() {
     log "removing stale mask on selected $selected"
   fi
   if persistent_systemctl unmask "$selected" display-manager.service &&
-     persistent_systemctl enable --force "$selected" && verify_alias; then
+     retire_selected_link &&
+     persistent_systemctl enable --force "$selected" && normalize_selected_alias && verify_alias; then
     rm -rf "$saved"
     return 0
   fi

@@ -162,6 +162,18 @@ fi
                 self.assertFalse((self.system / unit).is_symlink())
                 self.assert_owner(unit)
 
+    def test_managed_selected_unit_links_and_relative_aliases_are_reconciled(self):
+        for desktop, unit in (("gnome", "gdm.service"), ("cosmic", "cosmic-greeter.service")):
+            self.marker(desktop)
+            for target in ("/usr/lib/systemd/system/" + unit,
+                           "/usr/lib/systemd/system/greetd.service", "greetd.service"):
+                with self.subTest(desktop=desktop, target=target):
+                    self.link(unit, target)
+                    self.link("display-manager.service", unit)
+                    self.run_helper()
+                    self.assertFalse((self.system / unit).is_symlink())
+                    self.assert_owner(unit)
+
     def test_competitors_and_absent_package_links_are_disabled(self):
         for target in ("graphical.target", "multi-user.target"):
             for unit in ("cosmic-greeter.service", "greetd.service"):
@@ -284,6 +296,10 @@ fi
         self.run_helper()
         self.assertEqual(os.readlink(self.system / "unrelated.service"), "/dev/null")
         self.link("display-manager.service", "/usr/lib/systemd/system/sddm.service")
+        before = self.state()
+        self.assertIn("administrator alias", self.run_helper(success=False))
+        self.assertEqual(before, self.state())
+        self.link("display-manager.service", "/opt/administrator/gdm.service")
         before = self.state()
         self.assertIn("administrator alias", self.run_helper(success=False))
         self.assertEqual(before, self.state())
