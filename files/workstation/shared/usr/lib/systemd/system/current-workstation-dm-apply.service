@@ -1,12 +1,12 @@
 [Unit]
 Description=Apply Current workstation display-manager ownership
 Documentation=file:/usr/share/current/workstation/desktop.env
-ConditionPathExists=/usr/share/current/workstation/desktop.env
 After=local-fs.target
-Before=display-manager.service graphical.target
+Before=graphical.target
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/libexec/current-workstation-dm-apply
 
 [Install]

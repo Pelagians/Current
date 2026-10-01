@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Keep destination selection and validation in the shared reconciler.
+exec /usr/libexec/current-workstation-dm-apply --generate "$@"

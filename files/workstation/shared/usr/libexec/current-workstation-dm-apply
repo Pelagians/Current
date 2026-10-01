@@ -44,6 +44,24 @@ validate_destination() {
       fail "missing GDM configuration: /etc/gdm/custom.conf"; return 1;
     }
   fi
+  validate_ownership
+}
+
+validate_ownership() {
+  local system_dir="${root_dir}/etc/systemd/system" path target
+  for path in display-manager.service "$selected"; do
+    if [[ -e "$system_dir/$path" && ! -L "$system_dir/$path" ]]; then
+      fail "administrator unit override at $system_dir/$path; use /etc/current/workstation-dm-unmanaged to take ownership"
+      return 1
+    fi
+    if [[ -L "$system_dir/$path" ]]; then
+      target="$(readlink "$system_dir/$path")"
+      case "$target" in
+        /dev/null|*/gdm.service|*/cosmic-greeter.service|*/greetd.service) ;;
+        *) fail "administrator alias at $system_dir/$path -> $target; use /etc/current/workstation-dm-unmanaged"; return 1 ;;
+      esac
+    fi
+  done
 }
 
 persistent_systemctl() {
@@ -71,13 +89,6 @@ verify_alias() {
 select_destination() {
   local system_dir="${root_dir}/etc/systemd/system" saved path
   mkdir -p "$system_dir" || return 1
-  # Regular unit overrides are administrator configuration, not stale masks.
-  for path in display-manager.service "$selected"; do
-    if [[ -e "$system_dir/$path" && ! -L "$system_dir/$path" ]]; then
-      fail "administrator unit override at $system_dir/$path; use /etc/current/workstation-dm-unmanaged to take ownership"
-      return 1
-    fi
-  done
   saved="$(mktemp -d)" || return 1
   for path in display-manager.service "$selected"; do
     if [[ -L "$system_dir/$path" ]]; then
@@ -107,7 +118,6 @@ retire_competitors() {
     [[ "$unit" != "$selected" ]] || continue
     if [[ -f "${root_dir}/usr/lib/systemd/system/$unit" ]]; then
       persistent_systemctl disable "$unit" || { fail "failed to disable competitor $unit"; return 1; }
-      systemctl stop --no-block "$unit" || { fail "failed to queue stop of $unit"; return 1; }
     fi
     # Even an absent package can leave a dangling enablement link after rebase.
     while IFS= read -r -d '' link; do rm -f "$link"; done < <(
@@ -166,10 +176,37 @@ ensure_cosmic_keyring_pam() {
   insert_line_after_match "${pam_file}" '^session[[:space:]].*login([[:space:]]|$)' 'session optional pam_gnome_keyring.so auto_start'
 }
 
+# Called before systemd loads units, and again on daemon-reload. Only write into
+# the supplied generator directory: /etc repair belongs to the oneshot service.
+generate_units() {
+  local early="${2:-$1}" unit competitors=""
+  validate_destination || return 1
+  mkdir -p "$early/$selected.d" || return 1
+  ln -s "$vendor_unit" "$early/$selected" || return 1
+  ln -s "$vendor_unit" "$early/display-manager.service" || return 1
+  ln -s "${root_dir}/usr/lib/systemd/system/graphical.target" "$early/default.target" || return 1
+  for unit in "${managed_units[@]}"; do
+    [[ "$unit" != "$selected" ]] || continue
+    ln -s /dev/null "$early/$unit" || return 1
+    competitors+=" $unit"
+  done
+  cat > "$early/$selected.d/50-current-workstation.conf" <<EOF
+[Unit]
+Requires=current-workstation-dm-apply.service
+After=current-workstation-dm-apply.service
+Conflicts=$competitors
+EOF
+}
+
 main() {
   if [[ -e "${root_dir}/etc/current/workstation-dm-unmanaged" ]]; then
     log "administrator owns display-manager selection (workstation-dm-unmanaged)"
     return 0
+  fi
+  if [[ "${1:-}" == --generate ]]; then
+    shift
+    generate_units "$@"
+    return
   fi
   validate_destination || return 1
   log "selecting $selected ($session)"
@@ -178,11 +215,9 @@ main() {
   retire_competitors || return 1
   verify_alias || return 1
   persistent_systemctl set-default graphical.target || { fail "failed to set graphical.target"; return 1; }
-  systemctl daemon-reload || { fail "failed to reload display-manager units"; return 1; }
   if [[ "$selected" == cosmic-greeter.service && -f "${root_dir}/etc/pam.d/cosmic-greeter" ]]; then
     ensure_cosmic_keyring_pam || return 1
   fi
-  systemctl start --no-block "$selected" || { fail "failed to queue startup of $selected"; return 1; }
   log "selected $selected; persistent alias verified"
 }
 
