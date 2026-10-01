@@ -77,6 +77,22 @@ jobs:
         include: ${{ fromJSON(needs.define-image-matrix.outputs.workstation_images) }}
     steps:
       - name: Build Workstation image
+        id: build
+        continue-on-error: ${{ contains(matrix.name, '-cosmic') }}
+        uses: blue-build/github-action@v1.13
+        with:
+          recipe: ${{ matrix.recipe }}
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+          maximize_build_space: true
+      # COPR occasionally returns HTTP 503 after DNF exhausts its mirror list.
+      # Retry COSMIC once after a delay; a second failure fails the job normally.
+      - name: Wait before COSMIC retry
+        if: ${{ steps.build.outcome == 'failure' && contains(matrix.name, '-cosmic') }}
+        run: sleep 30
+      - name: Retry COSMIC image
+        if: ${{ steps.build.outcome == 'failure' && contains(matrix.name, '-cosmic') }}
         uses: blue-build/github-action@v1.13
         with:
           recipe: ${{ matrix.recipe }}
