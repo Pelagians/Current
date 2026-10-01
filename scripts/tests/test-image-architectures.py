@@ -21,18 +21,18 @@ class Architectures(unittest.TestCase):
     def test_manifest_counts_names_and_recipes(self):
         rows = matrix.load_rows()
         self.assertEqual(sum(r['architecture'] == 'x86_64' for r in rows), 17)
-        self.assertEqual(sum(r['architecture'] == 'aarch64' for r in rows), 6)
+        self.assertEqual(sum(r['architecture'] == 'aarch64' for r in rows), 15)
         for row in rows:
             self.assertTrue((ROOT / row['recipe']).is_file())
             self.assertEqual(row['image'], matrix.expected_image(row))
             self.assertEqual(row['recipe'], matrix.expected_recipe(row))
             if row['architecture'] == 'aarch64':
-                self.assertEqual(row['driver'], 'standard')
+                self.assertIn(row['driver'], matrix.ARM_DRIVERS[row['platform']])
                 self.assertTrue(row['image'].endswith('-arm64'))
 
     def test_ci_rendering_requires_architecture_and_filters_roles(self):
         import json
-        for arch, job, count in [('aarch64', 'server-images', 2), ('aarch64', 'workstation-images', 4),
+        for arch, job, count in [('aarch64', 'server-images', 5), ('aarch64', 'workstation-images', 10),
                                  ('x86_64', 'server-images', 5), ('x86_64', 'workstation-images', 12)]:
             result = subprocess.run(['python3', str(ROOT / 'scripts/render-image-matrix.py'),
                                      'gha', '--architecture', arch, job], capture_output=True, text=True, check=True)
@@ -44,10 +44,14 @@ class Architectures(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
 
     def test_rejects_unknown_architecture_and_unqualified_arm_driver(self):
-        for changes in ({'architecture': 'riscv64'}, {'architecture': 'aarch64', 'driver': 'nvidia-open'}):
+        for changes in ({'architecture': 'riscv64'},
+                        {'architecture': 'aarch64', 'platform': 'fedora', 'driver': 'nvidia-open'},
+                        {'architecture': 'aarch64', 'platform': 'alma9', 'driver': 'nvidia-580'}):
             with tempfile.TemporaryDirectory() as directory:
                 file = Path(directory) / 'matrix.tsv'
                 row = dict(matrix.load_rows()[3], **changes)
+                row['image'] = matrix.expected_image(row)
+                row['recipe'] = matrix.expected_recipe(row)
                 with file.open('w') as handle:
                     writer = csv.DictWriter(handle, fieldnames=matrix.FIELDS, delimiter='\t')
                     writer.writeheader(); writer.writerow(row)
@@ -113,6 +117,39 @@ head -n 1 "$TEST_DIR/choices"
 
     def test_picker_rejects_unsupported_machine_architecture(self):
         self.run_picker('riscv64', expected_success=False)
+
+    def test_cuda_repo_maps_native_arm_to_sbsa(self):
+        layer = (ROOT / 'recipes/layers/shared/nvidia-cuda.yml').read_text()
+        snippet = layer.split('RUN ', 1)[1]
+        for arch in ('x86_64', 'aarch64', 'riscv64'):
+            for major in ('9', '10'):
+                with self.subTest(arch=arch, major=major), tempfile.TemporaryDirectory() as directory:
+                    tmp = Path(directory)
+                    marker = tmp / 'os-release-meta.env'
+                    marker.write_text('EL_MAJOR=' + major + '\n')
+                    for name, content in {
+                        'uname': 'printf "%s\\n" "$TEST_ARCH"\n',
+                        'curl': 'printf "%s\\n" "$*" >> "$TEST_DIR/calls"\n',
+                        'dnf': 'printf "%s\\n" "$*" >> "$TEST_DIR/calls"\n'
+                               'if [[ "$*" == "config-manager --help" && "$TEST_MAJOR" == 9 ]]; then printf "%s\\n" --set-disabled; fi\n',
+                    }.items():
+                        script = tmp / name
+                        script.write_text('#!/bin/bash\n' + content)
+                        script.chmod(0o755)
+                    env = dict(os.environ, TEST_ARCH=arch, TEST_MAJOR=major, TEST_DIR=str(tmp),
+                               PATH=str(tmp) + ':' + os.environ['PATH'])
+                    command = snippet.replace('/usr/share/current/os-release-meta.env', str(marker))
+                    result = subprocess.run(['bash', '-euc', command], env=env, text=True, capture_output=True)
+                    if arch == 'riscv64':
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertFalse((tmp / 'calls').exists())
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        cuda_arch = 'sbsa' if arch == 'aarch64' else 'x86_64'
+                        calls = (tmp / 'calls').read_text()
+                        self.assertIn(f'/rhel{major}/{cuda_arch}/cuda-rhel{major}.repo', calls)
+                        expected = f'--set-disabled cuda-rhel{major}-{cuda_arch}' if major == '9' else f'cuda-rhel{major}-{cuda_arch}.enabled=0'
+                        self.assertIn(expected, calls)
 
 
 if __name__ == '__main__':

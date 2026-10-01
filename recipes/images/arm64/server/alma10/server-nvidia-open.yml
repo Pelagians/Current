@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+name: alma10-server-nvidia-open-arm64
+description: Current ARM64 AlmaLinux 10 server image with the nvidia-open driver lane.
+base-image: quay.io/almalinuxorg/almalinux-bootc
+image-version: 10
+platforms:
+  - linux/arm64
+modules:
+  - from-file: layers/shared/core-base.yml
+  - from-file: layers/alma/core.yml
+  - from-file: layers/shared/core.yml
+  - from-file: layers/alma10/core.yml
+  - from-file: layers/alma10/ceph-host.yml
+  - from-file: layers/shared/nvidia-open.yml
+  - type: initramfs
+  - type: signing

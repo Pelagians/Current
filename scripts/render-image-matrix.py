@@ -18,6 +18,11 @@ ALLOWED_JOBS = ('server-images', 'workstation-images')
 ALLOWED_ROLES = ('server', 'workstation')
 ALLOWED_ENVIRONMENTS = ('cosmic', 'gnome', 'server')
 ALLOWED_DRIVERS = ('nvidia-580', 'nvidia-open', 'standard')
+ARM_DRIVERS = {
+    'alma9': ('standard',),
+    'alma10': ('standard', 'nvidia-open'),
+    'fedora': ('standard', 'nvidia-580'),
+}
 RECIPE_SUFFIXES = {
     'standard': '',
     'nvidia-open': '-nvidia-open',
@@ -89,8 +94,8 @@ def load_rows() -> list[dict[str, str]]:
 
             if row['architecture'] not in ALLOWED_ARCHITECTURES:
                 die(f"{MATRIX_FILE}:{line_number}: unsupported architecture: {row['architecture']}")
-            if row['architecture'] == 'aarch64' and (row['platform'] not in {'alma10', 'fedora'} or row['driver'] != 'standard'):
-                die(f"{MATRIX_FILE}:{line_number}: ARM64 currently supports only standard Alma 10/Fedora lanes")
+            if row['architecture'] == 'aarch64' and row['driver'] not in ARM_DRIVERS.get(row['platform'], ()):
+                die(f"{MATRIX_FILE}:{line_number}: unsupported ARM64 platform/driver contract: {row['platform']}/{row['driver']}")
             if row['job'] not in ALLOWED_JOBS:
                 die(f"{MATRIX_FILE}:{line_number}: unsupported job: {row['job']}")
             if row['platform'] not in ALLOWED_PLATFORMS:

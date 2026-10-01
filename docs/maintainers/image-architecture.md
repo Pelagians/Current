@@ -166,6 +166,6 @@ Current image references use `ghcr.io/pelagians/<image>:<tag>`.
 
 CI first selects x64 or ARM64, then reuses the server/workstation workflow for
 that architecture. Every recipe declares its OCI platform. Existing x64 names
-and paths are preserved; six standard ARM candidates use `-arm64` names and
+and paths are preserved; 15 ARM candidates use `-arm64` names and
 `recipes/images/arm64/` paths. See [ARM candidates](arm-image-lanes.md) for package
 differences, rebase-picker compatibility and pending qualification.

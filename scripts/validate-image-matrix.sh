@@ -170,16 +170,19 @@ fedora_nvidia_580_rows = [
     row for row in rows
     if row['platform'] == 'fedora' and row['driver'] == 'nvidia-580'
 ]
-if len(fedora_nvidia_580_rows) != 3:
+if len(fedora_nvidia_580_rows) != 6:
     die(
-        'Expected exactly three Fedora NVIDIA 580 rows in the image matrix '
-        f'(server, GNOME, COSMIC); found {len(fedora_nvidia_580_rows)}'
+        'Expected exactly six Fedora NVIDIA 580 rows in the image matrix '
+        f'(server, GNOME, COSMIC on both architectures); found {len(fedora_nvidia_580_rows)}'
     )
 
 expected_fedora_nvidia_580_images = {
     'fedora-server-nvidia-580',
     'fedora-gnome-nvidia-580',
     'fedora-cosmic-nvidia-580',
+    'fedora-server-nvidia-580-arm64',
+    'fedora-gnome-nvidia-580-arm64',
+    'fedora-cosmic-nvidia-580-arm64',
 }
 actual_fedora_nvidia_580_images = {row['image'] for row in fedora_nvidia_580_rows}
 if actual_fedora_nvidia_580_images != expected_fedora_nvidia_580_images:

@@ -22,3 +22,12 @@ workstation-images	aarch64	alma10	workstation	cosmic	standard	alma10-cosmic-arm6
 server-images	aarch64	fedora	server	server	standard	fedora-server-arm64	recipes/images/arm64/server/fedora/server.yml
 workstation-images	aarch64	fedora	workstation	gnome	standard	fedora-gnome-arm64	recipes/images/arm64/workstation/gnome/fedora/core.yml
 workstation-images	aarch64	fedora	workstation	cosmic	standard	fedora-cosmic-arm64	recipes/images/arm64/workstation/cosmic/fedora/core.yml
+server-images	aarch64	alma9	server	server	standard	alma9-server-arm64	recipes/images/arm64/server/alma9/server.yml
+workstation-images	aarch64	alma9	workstation	gnome	standard	alma9-gnome-arm64	recipes/images/arm64/workstation/gnome/alma9/core.yml
+workstation-images	aarch64	alma9	workstation	cosmic	standard	alma9-cosmic-arm64	recipes/images/arm64/workstation/cosmic/alma9/core.yml
+server-images	aarch64	alma10	server	server	nvidia-open	alma10-server-nvidia-open-arm64	recipes/images/arm64/server/alma10/server-nvidia-open.yml
+workstation-images	aarch64	alma10	workstation	gnome	nvidia-open	alma10-gnome-nvidia-open-arm64	recipes/images/arm64/workstation/gnome/alma10/core-nvidia-open.yml
+workstation-images	aarch64	alma10	workstation	cosmic	nvidia-open	alma10-cosmic-nvidia-open-arm64	recipes/images/arm64/workstation/cosmic/alma10/core-nvidia-open.yml
+server-images	aarch64	fedora	server	server	nvidia-580	fedora-server-nvidia-580-arm64	recipes/images/arm64/server/fedora/server-nvidia-580.yml
+workstation-images	aarch64	fedora	workstation	gnome	nvidia-580	fedora-gnome-nvidia-580-arm64	recipes/images/arm64/workstation/gnome/fedora/core-nvidia-580.yml
+workstation-images	aarch64	fedora	workstation	cosmic	nvidia-580	fedora-cosmic-nvidia-580-arm64	recipes/images/arm64/workstation/cosmic/fedora/core-nvidia-580.yml

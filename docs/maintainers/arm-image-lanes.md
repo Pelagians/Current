@@ -8,10 +8,16 @@ from the single shipped TSV manifest. x64 uses `ubuntu-latest`; ARM64 uses
 every recipe. ARM images have distinct `-arm64` names, avoiding concurrent writes
 to the existing x64 image tags.
 
-Initial ARM candidates are the standard server, GNOME and COSMIC images on
-Alma 10 and Fedora. They reuse the existing role, desktop and bootc layers.
-There are no ARM NVIDIA or Alma 9 candidates in this first set. Driver support
-requires its own packaging/hardware qualification. These are generic aarch64
+The manifest includes 15 ARM candidates. Each row below provides server, GNOME
+and COSMIC recipes, reusing the existing role, desktop and bootc layers:
+
+| Distro | ARM driver lanes | Candidate count |
+| --- | --- | --- |
+| Alma 9 | standard | 3 |
+| Alma 10 | standard, NVIDIA open | 6 |
+| Fedora | standard, NVIDIA 580 | 6 |
+
+Driver support requires package builds and hardware qualification. These are generic aarch64
 bootc/UEFI candidates; they do not provide an Apple Silicon/Asahi hardware port
 or an ARM installer ISO.
 
@@ -33,10 +39,26 @@ Source inspection on 2026-09-30 confirmed:
   BlueBuild 0.9.37 binary can generate recipes on the development host.
 - Fedora provides aarch64 GDM, COSMIC greeter and COSMIC session packages.
 - Enterprise COSMIC publishes an Alma 10 `rhel+epel-10-aarch64` repository with
-  its COSMIC stack and applets. The existing Alma source layer already computes
-  that target from `uname -m`.
+  its COSMIC stack and applets, plus `epel-9-aarch64` for Alma 9. The existing
+  Alma source layer already computes that target from `uname -m`.
 - Brave's ARM repository provides `brave-origin`; existing workstation app
   policy remains the same.
+
+Alma 10's native NVIDIA repository provides `nvidia-open-kmod` and the driver,
+CUDA and workstation userspace packages for aarch64. NVIDIA's CUDA repository
+uses `sbsa`, rather than `aarch64`, in its RHEL ARM paths and repository IDs;
+the shared bootstrap explicitly maps those names. Fedora's Negativo17 R580
+repository provides native aarch64 akmod source and userspace packages, so ARM
+recipes reuse the same image-time module build and verification as x64.
+
+Two x64 driver contracts have no exact ARM counterpart in the inspected sources:
+
+- Alma 9 ARM lacks the prebuilt proprietary R580 module-stream contract used
+  by x64. Its module metadata offers DKMS variants instead; ARM Alma 9 therefore
+  exposes standard images, rather than claiming proprietary legacy GPU parity.
+- Fedora 44's NVIDIA `sbsa` CUDA repository has six packages and lacks the
+  required `kmod-nvidia-open-dkms`, `nvidia-open` and driver package set. There
+  are no Fedora ARM open-driver candidates. An ARM URL existing is insufficient.
 
 This establishes candidate source availability, not a complete dependency solve
 or boot qualification. The native package commands, session contracts and PAM
@@ -47,6 +69,11 @@ References: [BlueBuild platform selection](https://blue-build.org/reference/reci
 [GitHub ARM runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
 [Enterprise COSMIC ARM repository](https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/rhel+epel-10-aarch64/),
 [Brave ARM repository](https://brave-browser-rpm-release.s3.brave.com/aarch64/).
+Driver metadata: [Alma 9 ARM](https://nvidia.repo.almalinux.org/cuda/9/aarch64/),
+[Alma 10 ARM](https://nvidia.repo.almalinux.org/cuda/10/aarch64/),
+[NVIDIA RHEL 10 SBSA](https://developer.download.nvidia.com/compute/cuda/repos/rhel10/sbsa/),
+[Fedora R580 ARM](https://negativo17.org/repos/nvidia-580/fedora-44/aarch64/),
+[Fedora 44 CUDA SBSA](https://developer.download.nvidia.com/compute/cuda/repos/fedora44/sbsa/).
 
 ## Matrix and rebase compatibility
 
@@ -73,13 +100,17 @@ bluebuild generate --platform linux/arm64 recipes/images/arm64/server/fedora/ser
 bluebuild build --platform linux/arm64 --no-sign recipes/images/arm64/server/fedora/server.yml
 ```
 
-The six architecture tests exercise the actual rebase shell with isolated curl,
-fzf, uname and sudo stubs, plus matrix validation and role/architecture filtering.
+The seven architecture tests exercise the actual rebase shell with isolated curl,
+fzf, uname and sudo stubs, plus matrix validation, role/architecture filtering and
+the CUDA repository bootstrap with isolated curl/dnf/uname stubs.
 The workstation helper's separate tests are architecture independent.
 
 Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:
 
 - All six ARM recipes passed schema validation and Containerfile generation.
+- After integrating the current `stable` fixes, all 15 expanded ARM candidates
+  passed schema validation and Containerfile generation. Current full builds
+  remain subject to CI; the two full build results below predate that integration.
 - Fedora ARM server and COSMIC workstation full builds passed at `bd9c1978`.
   Their local image IDs are `f3994c0df506` and `3c2ad54c1bd1`, respectively;
   both report OCI architecture `arm64`. They were not pushed.
@@ -92,7 +123,7 @@ Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:
 - Alma 10 ARM `cosmic-greeter-1.9.1-1.el10.aarch64` units, native configuration
   and PAM payload were compared with x64 and are byte-for-byte identical.
 
-Before release, build all six candidates on the ARM runner, install on a
+Before release, build all 15 candidates on the ARM runner, install on a
 disposable generic ARM64 bootc machine, and perform fresh server/desktop boots.
 Then perform the [persistent workstation rebase qualification](workstation-rebase-qualification.md)
 on each ARM desktop pair. Record architecture, image digests, bootloader/kernel,
