@@ -159,6 +159,13 @@ def check_index(raw, children, revision):
         raise ValueError('Merged index has incorrect source revision')
 
 
+def sign_and_verify(ref):
+    # Match BlueBuild's Cosign v3 contract and containers/image's .sig attachments.
+    run('cosign', 'sign', '--yes', '--key', 'env://COSIGN_PRIVATE_KEY',
+        '--new-bundle-format=false', '--use-signing-config=false', ref)
+    run('cosign', 'verify', '--key', str(ROOT / 'cosign.pub'), ref)
+
+
 def publish(directory):
     records = load_records(directory)
     revision, run_id, attempt, namespace = build_context()
@@ -177,8 +184,7 @@ def publish(directory):
         repo = namespace + '/' + image
         for digest in children.values():
             ref = repo + '@' + digest
-            run('cosign', 'sign', '--yes', '--key', 'env://COSIGN_PRIVATE_KEY', ref)
-            run('cosign', 'verify', '--key', str(ROOT / 'cosign.pub'), ref)
+            sign_and_verify(ref)
         staged_ref = f'{repo}:run-{run_id}-{attempt}'
         run('docker', 'buildx', 'imagetools', 'create', '--prefer-index=true',
             '--annotation', 'index:org.opencontainers.image.revision=' + revision,
@@ -186,8 +192,7 @@ def publish(directory):
         raw, digest = inspect_raw(staged_ref)
         check_index(raw, children, revision)
         ref = repo + '@' + digest
-        run('cosign', 'sign', '--yes', '--key', 'env://COSIGN_PRIVATE_KEY', ref)
-        run('cosign', 'verify', '--key', str(ROOT / 'cosign.pub'), ref)
+        sign_and_verify(ref)
         staged[image] = ref
         if 'aarch64' in children:
             digest = children['aarch64']
@@ -195,8 +200,7 @@ def publish(directory):
             run('skopeo', 'copy', '--preserve-digests', 'docker://' + repo + '@' + digest,
                 f'docker://{alias_repo}:run-{run_id}-{attempt}')
             alias_ref = alias_repo + '@' + digest
-            run('cosign', 'sign', '--yes', '--key', 'env://COSIGN_PRIVATE_KEY', alias_ref)
-            run('cosign', 'verify', '--key', str(ROOT / 'cosign.pub'), alias_ref)
+            sign_and_verify(alias_ref)
     # Only complete, validated and signed indexes can advance user-facing channels.
     # Each tag update is atomic; registries do not offer transactions across repositories.
     for image, ref in staged.items():

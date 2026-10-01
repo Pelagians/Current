@@ -46,7 +46,10 @@ Only the default `stable` branch advances `:latest`. Pull requests advance
 Tag-triggered runs use a source-SHA channel. Each channel also gets `-amd64` /
 `-arm64` debug tags and an ARM compatibility repository alias. The publisher signs
 compatibility digests in their own repository because signature locations are
-repository scoped. Existing distro streams also advance: `:44` on stable Fedora, and `:pr-28-44`
+repository scoped. Signing uses BlueBuild's Cosign v3 compatibility flags
+(`--new-bundle-format=false --use-signing-config=false`) and empty key password,
+preserving the `.sig` attachments consumed by containers/image and bootc.
+Existing distro streams also advance: `:44` on stable Fedora, and `:pr-28-44`
 on its PR channel, for example. ARM compatibility repositories receive those
 streams too. Historical dated/SHA tags remain unchanged.
 

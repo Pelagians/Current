@@ -79,6 +79,10 @@ class Publication(unittest.TestCase):
         self.assertEqual(sum('-arm64:latest' in c[c.index('--tag') + 1] for c in updates), 21)
         first = self.calls.index(updates[0])
         self.assertEqual(sum(c[:2] == ('cosign', 'verify') for c in self.calls[:first]), 90)
+        for call in self.calls[:first]:
+            if call[:2] == ('cosign', 'sign'):
+                self.assertIn('--new-bundle-format=false', call)
+                self.assertIn('--use-signing-config=false', call)
         self.assertFalse(any(c[:2] == ('cosign', 'sign') for c in self.calls[first:]))
 
     def test_missing_wrong_attempt_duplicate_and_invalid_digest_stop_before_registry_calls(self):
@@ -196,6 +200,7 @@ class Publication(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/build.yml').read_text()
         self.assertIn('needs: [x64-images, arm64-images]', workflow)
         self.assertIn('pattern: native-*', workflow)
+        self.assertIn('COSIGN_PASSWORD: ""', workflow)
         self.assertIn('publish-image-index.py publish', workflow)
 
 
