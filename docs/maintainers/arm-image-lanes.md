@@ -83,7 +83,9 @@ Koji build using the installed kernel's signer. Downloaded package identities
 must match, and DNF verifies signatures with `localpkg_gpgcheck=True`. Subsequent
 transactions exclude kernel replacement: akmods must not pull a newer matched
 pair and replace the base kernel. Module flavour, all five module files and
-vermagic are verified before and after build-package cleanup.
+vermagic are verified before and after build-package cleanup. Open images retain
+`kernel-headers`, which the CUDA compiler requires; the installed SDK packages
+and nvcc version are checked after cleanup too.
 
 Alma 9 ARM COSMIC also needs `fprintd-pam`, which is absent from Alma 9's ARM
 runtime and devel repositories. `alma9/arm-cosmic.yml` restricts a transaction to

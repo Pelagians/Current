@@ -185,7 +185,8 @@ grep -q 'kernel-devel-matched' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'localpkg_gpgcheck=True' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'akmods --force --kernels' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'modinfo -F vermagic' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'dnf -y remove akmod-nvidia akmods kernel-devel kernel-headers' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'build_packages=(akmod-nvidia akmods kernel-devel)' recipes/layers/fedora/nvidia-akmod.yml
+grep -q 'rpm -q cuda cuda-devel cuda-nvcc cuda-gcc' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'nvidia-driver nvidia-persistenced nvidia-driver-cuda' recipes/layers/fedora/nvidia-akmod.yml
 ! grep -q 'libva-nvidia-driver' recipes/layers/fedora/nvidia-580.yml
 grep -q 'fedora-nvidia-580.repo' recipes/layers/fedora/nvidia-580-workstation.yml

@@ -137,5 +137,29 @@ else printf '%s SMP preempt mod_unload aarch64' "$TEST_KERNEL"; fi
         self.assertNotEqual(self.modules(wrong_kernel=True).returncode, 0)
 
 
+    def test_cleanup_preserves_cuda_compiler_headers_and_checks_retained_sdk(self):
+        cleanup = BODY[BODY.index('build_packages='):BODY.index('rm -f "/etc/yum.repos.d/${repo}.repo"')]
+        for variant in ('580', 'open'):
+            with self.subTest(variant=variant), tempfile.TemporaryDirectory() as directory:
+                tmp = Path(directory)
+                for name, script in {
+                    'dnf': 'printf "dnf %s\\n" "$*" >> "$TEST_DIR/calls"\n',
+                    'rpm': 'if [[ "$*" == *kernel-core* ]]; then printf kernel-test; else printf "rpm %s\\n" "$*" >> "$TEST_DIR/calls"; fi\n',
+                    'nvcc': 'printf "nvcc %s\\n" "$*" >> "$TEST_DIR/calls"\n',
+                }.items():
+                    file = tmp / name; file.write_text('#!/bin/bash\n' + script); file.chmod(0o755)
+                env = dict(os.environ, CURRENT_NVIDIA_VARIANT=variant, TEST_DIR=str(tmp),
+                           PATH=str(tmp) + ':' + os.environ['PATH'])
+                body = cleanup.replace('/usr/bin/nvcc', str(tmp / 'nvcc'))
+                result = subprocess.run(['bash', '-euo', 'pipefail', '-c',
+                                         'kernel_version=kernel-test; verify_modules() { :; }; ' + body],
+                                        env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                calls = (tmp / 'calls').read_text()
+                self.assertEqual('kernel-headers' in calls, variant == '580')
+                self.assertEqual('rpm -q cuda cuda-devel cuda-nvcc cuda-gcc' in calls, variant == 'open')
+                self.assertEqual('nvcc --version' in calls, variant == 'open')
+
+
 if __name__ == '__main__':
     unittest.main()

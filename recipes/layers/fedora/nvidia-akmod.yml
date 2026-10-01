@@ -66,9 +66,18 @@ modules:
         dnf -y --setopt=install_weak_deps=False --exclude="$kernel_guard" --enablerepo="$repo" install cuda cuda-devel;
         test -x /usr/bin/nvcc;
         fi;
-        dnf -y remove akmod-nvidia akmods kernel-devel kernel-headers;
+        build_packages=(akmod-nvidia akmods kernel-devel);
+        if [[ "${CURRENT_NVIDIA_VARIANT}" == 580 ]]; then
+        build_packages+=(kernel-headers);
+        fi;
+        dnf -y remove "${build_packages[@]}";
         [[ "$(rpm -q kernel-core --queryformat "%{VERSION}-%{RELEASE}.%{ARCH}")" == "$kernel_version" ]];
         verify_modules;
+        if [[ "${CURRENT_NVIDIA_VARIANT}" == open ]]; then
+        rpm -q cuda cuda-devel cuda-nvcc cuda-gcc;
+        test -x /usr/bin/nvcc;
+        /usr/bin/nvcc --version;
+        fi;
         rm -f "/etc/yum.repos.d/${repo}.repo";
         ldconfig
         '
