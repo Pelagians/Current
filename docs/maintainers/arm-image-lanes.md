@@ -31,6 +31,23 @@ preserved. Intel microcode and thermald installation is conditional on x86_64
 in the shared workstation substrate. Required ARM packages are not silently
 skipped by a broad package fallback.
 
+The first 32-image CI run built 19 images successfully. It exposed three missing
+Alma ARM packages in the normal runtime repositories: Alma 9
+`mesa-vulkan-drivers`, and Alma 10 `loupe` and `fprintd-pam` (required by the
+native COSMIC greeter). Signed native builds exist in Alma's devel repository.
+The experimental ARM recipes use small distro/role-specific layers to install
+these packages before their normal shared transactions. Each transaction
+restricts devel to the required package names and direct missing subpackages
+(`glycin-loaders` or `fprintd`), verifies signatures with the base image's Alma
+key and leaves no repository configuration installed. No x64 recipe uses these
+layers; Alma 10 servers acquire neither desktop dependency.
+
+Alma [describes devel as a build dependency repository](https://wiki.almalinux.org/repos/AlmaLinux)
+and explicitly discourages runtime use. These ARM Alma lanes remain experimental
+pending an appropriate runtime package source and boot qualification. Successful
+candidate builds do not remove that limitation. Their package layers are
+`alma9/arm-core.yml`, `alma10/arm-gnome.yml` and `alma10/arm-cosmic.yml`.
+
 Source inspection on 2026-09-30 confirmed:
 
 - `quay.io/fedora/fedora-bootc:latest` and
@@ -50,6 +67,10 @@ uses `sbsa`, rather than `aarch64`, in its RHEL ARM paths and repository IDs;
 the shared bootstrap explicitly maps those names. Fedora's Negativo17 R580
 repository provides native aarch64 akmod source and userspace packages, so ARM
 recipes reuse the same image-time module build and verification as x64.
+The first CI run also exposed an incomplete Fedora kernel-devel selector on both
+architectures. R580 now requests the installed kernel's full version, release
+and architecture, avoiding both unmatched version-only queries and a header
+upgrade to a different kernel.
 
 Two x64 driver contracts have no exact ARM counterpart in the inspected sources:
 
@@ -120,6 +141,10 @@ Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:
   repaired a stale GDM alias, enabled generic greetd link and selected-unit
   mask. A second run was idempotent. Native unit graph verification passed.
   The image installs only `cosmic.desktop` in its Wayland session directory.
+- The three restricted supplemental Alma ARM package transactions passed in
+  disposable native Alma 9/10 containers with RPM signature checks enabled.
+  Alma 9 installed its matching Vulkan subpackage; Alma 10 installed Loupe and
+  its loaders, plus the COSMIC greeter's fingerprint PAM dependency.
 - Alma 10 ARM `cosmic-greeter-1.9.1-1.el10.aarch64` units, native configuration
   and PAM payload were compared with x64 and are byte-for-byte identical.
 

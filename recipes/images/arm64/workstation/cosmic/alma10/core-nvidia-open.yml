@@ -15,6 +15,7 @@ modules:
   - from-file: layers/shared/flatpak-base.yml
   - from-file: layers/shared/workstation-common.yml
   - from-file: layers/alma10/workstation.yml
+  - from-file: layers/alma10/arm-cosmic.yml
   - from-file: layers/alma/cosmic.yml
   - from-file: layers/shared/workstation-cosmic.yml
   - from-file: layers/shared/nvidia-workstation.yml

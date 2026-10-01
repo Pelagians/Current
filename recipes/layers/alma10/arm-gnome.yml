@@ -1,0 +1,17 @@
+modules:
+  # Experimental ARM package source: see docs/maintainers/arm-image-lanes.md.
+  - type: containerfile
+    snippets:
+      - >-
+        RUN set -eux;
+        . /etc/os-release;
+        test "$ID" = almalinux;
+        test "${VERSION_ID%%.*}" = 10;
+        test "$(uname -m)" = aarch64;
+        dnf -y --setopt=install_weak_deps=False
+        --repofrompath=current-alma-arm-devel,https://repo.almalinux.org/almalinux/10/devel/aarch64/os/
+        --setopt=current-alma-arm-devel.includepkgs=loupe,glycin-loaders
+        --setopt=current-alma-arm-devel.gpgcheck=1
+        --setopt=current-alma-arm-devel.gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux-10
+        install loupe;
+        rpm -q loupe glycin-loaders

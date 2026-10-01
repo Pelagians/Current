@@ -1,0 +1,19 @@
+modules:
+  # Experimental ARM package source: Alma publishes this runtime only in devel.
+  # Restrict the build transaction to the signed missing subpackage; no repo file
+  # or enabled devel repository is installed in the image.
+  - type: containerfile
+    snippets:
+      - >-
+        RUN set -eux;
+        . /etc/os-release;
+        test "$ID" = almalinux;
+        test "${VERSION_ID%%.*}" = 9;
+        test "$(uname -m)" = aarch64;
+        dnf -y --setopt=install_weak_deps=False
+        --repofrompath=current-alma-arm-devel,https://repo.almalinux.org/almalinux/9/devel/aarch64/os/
+        --setopt=current-alma-arm-devel.includepkgs=mesa-vulkan-drivers
+        --setopt=current-alma-arm-devel.gpgcheck=1
+        --setopt=current-alma-arm-devel.gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux-9
+        install mesa-vulkan-drivers;
+        rpm -q mesa-vulkan-drivers

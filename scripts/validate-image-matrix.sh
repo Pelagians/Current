@@ -196,6 +196,20 @@ for row in rows:
     recipe = root / row['recipe']
     graph = recipe_graph(recipe)
     text = recipe.read_text(encoding='utf-8')
+    # Supplemental Alma packages are restricted to the ARM image/role that
+    # needs them. Install them before the existing common transaction.
+    for platform, environment, name, before in (
+        ('alma9', None, 'arm-core', core_base),
+        ('alma10', 'gnome', 'arm-gnome', root / 'recipes/layers/shared/workstation-gnome-modern.yml'),
+        ('alma10', 'cosmic', 'arm-cosmic', root / 'recipes/layers/alma/cosmic.yml'),
+    ):
+        layer = root / 'recipes/layers' / platform / (name + '.yml')
+        expected = row['architecture'] == 'aarch64' and row['platform'] == platform
+        expected = expected and (environment is None or row['environment'] == environment)
+        if graph.count(layer) != int(expected):
+            die(f"{row['image']}: incorrect supplemental ARM package layer {layer}")
+        if expected and not graph.index(layer) < graph.index(before):
+            die(f"{row['image']}: {layer} must precede {before}")
     if row['platform'] in {'alma10', 'fedora'}:
         rocm = root / 'recipes/layers' / row['platform'] / 'rocm.yml'
         if graph.count(rocm) != (1 if row['architecture'] == 'x86_64' else 0):
