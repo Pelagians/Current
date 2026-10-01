@@ -103,6 +103,18 @@ fi
         self.run_helper()
         self.assert_owner("gdm.service")
 
+    def test_gnome_packaged_contracts_on_alma_lanes(self):
+        self.write("usr/sbin/gdm", "#!/bin/sh\nexit 0\n", executable=True)
+        for lane in ("alma9", "alma10"):
+            with self.subTest(lane=lane):
+                shutil.copyfile(FIXTURES / f"gdm-{lane}.service", self.root / "usr/lib/systemd/system/gdm.service")
+                if lane == "alma9":
+                    self.write("usr/share/wayland-sessions/gnome.desktop",
+                               "[Desktop Entry]\nName=GNOME\nExec=gnome-session\nDesktopNames=GNOME\n")
+                self.run_helper("--check", "gnome")
+                self.run_helper()
+                self.assert_owner("gdm.service")
+
     def test_cosmic_selects_native_greeter_with_vendor_pam(self):
         self.marker("cosmic")
         self.run_helper()

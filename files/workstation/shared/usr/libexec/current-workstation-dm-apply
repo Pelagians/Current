@@ -66,14 +66,22 @@ validate_destination() {
       [[ -x "${root_dir}/usr/bin/$exec_value" ]] || { fail "missing COSMIC executable: $exec_value"; return 1; }
     done
   else
-    [[ "$(config_value "$vendor_unit" Service ExecStart)" == /usr/bin/gdm && -x "${root_dir}/usr/bin/gdm" ]] || {
-      fail "invalid GDM ExecStart or missing /usr/bin/gdm"; return 1;
-    }
+    # Fedora installs /usr/bin/gdm; Alma 9/10 install /usr/sbin/gdm.
+    exec_value="$(config_value "$vendor_unit" Service ExecStart)"
+    case "$exec_value" in
+      /usr/bin/gdm|/usr/sbin/gdm) ;;
+      *) fail "invalid GDM ExecStart: $exec_value"; return 1 ;;
+    esac
+    [[ -x "${root_dir}$exec_value" ]] || { fail "missing GDM executable: $exec_value"; return 1; }
     [[ -r "${root_dir}/etc/gdm/custom.conf" ]] || {
       fail "missing GDM configuration: /etc/gdm/custom.conf"; return 1;
     }
   fi
   exec_value="$(config_value "$session_file" 'Desktop Entry' Exec)"
+  # Alma 9's GNOME entry uses a PATH-resolved gnome-session command.
+  if [[ "$desktop" == gnome && "${exec_value%% *}" == gnome-session ]]; then
+    exec_value="/usr/bin/$exec_value"
+  fi
   [[ "${exec_value%% *}" == "$executable" && -x "${root_dir}$executable" &&
      "$(config_value "$session_file" 'Desktop Entry' DesktopNames)" =~ ^${desktop^^}\;?$ ]] || {
     fail "invalid destination session contract: $session_file ($exec_value)"; return 1;

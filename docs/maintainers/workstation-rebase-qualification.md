@@ -38,6 +38,13 @@ StartLimitInterval=30
 Alias=display-manager.service
 ```
 
+GNOME package inspection also covered Alma 9 `gdm-40.1-44.el9_8` and
+`gnome-session-wayland-session-40.1.1-11.el9`, plus Alma 10
+`gdm-47.0-24.el10_2` and `gnome-session-wayland-session-46.0-11.el10`.
+Fedora GDM uses `/usr/bin/gdm`; both Alma lanes use `/usr/sbin/gdm`.
+The default session entry is `gnome.desktop` on all lanes, with the bare
+`gnome-session` command on Alma 9 and `/usr/bin/gnome-session` on modern lanes.
+
 The daemon is a D-Bus service with `ExecStart=/usr/bin/cosmic-greeter-daemon`.
 The COSMIC session file is `/usr/share/wayland-sessions/cosmic.desktop`, with
 `Exec=/usr/bin/start-cosmic` and `DesktopNames=COSMIC`. Native PAM is installed
