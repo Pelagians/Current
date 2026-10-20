@@ -51,6 +51,15 @@ exit 0''',
                 self.assertIn('install cosmic-icon-theme.noarch cosmic-wallpapers.noarch', calls)
                 self.assertIn("repoquery --installed --whatprovides cosmic-icon-theme >= 1.9.0", calls)
 
+    def test_native_dependency_repository_is_enabled_before_asset_install(self):
+        for arch in ('aarch64', 'x86_64'):
+            with self.subTest(arch=arch):
+                result, calls = self.run_install(arch=arch)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(calls.splitlines()[0],
+                                 f'dnf -y copr enable ligenix/enterprise-cosmic epel-9-{arch}')
+                self.assertLess(calls.index('copr enable'), calls.index('--repofrompath='))
+
     def test_incorrect_lane_or_cpu_fails_before_transaction(self):
         for changes in ({'major': '10'}, {'arch': 'riscv64'}):
             with self.subTest(changes=changes):

@@ -48,7 +48,10 @@ RPM database. The icon theme's 683 payload paths are under `/usr/share/icons/`
 and `/usr/share/licenses/`; wallpaper paths are under `/usr/share/backgrounds/cosmic`
 and `/usr/share/licenses/`. Neither package has package scriptlets or native
 executable/library payload. The icon theme's ordinary dependency is
-`pop-icon-theme`, resolved from EL9; wallpapers require only RPM capabilities.
+`pop-icon-theme`, resolved from the native EL9 COSMIC repository; wallpapers
+require only RPM capabilities. The asset step enables that EL9 repository before
+its transaction, because the ordinary Alma COSMIC layer runs later. Qualification
+must begin without that repository already configured to catch ordering failures.
 
 Build checks require both packages to be noarch, reject package scriptlets and
 payload paths outside the data directories, and require an installed icon theme

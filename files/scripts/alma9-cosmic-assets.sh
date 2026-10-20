@@ -8,6 +8,9 @@ arch="$(uname -m)"
 case "$arch" in x86_64|aarch64) ;; *) echo "Unsupported COSMIC asset architecture: $arch" >&2; exit 1 ;; esac
 repo=current-el9-cosmic-assets
 base=https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic
+# Resolve ordinary dependencies (notably pop-icon-theme) from native EL9.
+# This step runs before alma/cosmic.yml's normal repository setup.
+dnf -y copr enable ligenix/enterprise-cosmic "epel-9-${arch}"
 dnf -y --setopt=install_weak_deps=False \
   --repofrompath="${repo},${base}/rhel+epel-10-${arch}/" \
   --setopt="${repo}.includepkgs=cosmic-icon-theme,cosmic-wallpapers" \
