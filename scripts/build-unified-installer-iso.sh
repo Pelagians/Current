@@ -9,7 +9,7 @@ OUTPUT="${CURRENT_INSTALLER_OUTPUT_DIR:-$REPO_ROOT/output/installer/unified/$ARC
 PODMAN="${PODMAN:-podman}"
 SUDO="${SUDO-sudo}"
 COSIGN="${COSIGN:-cosign}"
-run_root() { if [[ -n "$SUDO" ]]; then "$SUDO" "$@"; else "$@"; fi; }
+run_root() { if [[ -n "$SUDO" ]]; then "$SUDO" env -u XDG_RUNTIME_DIR -u REGISTRY_AUTH_FILE "$@"; else "$@"; fi; }
 case "$ARCH" in x86_64) OCI_ARCH=amd64 ;; aarch64) OCI_ARCH=arm64 ;; *) echo 'Unsupported architecture' >&2; exit 1 ;; esac
 [[ "$(uname -m)" = "$ARCH" ]] || { echo 'Use a native builder for the requested architecture' >&2; exit 1; }
 [[ "$PAYLOAD" =~ ^ghcr\.io/pelagians/current-bootstrap[-a-z0-9_]*@sha256:[a-f0-9]{64}$ ]] || { echo 'Payload must be a pinned Current bootstrap' >&2; exit 1; }

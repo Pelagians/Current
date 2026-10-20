@@ -4,26 +4,6 @@ set -euo pipefail
 [[ "$CURRENT_PAYLOAD_REF" =~ ^ghcr\.io/pelagians/current-bootstrap[-a-z0-9_]*@sha256:[a-f0-9]{64}$ ]] || {
   echo 'Expected an immutable Current bootstrap reference' >&2; exit 1;
 }
-case "$(uname -m)" in
-  x86_64) suffix=x64 ;;
-  aarch64) suffix=aa64 ;;
-  *) exit 1 ;;
-esac
-mkdir -p /boot/efi/EFI/fedora
-# Reuse the Alma installer's fail-closed restoration contract with native assets.
-for name in "shim${suffix}.efi" "mm${suffix}.efi" "gcd${suffix}.efi"; do
-  destination="/boot/efi/EFI/fedora/$name"
-  if [[ ! -s "$destination" ]]; then
-    for source in /usr/lib/bootupd/updates/EFI/fedora/"$name" /usr/lib/efi/*/*/EFI/fedora/"$name"; do
-      if [[ -s "$source" ]]; then
-        cp --preserve=mode,timestamps "$source" "$destination"
-        break
-      fi
-    done
-  fi
-  test -s "$destination"
-done
-test -s /usr/share/grub/unicode.pf2
 sed -i "s|@PAYLOAD@|$CURRENT_PAYLOAD_REF|g" /usr/share/anaconda/interactive-defaults.ks
 mkdir -p /etc/anaconda/conf.d
 cat > /etc/anaconda/conf.d/99-current.conf <<'CONFIG'

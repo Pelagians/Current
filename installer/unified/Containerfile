@@ -14,7 +14,8 @@ RUN case "$(uname -m)" in \
       plymouth default-fonts-core-sans default-fonts-other-sans \
       grub2-tools-extra grub2-common efibootmgr $efi \
       podman xorriso squashfs-tools isomd5sum python3 jq shadow-utils && dnf clean all
+COPY installer/alma10-server/prepare-efi.sh /tmp/prepare-efi.sh
 COPY installer/unified/prepare-runtime.sh /tmp/prepare-runtime.sh
 COPY installer/unified/iso.yaml /usr/lib/image-builder/bootc/iso.yaml
 COPY installer/unified/interactive-defaults.ks /usr/share/anaconda/interactive-defaults.ks
-RUN bash /tmp/prepare-runtime.sh && rm /tmp/prepare-runtime.sh
+RUN bash /tmp/prepare-efi.sh / fedora "$(uname -m)" && bash /tmp/prepare-runtime.sh && rm /tmp/prepare-efi.sh /tmp/prepare-runtime.sh

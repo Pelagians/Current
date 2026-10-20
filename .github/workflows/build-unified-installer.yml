@@ -10,6 +10,7 @@ on:
       - files/base/runtime/usr/share/current/image-matrix.tsv
       - recipes/bootstrap.yml
       - recipes/layers/shared/setup.yml
+      - installer/alma10-server/prepare-efi.sh
       - installer/unified/**
       - scripts/bootstrap-build.py
       - scripts/build-unified-installer-iso.sh
@@ -19,6 +20,7 @@ on:
       - files/setup/**
       - files/bootstrap/**
       - recipes/bootstrap.yml
+      - installer/alma10-server/prepare-efi.sh
       - installer/unified/**
       - scripts/bootstrap-build.py
       - scripts/build-unified-installer-iso.sh
@@ -60,7 +62,9 @@ jobs:
         id: prepare
         env:
           ARCHITECTURE: ${{ matrix.architecture }}
-        run: echo "recipe=$(python3 scripts/bootstrap-build.py prepare "$ARCHITECTURE")" >> "$GITHUB_OUTPUT"
+        run: |
+          recipe="$(python3 scripts/bootstrap-build.py prepare "$ARCHITECTURE")"
+          printf 'recipe=%s\n' "$recipe" >> "$GITHUB_OUTPUT"
       - uses: blue-build/github-action@v1.13
         with:
           recipe: ${{ steps.prepare.outputs.recipe }}
@@ -79,10 +83,12 @@ jobs:
         env:
           ARCHITECTURE: ${{ matrix.architecture }}
           REGISTRY_TOKEN: ${{ github.token }}
+          REGISTRY_AUTH_FILE: ${{ runner.temp }}/current-installer-auth.json
         run: |
-          printf '%s' "$REGISTRY_TOKEN" | skopeo login ghcr.io -u '${{ github.actor }}' --password-stdin
-          printf '%s' "$REGISTRY_TOKEN" | sudo podman login ghcr.io -u '${{ github.actor }}' --password-stdin
-          echo "CURRENT_INSTALLER_PAYLOAD_REF=$(python3 scripts/bootstrap-build.py resolve "$ARCHITECTURE")" >> "$GITHUB_ENV"
+          printf '%s' "$REGISTRY_TOKEN" | skopeo login --authfile "$REGISTRY_AUTH_FILE" ghcr.io -u '${{ github.actor }}' --password-stdin
+          printf '%s' "$REGISTRY_TOKEN" | sudo env -u XDG_RUNTIME_DIR -u REGISTRY_AUTH_FILE podman login ghcr.io -u '${{ github.actor }}' --password-stdin
+          payload="$(python3 scripts/bootstrap-build.py resolve "$ARCHITECTURE")"
+          printf 'CURRENT_INSTALLER_PAYLOAD_REF=%s\n' "$payload" >> "$GITHUB_ENV"
       - name: Build native experimental ISO
         env:
           CURRENT_INSTALLER_ARCH: ${{ matrix.architecture }}

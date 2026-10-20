@@ -1,5 +1,9 @@
 # Choose An Image
 
+The experimental [first-boot setup wizard](setup.md) applies hardware constraints
+to this same inventory and explains its recommendation. Unknown hardware and
+unqualified transitions are explicitly disclosed.
+
 Current is an image ecosystem. Choose the image that best matches the machine's hardware and workflow.
 
 Public image names follow this technical grammar:

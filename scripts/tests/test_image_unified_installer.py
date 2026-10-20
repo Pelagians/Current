@@ -132,5 +132,33 @@ fi''',
         self.assertIn('default_file_system = xfs', runtime)
 
 
+class NativeEFI(unittest.TestCase):
+    def test_fedora_assets_for_each_architecture_and_missing_asset(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            font = root / 'usr/share/grub/unicode.pf2'
+            font.parent.mkdir(parents=True)
+            font.write_text('font')
+            for arch, suffix in [('x86_64', 'x64'), ('aarch64', 'aa64')]:
+                destination = root / 'boot/efi/EFI/fedora'
+                updates = root / 'usr/lib/bootupd/updates/EFI/fedora'
+                package = root / 'usr/lib/efi/shim/test/EFI/fedora'
+                updates.mkdir(parents=True, exist_ok=True)
+                package.mkdir(parents=True, exist_ok=True)
+                names = [f'shim{suffix}.efi', f'mm{suffix}.efi', f'gcd{suffix}.efi']
+                for name in names:
+                    ((package if name.startswith('shim') else updates) / name).write_text(name)
+                args = ['bash', str(ROOT / 'installer/alma10-server/prepare-efi.sh'), str(root), 'fedora', arch]
+                result = subprocess.run(args, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                for name in names:
+                    self.assertEqual((destination / name).read_text(), name)
+                (destination / names[2]).unlink()
+                (updates / names[2]).unlink()
+                (updates / f'grub{suffix}.efi').write_text('not CD boot')
+                result = subprocess.run(args, capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+
+
 if __name__ == '__main__':
     unittest.main()

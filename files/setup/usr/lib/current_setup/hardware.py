@@ -132,7 +132,7 @@ def recommend(hardware, rows, compatibility, distribution='auto', role='server',
         if row['driver'] == 'standard' and nvidia:
             notes.append('Standard fallback does not promise NVIDIA acceleration or a working graphical login.')
         candidates.append(dict(row, reference=f"ghcr.io/pelagians/{row['image']}:latest",
-                               compatibility='experimental', boot_qualified=False, driver_qualified=False,
+                               compatibility='experimental', build_status='inventory-only', boot_qualified=False, driver_qualified=False,
                                warnings=notes, reasons=['Matches native architecture and requested role/desktop',
                                'CPU and known GPU constraints passed; this is not a boot or rendering test']))
     # Prefer staying on Fedora during initial qualification, then open, R580, standard.

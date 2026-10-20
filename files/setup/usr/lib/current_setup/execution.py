@@ -32,6 +32,8 @@ def status(run=command):
     value = json.loads(run(['bootc', 'status', '--json']))
     if not isinstance(value.get('status'), dict) or not value['status'].get('booted'):
         raise SetupError('No booted bootc deployment found; refusing to stage')
+    if value['status'].get('readOnly'):
+        raise SetupError('Read-only bootc host cannot be configured')
     if value['status']['booted'].get('incompatible'):
         raise SetupError('Booted deployment has incompatible local changes')
     return dict(value['status'], bootOrder=value.get('spec', {}).get('bootOrder', 'default'))
@@ -177,6 +179,10 @@ def stage(store, candidate, hardware, run=command, policy_check=check_policy, bo
         boot_id = boot_id or Path('/proc/sys/kernel/random/boot_id').read_text().strip()
         state = store.save(state, 'image-selected', target=target, digest=digest, revision=revision,
                            stage_boot_id=boot_id)
+        latest = status(run)
+        if (latest.get('staged') or latest.get('rollbackQueued') or latest.get('bootOrder') == 'rollback'
+                or latest['booted'] != state['source']):
+            raise SetupError('Deployment changed during validation; inspect bootc status before retry')
         run(['bootc', 'switch', '--enforce-container-sigpolicy', '--retain', target], timeout=7200)
         if not matches(status(run).get('staged'), state):
             raise SetupError('bootc returned success without the expected staged deployment')

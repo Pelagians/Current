@@ -281,6 +281,36 @@ class Transactions(unittest.TestCase):
         with self.assertRaises(ex.SetupError):
             self.stage()
 
+    def test_pending_rollback_readonly_and_changed_deployment_fail_closed(self):
+        for flag in ('rollbackQueued', 'readOnly'):
+            self.run.current[flag] = True
+            with self.assertRaises(ex.SetupError):
+                self.stage()
+            self.run.current.pop(flag)
+        original = self.run
+        def changed(args, timeout=60):
+            result = original(args, timeout)
+            if args[0] == 'skopeo' and '--raw' not in args:
+                original.current['staged'] = slot('another-update', DIGEST)
+            return result
+        self.run = changed
+        with self.assertRaisesRegex(ex.SetupError, 'changed during validation'):
+            self.stage()
+        self.assertFalse(any(call[:2] == ['bootc', 'switch'] for call in original.calls))
+
+    def test_interrupted_switch_can_resume(self):
+        original = self.run
+        def interrupt(args, timeout=60):
+            output = original(args, timeout)
+            if args[:2] == ['bootc', 'switch']:
+                raise KeyboardInterrupt
+            return output
+        self.run = interrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.stage()
+        self.assertEqual(self.store.load()['phase'], 'recovery-required')
+        self.assertEqual(ex.reconcile(self.store, original, 'boot-one')['phase'], 'image-staged')
+
     def test_store_lock_corruption_and_private_atomic_state(self):
         with self.store.locked():
             with self.assertRaises(ex.SetupError), ex.Store(self.store.directory).locked():
@@ -332,6 +362,56 @@ class Frontend(unittest.TestCase):
         self.assertIn('ConditionPathExists=/var/lib/current/setup/state.json', service.read_text())
         self.assertTrue((service.parent / 'multi-user.target.wants' / service.name).is_symlink())
         self.assertFalse((ROOT / 'files/bootstrap/etc/systemd/system/default.target').exists())
+
+
+class ConsoleIntegration(unittest.TestCase):
+    def test_profile_authenticates_local_admin_and_preserves_ssh(self):
+        import pty
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker = root / 'bootstrap'
+            marker.touch()
+            log = root / 'log'
+            binary = root / 'bin'
+            binary.mkdir()
+            for name, body in {
+                'tty': 'echo "${MOCK_TTY:-/dev/tty1}"',
+                'id': 'if [ "$1" = -u ]; then echo 1000; else echo "user wheel"; fi',
+                'sudo': 'echo authenticated >> "$MOCK_LOG"',
+            }.items():
+                tool = binary / name
+                tool.write_text('#!/bin/sh\n' + body + '\n')
+                tool.chmod(0o755)
+            source = (ROOT / 'files/bootstrap/etc/profile.d/current-setup.sh').read_text()
+            profile = root / 'profile.sh'
+            profile.write_text(source.replace('/usr/share/current/bootstrap', str(marker)))
+            env = dict(os.environ, PATH=str(binary) + ':' + os.environ['PATH'], MOCK_LOG=str(log))
+            master, slave = pty.openpty()
+            try:
+                for ssh, tty, expected in [('', '/dev/tty1', True), ('host', '/dev/tty1', False),
+                                           ('', '/dev/pts/1', False), ('', '/dev/ttyAMA0', True)]:
+                    log.unlink(missing_ok=True)
+                    result = subprocess.run(['bash', '--noprofile', '--norc', '-ic', 'source "$1"', 'bash', str(profile)],
+                                            stdin=slave, capture_output=True, text=True,
+                                            env=dict(env, SSH_CONNECTION=ssh, MOCK_TTY=tty))
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(log.exists(), expected)
+                marker.unlink()
+                log.unlink(missing_ok=True)
+                subprocess.run(['bash', '--noprofile', '--norc', '-ic', 'source "$1"', 'bash', str(profile)],
+                               stdin=slave, capture_output=True, env=env)
+                self.assertFalse(log.exists())
+            finally:
+                os.close(master)
+                os.close(slave)
+
+    def test_native_systemd_unit_has_no_dependency_cycle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = ROOT / 'files/setup/usr/lib/systemd/system/current-setup-reconcile.service'
+            unit = Path(directory) / source.name
+            unit.write_text(source.read_text().replace('/usr/libexec/current-setup reconcile', '/usr/bin/true'))
+            result = subprocess.run(['systemd-analyze', 'verify', str(unit)], text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == '__main__':
