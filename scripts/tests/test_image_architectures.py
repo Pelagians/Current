@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Verify architecture filtering and the actual rebase shell with safe stubs."""
 import csv
-import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -12,9 +11,8 @@ from unittest.mock import patch
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("image_matrix", ROOT / "scripts/render-image-matrix.py")
-matrix = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(matrix)
+sys.path.insert(0, str(ROOT / 'scripts'))
+import image_matrix as matrix
 
 
 class Architectures(unittest.TestCase):

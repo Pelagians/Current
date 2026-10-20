@@ -48,7 +48,7 @@ bash ./scripts/validate-image-matrix.sh
 If you touch Alma 9 NVIDIA legacy logic and have the tooling available:
 
 ```bash
-pwsh ./scripts/verify-alma9-nvidia-580.ps1
+python3 ./scripts/verify_alma9_nvidia_580.py
 ```
 
 More detail lives in [docs/maintainers/validation.md](docs/maintainers/validation.md).

@@ -2,7 +2,6 @@
 """Stage native BlueBuild images, then publish verified, signed OCI indexes."""
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -12,9 +11,7 @@ import sys
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent.parent
-spec = importlib.util.spec_from_file_location('image_matrix', ROOT / 'scripts/render-image-matrix.py')
-matrix = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(matrix)
+import image_matrix as matrix
 OCI_ARCH = {'x86_64': 'amd64', 'aarch64': 'arm64'}
 
 

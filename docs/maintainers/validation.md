@@ -61,3 +61,22 @@ checked. A historical spelling in a fixture must not make validation pass or fai
 
 CI intentionally runs both branch-head and PR-merge candidates. Branch tags remain
 published; PR tags identify merge candidates. See [image publishing](image-publishing.md).
+
+## Build-side contracts
+
+`scripts/image_matrix.py` owns TSV validation and recursive recipe includes.
+The renderer CLI, index publisher, composition validator and Alma 9 NVIDIA
+preflight use it. `validate_image_recipes.py` checks composition; the shell
+entrypoint also checks CI wiring and invokes image regression discovery.
+
+CI runs the live Alma 9 R580 package preflight separately:
+
+```bash
+python3 scripts/verify_alma9_nvidia_580.py
+```
+
+It requires Podman or Docker and network access, uses the Alma 9 bootc container,
+and resolves server and workstation transactions with DNF `--assumeno`. It
+rejects resolver errors and DKMS providers, requires prebuilt kmods, and retries
+only transient container failures, at most three attempts. Unit fixtures cover
+the parser and retry policy without contacting package repositories.

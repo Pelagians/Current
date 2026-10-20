@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'scripts'))
 spec = importlib.util.spec_from_file_location('publication', ROOT / 'scripts/publish-image-index.py')
 pub = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pub)
