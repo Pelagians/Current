@@ -9,11 +9,8 @@ modules:
         - cifs-utils
         - cryptsetup
         - dracut-network
-        - ethtool
         - firewalld
         - flatseal
-        - iproute-tc
-        - iptables
         - kernel-tools
         - lsof
         - mdadm
@@ -27,7 +24,6 @@ modules:
         - rdma-core
         - rsyslog
         - smartmontools
-        - socat
         - sos
         - strace
         - tcpdump

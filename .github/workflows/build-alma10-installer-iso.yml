@@ -12,7 +12,6 @@ on:
       - installer/alma10-server/**
       - scripts/build-alma10-installer-iso.sh
       - .github/workflows/build-alma10-installer-iso.yml
-      - iso.toml
 
 permissions:
   contents: read

@@ -1,6 +1,6 @@
 # Runtime Contracts
 
-The purpose of the refactor is to keep layer ownership explicit while simplifying the public image model.
+These contracts define the owners of shared behavior and the safeguards that changes must preserve. See [image architecture](image-architecture.md) for assembly and manifest details.
 
 ## Cross-distro core contract
 
@@ -30,15 +30,15 @@ ROCm userspace is not a universal cross-image promise. It belongs to the platfor
 ## Distro core deltas
 
 - `recipes/layers/alma/core.yml` owns Alma-family repository setup such as EPEL/CRB enablement and subscription-manager cleanup.
-- `recipes/layers/fedora/core.yml` owns the Fedora edge-lane delta such as `dnf5-plugins`, Fedora-native ROCm packages, and Fedora-specific package drift.
+- `recipes/layers/fedora/core.yml` owns the Fedora edge-lane delta such as `dnf5-plugins` and Fedora-specific package drift.
 - `recipes/layers/alma9/core.yml` and `recipes/layers/alma10/core.yml` own only the remaining Alma-version drift that does not belong in the shared Alma-family layer.
-- `recipes/layers/alma10/core.yml` may carry ROCm-related Alma 10 enablement when that support belongs to the Alma 10 lane rather than the cross-distro contract.
+- `recipes/layers/alma10/rocm.yml` and `recipes/layers/fedora/rocm.yml` own their architecture-guarded ROCm transactions.
 
 ## Feature overlays and shared remainder
 
 `recipes/layers/features/cockpit.yml` owns the Cockpit admin surface.
 
-`recipes/layers/features/ceph.yml` owns the shared Ceph host prerequisites.
+`recipes/layers/features/ceph.yml` owns common Ceph runtime payloads on every image. `features/ceph-host.yml` owns the shared server-only kernel/LVM package transaction.
 
 `recipes/layers/features/k3s.yml` owns shared k3s runtime capability.
 
@@ -50,7 +50,7 @@ ROCm userspace is not a universal cross-image promise. It belongs to the platfor
 
 `recipes/layers/shared/core.yml` owns the remaining host/operator package baseline:
 
-- fastfetch, fzf, zstd, gcc, distrobox, and podman-compose
+- fastfetch, fzf, zstd, gcc, distrobox, podman-compose, and image-time Distrobox helper links (created after the package install)
 - inclusion of Cockpit and Ceph feature overlays
 
 ## Flatpak contract
@@ -97,7 +97,7 @@ It should stay small and delegate real ownership to explicit sublayers:
 - `workstation-substrate.yml`: shared desktop, hardware, audio, printing, scanning, camera, input, language, and base workstation packages
 - `workstation-admin-tools.yml`: workstation-only diagnostics, storage, network, and admin utilities
 - `workstation-policy.yml`: graphical target, display-manager reconciliation, and workstation sleep policy
-- `workstation-user-tools.yml`: opinionated user-facing workstation tooling such as Homebrew and Brave Origin Beta
+- `workstation-user-tools.yml`: opinionated user-facing workstation tooling such as Homebrew and Brave Origin
 
 `recipes/layers/shared/workstation-modern.yml` owns the extra workstation delta shared by the Alma 10 and Fedora lanes.
 

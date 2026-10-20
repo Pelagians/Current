@@ -12,7 +12,7 @@ modules:
   - from-file: layers/shared/core.yml
   - from-file: layers/fedora/core.yml
   - from-file: layers/fedora/rocm.yml
-  - from-file: layers/fedora/ceph-host.yml
+  - from-file: layers/features/ceph-host.yml
   - from-file: layers/fedora/nvidia-580.yml
   - type: initramfs
   - type: signing

@@ -24,7 +24,7 @@ Current publishes workstation and server images across three platform lanes:
 
 - `fedora`: edge lane for newer userspace and hardware enablement, including akmod-built NVIDIA 580 images
 - `alma10`: stable AlmaLinux lane
-- `alma9`: NVIDIA 580 compatibility lane
+- `alma9`: standard and NVIDIA open lanes on both CPUs, plus x64 NVIDIA 580 compatibility
 
 Workstation environments:
 

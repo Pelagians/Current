@@ -12,11 +12,7 @@ alma_core = root / 'recipes/layers/alma/core.yml'
 k3s_feature = root / 'recipes/layers/features/k3s.yml'
 ceph_feature = root / 'recipes/layers/features/ceph.yml'
 cockpit_feature = root / 'recipes/layers/features/cockpit.yml'
-platform_ceph_layers = {
-    'alma9': root / 'recipes/layers/alma9/ceph-host.yml',
-    'alma10': root / 'recipes/layers/alma10/ceph-host.yml',
-    'fedora': root / 'recipes/layers/fedora/ceph-host.yml',
-}
+ceph_host = root / 'recipes/layers/features/ceph-host.yml'
 nvidia_base = root / 'recipes/layers/shared/nvidia-base.yml'
 alma9_nvidia_workstation = root / 'recipes/layers/alma9/nvidia-workstation.yml'
 fedora_nvidia_580 = root / 'recipes/layers/fedora/nvidia-580.yml'
@@ -131,25 +127,8 @@ for row in rows:
     if graph.count(ceph_feature) != 1:
         die(f"Image {row['image']} must include features/ceph.yml exactly once")
 
-    expected_platform_ceph = platform_ceph_layers.get(row['platform'])
-    if expected_platform_ceph is None:
-        die(f"No ceph-host validation mapping exists for platform {row['platform']}")
-
-    expected_platform_ceph_count = graph.count(expected_platform_ceph)
-    unexpected_platform_ceph = {
-        path.relative_to(root).as_posix(): graph.count(path)
-        for path in platform_ceph_layers.values()
-        if path != expected_platform_ceph and graph.count(path) != 0
-    }
-
-    if row['role'] == 'server':
-        if expected_platform_ceph_count != 1:
-            die(f"Server image {row['image']} must include {expected_platform_ceph.relative_to(root)} exactly once")
-        if unexpected_platform_ceph:
-            die(f"Server image {row['image']} must not include non-matching ceph-host layers: {unexpected_platform_ceph}")
-    else:
-        if expected_platform_ceph_count != 0 or unexpected_platform_ceph:
-            die(f"Workstation image {row['image']} must not include any ceph-host package layers")
+    if graph.count(ceph_host) != int(row['role'] == 'server'):
+        die(f"{row['image']}: include features/ceph-host.yml exactly once on servers and never on workstations")
 
     nvidia_count = graph.count(nvidia_base)
     if row['driver'] == 'standard':
@@ -198,3 +177,8 @@ for label, (pattern, expected) in expected_singletons.items():
 
 if any('cockpit-pcp' in item.read_text(encoding='utf-8') for item in recipe_ymls):
     die('cockpit-pcp must not be layered into Current recipes')
+
+# Distrobox compatibility paths are materialized after the package transaction.
+core_text = shared_core.read_text()
+if not core_text.index('- distrobox\n') < core_text.index('- distrobox-helper-links.sh'):
+    die('Distrobox helper links must follow distrobox installation')

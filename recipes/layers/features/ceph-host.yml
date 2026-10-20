@@ -1,9 +1,13 @@
 ---
 modules:
-  # Shared server-lane Ceph host prerequisites only. The image does not touch,
-  # partition, or mount raw data disks; cluster-time storage orchestration stays
-  # with the in-cluster operator.
-  - type: files
-    files:
-      - source: ceph-host/shared
-        destination: /
+  # Shared package location for Ceph/RBD host kernel modules and LVM
+  # userspace needed by a Ceph operator on storage-capable server nodes.
+  - type: dnf
+    install:
+      install-weak-deps: false
+      packages:
+        - kernel-modules-core
+        - lvm2
+        - device-mapper
+        - device-mapper-event
+        - device-mapper-persistent-data

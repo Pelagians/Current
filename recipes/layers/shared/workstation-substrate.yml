@@ -73,7 +73,6 @@ modules:
         - libcamera-tools
         - libsane-hpaio
         - logrotate
-        - nftables
         - orca
         - pavucontrol
         - pciutils
