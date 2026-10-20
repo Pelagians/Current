@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -uo pipefail
+failed=0
+summary=()
+for category in system user podman firmware; do
+  result=0
+  current "update-$category" || result=$?
+  if [ "$result" -eq 0 ]; then
+    summary+=("$category: OK")
+  else
+    summary+=("$category: FAILED (exit $result)")
+    failed=1
+  fi
+done
+printf '\nCurrent update-all summary:\n\n'
+printf '%s\n' "${summary[@]}"
+exit "$failed"

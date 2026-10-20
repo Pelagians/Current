@@ -96,10 +96,8 @@ fi
             }
             for name, content in scripts.items():
                 script = tmp / name; script.write_text(content); script.chmod(0o755)
-            # Execute the real recipe body; all external effects are stubbed.
-            body = (ROOT / 'files/justfiles/usr/share/current/just/rebase.just').read_text().splitlines()[1:]
-            recipe = tmp / 'picker.sh'
-            recipe.write_text('\n'.join(line.removeprefix('    ') for line in body) + '\n')
+            # Execute the installed helper; all external effects are stubbed.
+            recipe = ROOT / 'files/justfiles/usr/libexec/current-rebase'
             env = dict(os.environ, TEST_ARCH=architecture, TEST_DIR=str(tmp), TEST_MATRIX=str(file),
                        TEST_SELECTION=selected_image or '',
                        PATH=str(tmp) + ':' + os.environ['PATH'])

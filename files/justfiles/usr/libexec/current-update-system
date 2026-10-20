@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -uo pipefail
+flatpak_result=0
+bootc_result=0
+flatpak_stage='skipped (server image without managed Flatpaks)'
+if [[ -f /usr/share/current/workstation/desktop.env || -e /usr/libexec/current-flatpak-system-maintenance ]]; then
+  flatpak_stage=OK
+  sudo /usr/libexec/current-flatpak-system-maintenance update || flatpak_result=$?
+fi
+sudo bootc upgrade || bootc_result=$?
+printf '\nCurrent system update summary:\n\n'
+if [ "$flatpak_result" -eq 0 ]; then
+  printf 'System Flatpaks: %s\n' "$flatpak_stage"
+else
+  printf 'System Flatpaks: FAILED (exit %s)\n' "$flatpak_result"
+fi
+if [ "$bootc_result" -eq 0 ]; then
+  printf 'OS image:        upgrade completed (staged if an update was available)\n'
+  printf 'bootc auto-apply is disabled; reboot during your maintenance window to activate a staged update.\n'
+else
+  printf 'OS image:        FAILED (exit %s)\n' "$bootc_result"
+fi
+if [ "$flatpak_result" -ne 0 ] || [ "$bootc_result" -ne 0 ]; then
+  printf 'Overall result: failure in one or more stages\n'
+  exit 1
+fi

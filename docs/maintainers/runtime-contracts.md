@@ -80,7 +80,7 @@ There is no explicit GL/VAAPI extension warmup: Flatpak transaction metadata sel
 
 Audit sources: [Flatpak policy and helper](https://github.com/flatpak/flatpak/tree/ddcd5c4ebb545a7a1e7225a96bd44256c61ac5cb/system-helper), [Flatpak transaction dependency and pin handling](https://github.com/flatpak/flatpak/blob/ddcd5c4ebb545a7a1e7225a96bd44256c61ac5cb/common/flatpak-transaction.c), [BlueBuild default-flatpaks v2](https://github.com/blue-build/modules/tree/7d51cca7502a41ef4fd05ad75ff9702f2ef8d147/modules/default-flatpaks/v2/post-boot), and [polkit rule ordering](https://polkit.pages.freedesktop.org/polkit/polkit.8.html). The upstream action set includes `update-remote` and both parental-control overrides; `DeployAppstream` is a D-Bus method, not an allowed polkit action ID.
 
-Behavior tests run through `scripts/validate-runtime-artifacts.sh` using Python 3, Bash, flock, and Node.js. They model runtime branch migration and pin/dependency retention, exercise signal restoration and lock contention, and execute rule decisions and extracted Justfile shell bodies. These are deterministic mocks, not proof of real Flatpak dependency resolution or a running polkit daemon. Image smoke tests must check the installed Flatpak version/action policy, complete distro/local rule ordering, authentication prompts, BlueBuild/systemd stop behavior, GNOME/KDE branch transitions, and actual graphics extensions. Administrators can override image policy with earlier local rules; inspect both `/etc/polkit-1/rules.d` and `/usr/share/polkit-1/rules.d` in basename order.
+Behavior tests run through `scripts/validate-runtime-artifacts.sh` using Python 3, Bash, flock, and Node.js. They model runtime branch migration and pin/dependency retention, exercise signal restoration and lock contention, and execute rule decisions and the installed command helpers. These are deterministic mocks, not proof of real Flatpak dependency resolution or a running polkit daemon. Image smoke tests must check the installed Flatpak version/action policy, complete distro/local rule ordering, authentication prompts, BlueBuild/systemd stop behavior, GNOME/KDE branch transitions, and actual graphics extensions. Administrators can override image policy with earlier local rules; inspect both `/etc/polkit-1/rules.d` and `/usr/share/polkit-1/rules.d` in basename order.
 
 `recipes/layers/shared/flatpak-gnome.yml` and `recipes/layers/shared/flatpak-cosmic.yml` own desktop portal backend selection and environment-specific Flatpak remotes/apps.
 
@@ -124,3 +124,24 @@ GNOME and COSMIC are workstation-environment implementations.
 ## Current namespace
 
 `current` is the only project command wrapper. Justfile command payloads live under `/usr/share/current/just`. Runtime data payloads live under `/usr/share/current`. New scripts and workflows use `CURRENT_*` environment variables.
+
+## Command implementation
+
+`files/justfiles/usr/local/bin/current` preserves the public Just command surface.
+The larger update/rebase recipes delegate to ordinary executable helpers under
+`files/justfiles/usr/libexec/`. Build-only download and NVIDIA transactions live
+under `files/scripts/` and are mounted into the build, not installed as runtime
+commands. Tests execute those scripts or named Bash functions with isolated
+paths and command stubs.
+
+System updates attempt managed Flatpak maintenance when the immutable workstation
+marker or the helper is present. A server without either skips that stage; bootc
+still runs independently, and any attempted stage failure remains in the final
+status. Workstations with a missing helper fail visibly. User updates require
+Flatpak on workstations and also update it on servers where it is available.
+The immutable workstation marker controls Homebrew eligibility.
+
+The explicit Podman credential-file fallback and rootless Distrobox mount repair
+remain until cross-lane and retained-container tests qualify their removal.
+Image-time Distrobox helper links are created and checked after installation;
+existing executable compatibility helpers are preserved.

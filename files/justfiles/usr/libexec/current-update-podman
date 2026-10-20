@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+authfile=""
+if [ -n "${REGISTRY_AUTH_FILE:-}" ] && [ -r "${REGISTRY_AUTH_FILE}" ]; then
+  authfile="${REGISTRY_AUTH_FILE}"
+elif [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -r "${XDG_RUNTIME_DIR}/containers/auth.json" ]; then
+  authfile="${XDG_RUNTIME_DIR}/containers/auth.json"
+elif [ -r "${HOME}/.config/containers/auth.json" ]; then
+  authfile="${HOME}/.config/containers/auth.json"
+elif [ -r "${HOME}/.docker/config.json" ]; then
+  authfile="${HOME}/.docker/config.json"
+fi
+
+podman image prune -f
+if [ -n "$authfile" ]; then
+  printf "Using registry credentials from %s\n" "$authfile"
+  podman auto-update --authfile "$authfile"
+else
+  echo "No registry auth file found; running podman auto-update without --authfile."
+  podman auto-update
+fi

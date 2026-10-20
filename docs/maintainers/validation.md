@@ -22,13 +22,13 @@ Workstation regression checks run automatically through the runtime validator:
 python3 scripts/tests/test_runtime_workstation_dm.py
 ```
 
-They use temporary roots, real offline `systemctl`, and native systemd dependency
+The reconciliation cases use temporary roots, real offline `systemctl`, and native systemd dependency
 verification. They never start/stop the runner's display manager. Workstation
 image layers also call the installed helper's `--check gnome|cosmic` mode to
 validate native service/config/session and helper/generator/service contracts.
 Booted tests remain required by [workstation rebase qualification](workstation-rebase-qualification.md).
 
-Ten architecture tests, eleven publication/CPU-transaction tests and twelve isolated Fedora NVIDIA build regressions run through the image-matrix validator. They check the native
+The image-matrix validator runs architecture, publication/CPU-transaction and isolated Fedora NVIDIA regressions, plus recipe-graph, download, Distrobox link and Alma preflight fixtures. They check the native
 rebase picker, legacy matrix compatibility, explicit platforms, and architecture
 before role in CI. NVIDIA tests execute the actual header selection and module checks with temporary package/network stubs, including signed fallback, wrong package identity, signature rejection matching kernel modules, and retaining CUDA compiler headers during cleanup. Native ARM build/boot qualification is tracked in
 [ARM candidate status](arm-image-lanes.md). Publication fixtures cover missing,
@@ -43,7 +43,7 @@ Flatpak behavior checks are included in the runtime validator and can also run a
 python3 scripts/tests/test_runtime_flatpak.py
 ```
 
-They require Python 3, Bash, Node.js, and util-linux (`flock`/`setsid`). They use temporary mocks, never host Flatpak installations. Run as an ordinary user to exercise the real root-rejection gate; root containers that cannot change UID report that case as skipped. See the Flatpak section of `runtime-contracts.md` for remaining image integration checks.
+The Flatpak tests require Python 3, Bash, Node.js, and util-linux (`flock`/`setsid`). They use temporary mocks, never host Flatpak installations. Run as an ordinary user to exercise the real root-rejection gate; root containers that cannot change UID report that case as skipped. See the Flatpak section of `runtime-contracts.md` for remaining image integration checks.
 
 ## Test entrypoints
 
@@ -75,8 +75,15 @@ CI runs the live Alma 9 R580 package preflight separately:
 python3 scripts/verify_alma9_nvidia_580.py
 ```
 
-It requires Podman or Docker and network access, uses the Alma 9 bootc container,
+It requires Podman or Docker and network access, explicitly selects the x64 Alma 9 bootc container (a native x64 runner or configured emulation is required),
 and resolves server and workstation transactions with DNF `--assumeno`. It
 rejects resolver errors and DKMS providers, requires prebuilt kmods, and retries
 only transient container failures, at most three attempts. Unit fixtures cover
 the parser and retry policy without contacting package repositories.
+
+Update-helper fixtures cover server/workstation capability handling, independent
+stage failures, credential-file precedence, executable wrapper wiring, and
+retained Distrobox mount repair with an unchanged backup. These are isolated
+fixtures; real retained-container upgrade qualification remains pending.
+Build download fixtures execute both CPU paths with real checksum verification
+and reject invalid checksums/unknown CPUs before installation.

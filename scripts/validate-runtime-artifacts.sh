@@ -15,6 +15,7 @@ bash -n files/flatpak/cleanup/usr/libexec/current-flatpak-system-maintenance
 bash -n files/nvidia/usr/local/libexec/current/current-pcp-nvidia-pmda-apply
 bash -n modules/os-release-meta/os-release-meta.sh
 bash -n files/justfiles/usr/local/bin/current
+for helper in files/justfiles/usr/libexec/current-*; do bash -n "$helper"; done
 bash -n scripts/build-alma10-installer-iso.sh
 
 # Current display branding.
@@ -38,12 +39,12 @@ test ! -e files/justfiles/usr/share/myos
 test -f files/base/runtime/usr/share/current/image-matrix.tsv
 test ! -e files/base/runtime/usr/share/myos
 grep -q 'JUSTFILE="/usr/share/current/just/index.just"' files/justfiles/usr/local/bin/current
-grep -q 'default_matrix_url="https://raw.githubusercontent.com/Pelagians/Current/stable/files/base/runtime/usr/share/current/image-matrix.tsv"' files/justfiles/usr/share/current/just/rebase.just
-grep -q 'CURRENT_IMAGE_MATRIX_URL' files/justfiles/usr/share/current/just/rebase.just
-reject_matches -q 'MYOS_IMAGE_MATRIX_URL' files/justfiles/usr/share/current/just/rebase.just
-grep -q 'CURRENT_REGISTRY_NAMESPACE' files/justfiles/usr/share/current/just/rebase.just
-reject_matches -q 'MYOS_REGISTRY_NAMESPACE' files/justfiles/usr/share/current/just/rebase.just
-grep -q 'ghcr.io/pelagians' files/justfiles/usr/share/current/just/rebase.just
+grep -q 'default_matrix_url="https://raw.githubusercontent.com/Pelagians/Current/stable/files/base/runtime/usr/share/current/image-matrix.tsv"' files/justfiles/usr/libexec/current-rebase
+grep -q 'CURRENT_IMAGE_MATRIX_URL' files/justfiles/usr/libexec/current-rebase
+reject_matches -q 'MYOS_IMAGE_MATRIX_URL' files/justfiles/usr/libexec/current-rebase
+grep -q 'CURRENT_REGISTRY_NAMESPACE' files/justfiles/usr/libexec/current-rebase
+reject_matches -q 'MYOS_REGISTRY_NAMESPACE' files/justfiles/usr/libexec/current-rebase
+grep -q 'ghcr.io/pelagians' files/justfiles/usr/libexec/current-rebase
 grep -q 'current --list' files/justfiles/usr/share/current/just/index.just
 grep -q 'CURRENT_INSTALLER_PAYLOAD_REF' scripts/build-alma10-installer-iso.sh
 reject_matches -q 'MYOS_INSTALLER_PAYLOAD_REF' scripts/build-alma10-installer-iso.sh

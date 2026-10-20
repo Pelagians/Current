@@ -75,13 +75,7 @@ def write_executable(path, content):
 
 
 def recipe(name):
-    lines = RECIPES.read_text().splitlines()
-    start = lines.index(name + ':') + 1
-    body = []
-    for line in lines[start:]:
-        if line and not line.startswith(' '): break
-        if line: body.append(line[4:])
-    return '\n'.join(body) + '\n'
+    return (ROOT / 'files/justfiles/usr/libexec' / ('current-' + name)).read_text()
 
 
 class Transaction(unittest.TestCase):
@@ -297,10 +291,11 @@ case "$1" in
   *) exit 99 ;;
 esac
 ''')
+            (d/'desktop.env').write_text('CURRENT_DESKTOP=gnome\n')
             for fp, bootc in itertools.product([0,7],repeat=2):
                 with self.subTest(flatpak=fp,bootc=bootc):
                     log = d/'calls'; log.write_text('')
-                    r = subprocess.run(['/bin/bash'],input=recipe('update-system'),text=True,capture_output=True,
+                    r = subprocess.run(['/bin/bash'],input=recipe('update-system').replace('/usr/share/current/workstation/desktop.env', str(d/'desktop.env')),text=True,capture_output=True,
                         env=dict(os.environ,PATH=td+':'+os.environ['PATH'],CALL_LOG=str(log),FP_RESULT=str(fp),BOOTC_RESULT=str(bootc)))
                     self.assertEqual(r.returncode,int(bool(fp or bootc)))
                     self.assertEqual(len(log.read_text().splitlines()),2)
@@ -325,7 +320,7 @@ case ",$FAILURES," in *,"$1",*) exit 8 ;; esac
                 self.assertEqual(r.stdout.count('FAILED'),sum(failures))
 
     def test_recipe_syntax(self):
-        for name in ['update-system','update-all','update-user','update-podman','update']:
+        for name in ['update-system','update-all','update-user','update-podman','rebase']:
             r=subprocess.run(['bash','-n'],input=recipe(name),text=True,capture_output=True)
             self.assertEqual(r.returncode,0,r.stderr)
 
