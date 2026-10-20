@@ -68,7 +68,11 @@ fi''',
                 commands = self.log.read_text()
                 self.assertIn('--bootc-default-fs xfs', commands)
                 self.assertIn('bootc-generic-iso', commands)
-                self.assertIn('--bootc-installer-payload-ref', commands)
+                local_source = 'localhost/current-bootstrap-payload:sha256-' + 'a' * 64
+                self.assertIn('--bootc-installer-payload-ref ' + local_source, commands)
+                self.assertIn('tag ' + self.env['CURRENT_INSTALLER_PAYLOAD_REF'] + ' ' + local_source, commands)
+                self.assertIn('--build-arg CURRENT_PAYLOAD_REF=' + self.env['CURRENT_INSTALLER_PAYLOAD_REF'], commands)
+                self.assertIn('--build-arg CURRENT_PAYLOAD_SOURCE=' + local_source, commands)
                 self.assertIn('--seed 42', commands)
                 self.assertLess(commands.index('verify --key'), commands.index('pull --arch'))
                 again = self.run_build()

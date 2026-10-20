@@ -28,19 +28,27 @@ run_root "$PODMAN" pull --arch "$OCI_ARCH" "$BUILDER"
 run_root "$PODMAN" pull --arch "$OCI_ARCH" "$INSTALLER_BASE"
 [[ "$(run_root "$PODMAN" image inspect --format '{{.Architecture}}' "$PAYLOAD")" = "$OCI_ARCH" ]]
 [[ "$(run_root "$PODMAN" image inspect --format '{{index .Labels "containers.bootc"}}' "$PAYLOAD")" = 1 ]]
+# containers-storage may reserialize layers during ISO embedding. A digest
+# destination forbids that; bind a local tag to the already verified image ID.
+PAYLOAD_LOCAL="localhost/current-bootstrap-payload:sha256-${PAYLOAD##*@sha256:}"
+run_root "$PODMAN" tag "$PAYLOAD" "$PAYLOAD_LOCAL"
+[[ "$(run_root "$PODMAN" image inspect --format '{{.Id}}' "$PAYLOAD")" = \
+   "$(run_root "$PODMAN" image inspect --format '{{.Id}}' "$PAYLOAD_LOCAL")" ]]
 INSTALLER="localhost/current-unified-installer:$ARCH"
 run_root "$PODMAN" build --build-arg "CURRENT_PAYLOAD_REF=$PAYLOAD" \
+  --build-arg "CURRENT_PAYLOAD_SOURCE=$PAYLOAD_LOCAL" \
   --build-arg "CURRENT_INSTALLER_BASE=$INSTALLER_BASE" \
   -f "$REPO_ROOT/installer/unified/Containerfile" -t "$INSTALLER" "$REPO_ROOT"
 # Record all inputs before image-builder; failed builds retain their receipt.
 {
   printf 'architecture=%s\npayload=%s\nbuilder=%s\ninstaller_base=%s\n' "$ARCH" "$PAYLOAD" "$BUILDER" "$INSTALLER_BASE"
+  printf 'embedded_source=%s\n' "$PAYLOAD_LOCAL"
   printf 'revision=%s\n' "$(git -C "$REPO_ROOT" rev-parse HEAD)"
   run_root "$PODMAN" image inspect --format '{{.Id}}' "$INSTALLER"
 } > "$OUTPUT/build-inputs.txt"
 run_root "$PODMAN" run --rm --privileged --security-opt label=type:unconfined_t \
   -v "$OUTPUT:/output" -v /var/lib/containers/storage:/var/lib/containers/storage \
-  "$BUILDER" build --bootc-ref "$INSTALLER" --bootc-installer-payload-ref "$PAYLOAD" \
+  "$BUILDER" build --bootc-ref "$INSTALLER" --bootc-installer-payload-ref "$PAYLOAD_LOCAL" \
   --bootc-default-fs xfs --seed 42 --output-dir /output --with-buildlog bootc-generic-iso
 mapfile -t isos < <(find "$OUTPUT" -type f -name '*.iso')
 [[ "${#isos[@]}" = 1 ]] || { echo 'Expected exactly one ISO' >&2; exit 1; }

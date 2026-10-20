@@ -66,6 +66,15 @@ class Store:
             state = json.loads(self.path.read_text())
             if state.get('schema') != 1 or state['phase'] not in PHASES or not isinstance(state['history'], list):
                 raise ValueError('invalid state')
+            if state['phase'] != 'not-configured':
+                if not isinstance(state.get('candidate'), dict) or not isinstance(state.get('source'), dict):
+                    raise ValueError('missing selection/source receipt')
+            if state['phase'] in ('image-staged', 'destination-booted', 'complete'):
+                if (not DIGEST.fullmatch(state.get('digest', '')) or not isinstance(state.get('target'), str)
+                        or not state['target'].endswith('@' + state['digest'])):
+                    raise ValueError('missing destination receipt')
+            if state['phase'] == 'complete' and state.get('accepted_by_user') is not True:
+                raise ValueError('missing completion receipt')
             return state
         except (ValueError, KeyError, TypeError) as error:
             raise SetupError('Setup state is damaged; preserve state.json and inspect recovery documentation') from error

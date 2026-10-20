@@ -4,7 +4,10 @@ set -euo pipefail
 [[ "$CURRENT_PAYLOAD_REF" =~ ^ghcr\.io/pelagians/current-bootstrap[-a-z0-9_]*@sha256:[a-f0-9]{64}$ ]] || {
   echo 'Expected an immutable Current bootstrap reference' >&2; exit 1;
 }
-sed -i "s|@PAYLOAD@|$CURRENT_PAYLOAD_REF|g" /usr/share/anaconda/interactive-defaults.ks
+[[ "$CURRENT_PAYLOAD_SOURCE" = "localhost/current-bootstrap-payload:sha256-${CURRENT_PAYLOAD_REF##*@sha256:}" ]] || {
+  echo 'Embedded source must be bound to the verified target digest' >&2; exit 1;
+}
+sed -i -e "s|@PAYLOAD_SOURCE@|$CURRENT_PAYLOAD_SOURCE|g" -e "s|@PAYLOAD@|$CURRENT_PAYLOAD_REF|g" /usr/share/anaconda/interactive-defaults.ks
 mkdir -p /etc/anaconda/conf.d
 cat > /etc/anaconda/conf.d/99-current.conf <<'CONFIG'
 [Storage]

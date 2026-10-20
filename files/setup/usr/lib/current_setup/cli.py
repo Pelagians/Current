@@ -142,7 +142,9 @@ def main(argv=None):
     parser.add_argument('--role', choices=('server', 'workstation'), default='server')
     parser.add_argument('--desktop', choices=('gnome', 'cosmic'), default='gnome')
     args = parser.parse_args(argv)
-    if not re.fullmatch(r'latest|pr-[0-9]+|br-[A-Za-z0-9_.-]+', args.channel):
+    if args.dry_run and args.mode != 'wizard':
+        parser.error('--dry-run applies only to wizard; plan is already read-only')
+    if len(args.channel) > 128 or not re.fullmatch(r'latest|pr-[0-9]+|br-[A-Za-z0-9_.-]+', args.channel):
         parser.error('Use latest, pr-N or a br-NAME channel')
     read_only = args.mode == 'plan' or (args.mode == 'wizard' and args.dry_run)
     if not read_only and (args.fixture or args.matrix != MATRIX or args.compatibility != COMPATIBILITY):

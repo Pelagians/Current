@@ -318,9 +318,10 @@ class Transactions(unittest.TestCase):
         self.stage()
         self.assertEqual(self.store.path.stat().st_mode & 0o777, 0o600)
         self.assertFalse(list(self.store.directory.glob('.state-*')))
-        self.store.path.write_text('{broken')
-        with self.assertRaises(ex.SetupError):
-            self.store.load()
+        for content in ('{broken', json.dumps({'schema': 1, 'phase': 'complete', 'history': []})):
+            self.store.path.write_text(content)
+            with self.assertRaises(ex.SetupError):
+                self.store.load()
 
     def test_effective_policy_rejects_permissive_more_specific_scope(self):
         key = self.store.directory / 'key.pub'
@@ -351,6 +352,9 @@ class Frontend(unittest.TestCase):
         result = subprocess.run(base + options, env=env, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('restricted to plan and dry-run', result.stderr)
+        result = subprocess.run(base + ['complete', '--dry-run'], env=env, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('--dry-run applies only to wizard', result.stderr)
 
     def test_first_boot_guard_and_destination_vendor_service(self):
         profile = (ROOT / 'files/bootstrap/etc/profile.d/current-setup.sh').read_text()

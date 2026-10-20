@@ -246,3 +246,23 @@ bash scripts/validate-image-matrix.sh
 
 The systemd graph checks need ordinary local socket access; a sandbox denial is
 an environment failure and must not be hidden by skipping the assertion.
+
+### Initial native build evidence
+
+[CI run 39517286831](https://github.com/Pelagians/Current/actions/runs/39517286831)
+built both native bootstraps and passed the isolated runtime/image validators.
+Bootstrap lint passed 11 checks with warnings for runtime-directory, log and
+`/var` tmpfiles content; these are not boot qualification. The ARM installer
+runtime also built with native EFI assets and its Anaconda initramfs.
+
+The first assembly attempt reproduced an upstream containers-storage constraint:
+`Copying this image would require changing layer representation ... Destination
+specifies a digest`. Skopeo cannot reserialize a local destination named by the
+remote compressed-manifest digest. The wrapper now verifies/pulls the immutable
+signed remote artifact first, creates a digest-derived local storage tag, and
+checks that both names resolve to the identical image ID. Only that local name
+is passed for embedding and the Kickstart source. The installed target remains
+the original immutable registry reference. No mutable remote tag is trusted and
+no signature verification is bypassed. The local transport reference and original
+registry target are recorded separately in the build receipt. The subsequent
+native assembly run is required to validate this transport change.
