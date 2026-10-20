@@ -156,10 +156,6 @@ The workstation helper's separate tests are architecture independent.
 
 Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:
 
-- All six ARM recipes passed schema validation and Containerfile generation.
-- After integrating the current `stable` fixes, all 15 expanded ARM candidates
-  passed schema validation and Containerfile generation. Current full builds
-  remain subject to CI; the two full build results below predate that integration.
 - Fedora ARM server and COSMIC workstation full builds passed at `bd9c1978`.
   Their local image IDs are `f3994c0df506` and `3c2ad54c1bd1`, respectively;
   both report OCI architecture `arm64`. They were not pushed.
@@ -186,14 +182,18 @@ Local results on 2026-09-30, using native BlueBuild 0.9.37 and Podman:
   with the restricted Rocky package source and signature checks. Fedora ARM
   open and Alma 9 ARM open/CUDA native dependency solves also completed.
 
-The previous separate-name matrix passed all 45 image builds in
-[CI at b8a80def](https://github.com/Pelagians/Current/actions/runs/36815337245).
-That result predates the shared-recipe/index publishing change. The new publisher
-and native recipe contracts must pass their own full CI before release.
+The shared-recipe/index publisher passed
+[CI at 1a1f3342](https://github.com/Pelagians/Current/actions/runs/36832190649):
+all 45 native builds, five validation/matrix jobs and the publisher succeeded
+(51 jobs). All 24 PR image families were published. Post-publication checks
+verified 24 platform/digest/revision indexes, 45 native/debug references,
+21 ARM compatibility repositories and 90 public-key signatures. Follow-up
+changes require their own CI results; this records the successful baseline.
 
 Before release, install on a
 disposable generic ARM64 bootc machine, and perform fresh server/desktop boots.
 Then perform the [persistent workstation rebase qualification](workstation-rebase-qualification.md)
 on each ARM desktop pair. Record architecture, image digests, bootloader/kernel,
 greeter appearance, successful login, session identity and retained preferences.
-Shared-recipe/index publishing CI and all booted qualification remain pending. Container validation does not establish greeter or login behavior.
+Booted workstation and GPU qualification remain pending. Container and registry
+validation do not establish greeter or login behavior.

@@ -189,5 +189,6 @@ contaminations together, passed idempotence and verified the installed unit grap
 without an ordering cycle. Its Wayland session directory contains only
 `cosmic.desktop`. See [ARM build results](arm-image-lanes.md).
 
-The remaining image builds and visual greeter/login/session checks must be
-attached before claiming the requested rebase convergence is qualified.
+Successful image build/publication results are linked in the ARM build results.
+Booted visual greeter/login/session checks must be attached before claiming the
+requested rebase convergence is qualified.
