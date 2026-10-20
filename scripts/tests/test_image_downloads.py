@@ -81,6 +81,7 @@ printf '#!/bin/sh\\nexit 0\\n' > "linux-$arch/helm"''',
     def test_recipes_mount_the_actual_build_scripts(self):
         for layer, script in (
             ('features/k3s', 'install-k3s'), ('alma/core', 'install-helm'),
+            ('alma9/cosmic-assets', 'alma9-cosmic-assets'),
             ('fedora/nvidia-akmod', 'fedora-nvidia-build'),
             ('fedora/nvidia-workstation', 'fedora-nvidia-workstation')):
             with self.subTest(layer=layer):

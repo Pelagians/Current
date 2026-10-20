@@ -190,6 +190,12 @@ verified 24 platform/digest/revision indexes, 45 native/debug references,
 21 ARM compatibility repositories and 90 public-key signatures. Follow-up
 changes require their own CI results; this records the successful baseline.
 
+The [subsequent cleanup run](https://github.com/Pelagians/Current/actions/runs/39396476017)
+built 40/45 native candidates. All five Alma 9 COSMIC candidates failed because
+the upstream EL9 COPR omitted assets required by its newer desktop packages;
+publication remained gated. The narrowly scoped signed noarch exception and its
+retirement criteria are documented in [Alma drift](alma-drift.md).
+
 Before release, install on a
 disposable generic ARM64 bootc machine, and perform fresh server/desktop boots.
 Then perform the [persistent workstation rebase qualification](workstation-rebase-qualification.md)

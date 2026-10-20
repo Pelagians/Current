@@ -1,0 +1,6 @@
+modules:
+  # Temporary noarch-only source for the missing EL9 COSMIC icons and wallpapers.
+  # See docs/maintainers/alma-drift.md for evidence and retirement criteria.
+  - type: containerfile
+    snippets:
+      - RUN --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,ro /usr/bin/bash /tmp/files/scripts/alma9-cosmic-assets.sh

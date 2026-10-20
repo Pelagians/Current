@@ -86,6 +86,12 @@ for row in rows:
             die(f"{row['image']}: incorrect supplemental ARM package layer {layer}")
         if expected and not graph.index(layer) < graph.index(before):
             die(f"{row['image']}: {layer} must precede {before}")
+    cosmic_assets = root / 'recipes/layers/alma9/cosmic-assets.yml'
+    expected_assets = row['platform'] == 'alma9' and row['environment'] == 'cosmic'
+    if graph.count(cosmic_assets) != int(expected_assets):
+        die(f"{row['image']}: incorrect EL9 COSMIC asset source scope")
+    if expected_assets and not graph.index(cosmic_assets) < graph.index(root / 'recipes/layers/alma/cosmic.yml'):
+        die(f"{row['image']}: install missing assets before COSMIC consumers")
     if row['platform'] in {'alma10', 'fedora'}:
         rocm = root / 'recipes/layers' / row['platform'] / 'rocm.yml'
         if graph.count(rocm) != 1:
