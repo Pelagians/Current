@@ -1,0 +1,98 @@
+name: Build experimental unified installer
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - files/setup/**
+      - files/bootstrap/**
+      - files/scripts/setup-trust-policy.sh
+      - files/base/runtime/usr/share/current/image-matrix.tsv
+      - recipes/bootstrap.yml
+      - recipes/layers/shared/setup.yml
+      - installer/unified/**
+      - scripts/bootstrap-build.py
+      - scripts/build-unified-installer-iso.sh
+      - .github/workflows/build-unified-installer.yml
+  pull_request:
+    paths:
+      - files/setup/**
+      - files/bootstrap/**
+      - recipes/bootstrap.yml
+      - installer/unified/**
+      - scripts/bootstrap-build.py
+      - scripts/build-unified-installer-iso.sh
+      - .github/workflows/build-unified-installer.yml
+
+concurrency:
+  group: unified-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    if: ${{ github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - architecture: aarch64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate setup and installer fixtures
+        run: |
+          python3 -m unittest discover -s scripts/tests -p 'test_runtime_setup.py' -v
+          python3 -m unittest discover -s scripts/tests -p 'test_image_unified_installer.py' -v
+      - name: Prepare isolated bootstrap build
+        id: prepare
+        env:
+          ARCHITECTURE: ${{ matrix.architecture }}
+        run: echo "recipe=$(python3 scripts/bootstrap-build.py prepare "$ARCHITECTURE")" >> "$GITHUB_OUTPUT"
+      - uses: blue-build/github-action@v1.13
+        with:
+          recipe: ${{ steps.prepare.outputs.recipe }}
+          skip_checkout: true
+          build_opts: --platform ${{ matrix.platform }}
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+          maximize_build_space: true
+      - uses: sigstore/cosign-installer@v4.1.2
+      - name: Install ISO tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman skopeo
+      - name: Resolve this run's native bootstrap
+        env:
+          ARCHITECTURE: ${{ matrix.architecture }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | skopeo login ghcr.io -u '${{ github.actor }}' --password-stdin
+          printf '%s' "$REGISTRY_TOKEN" | sudo podman login ghcr.io -u '${{ github.actor }}' --password-stdin
+          echo "CURRENT_INSTALLER_PAYLOAD_REF=$(python3 scripts/bootstrap-build.py resolve "$ARCHITECTURE")" >> "$GITHUB_ENV"
+      - name: Build native experimental ISO
+        env:
+          CURRENT_INSTALLER_ARCH: ${{ matrix.architecture }}
+          CURRENT_INSTALLER_OUTPUT_DIR: ${{ github.workspace }}/output/installer/unified/${{ matrix.architecture }}
+        run: bash scripts/build-unified-installer-iso.sh
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: current-installer-${{ matrix.architecture }}-experimental
+          path: output/installer/unified/${{ matrix.architecture }}/
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0

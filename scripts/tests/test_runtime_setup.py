@@ -179,7 +179,7 @@ class FakeCommands:
                     entries *= 2
                 return json.dumps({'manifests': entries})
             metadata = {'Architecture': 'amd64', 'Os': 'linux', 'Digest': DIGEST,
-                        'Labels': {'containers.bootc': '1', 'org.opencontainers.image.revision': 'c' * 40}}
+                        'Labels': {'containers.bootc': '1', 'io.current.setup-api': '1', 'org.opencontainers.image.revision': 'c' * 40}}
             if self.bad in metadata:
                 metadata[self.bad] = None
             if self.bad == 'Labels':

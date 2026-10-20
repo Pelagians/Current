@@ -1,0 +1,136 @@
+"""Exercise the ISO build wrapper with isolated container, signing and sudo mocks."""
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[2]
+spec = importlib.util.spec_from_file_location('bootstrap_build', ROOT / 'scripts/bootstrap-build.py')
+build = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(build)
+
+
+class UnifiedISO(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.bin = self.root / 'bin'
+        self.bin.mkdir()
+        self.output = self.root / 'output'
+        self.log = self.root / 'commands'
+        self.env = dict(os.environ, PATH=str(self.bin) + ':' + os.environ['PATH'],
+                        CURRENT_INSTALLER_PAYLOAD_REF='ghcr.io/pelagians/current-bootstrap-x86_64@sha256:' + 'a' * 64,
+                        CURRENT_INSTALLER_ARCH='x86_64', CURRENT_INSTALLER_OUTPUT_DIR=str(self.output),
+                        MOCK_LOG=str(self.log))
+        for name, script in {
+            'uname': 'echo "${MOCK_ARCH:-x86_64}"',
+            'sudo': 'if [[ "$1" != chown ]]; then exec "$@"; fi',
+            'cosign': 'echo "$*" >> "$MOCK_LOG"; [[ "${MOCK_VERIFY_FAIL:-0}" = 0 ]]',
+            'podman': '''printf '%s\\n' "$*" >> "$MOCK_LOG"
+if [[ "$1 $2" == 'image inspect' ]]; then
+  case "$4" in
+    *Architecture*) echo "${MOCK_OCI_ARCH:-amd64}" ;;
+    *Labels*) echo 1 ;;
+    *) echo sha256:runtime ;;
+  esac
+elif [[ "$1" == run ]]; then
+  [[ "${MOCK_BUILD_FAIL:-0}" = 0 ]] || exit 1
+  mkdir -p "$CURRENT_INSTALLER_OUTPUT_DIR/bootiso"
+  printf 'fixture ISO' > "$CURRENT_INSTALLER_OUTPUT_DIR/bootiso/install.iso"
+fi''',
+        }.items():
+            path = self.bin / name
+            path.write_text('#!/bin/bash\nset -eu\n' + script + '\n')
+            path.chmod(0o755)
+
+    def run_build(self):
+        return subprocess.run(['bash', str(ROOT / 'scripts/build-unified-installer-iso.sh')],
+                              env=self.env, capture_output=True, text=True)
+
+    def test_native_both_architectures_output_and_checksum(self):
+        for arch, oci in [('x86_64', 'amd64'), ('aarch64', 'arm64')]:
+            with self.subTest(arch=arch):
+                output = self.root / arch
+                self.env.update(CURRENT_INSTALLER_ARCH=arch, MOCK_ARCH=arch, MOCK_OCI_ARCH=oci,
+                                CURRENT_INSTALLER_OUTPUT_DIR=str(output))
+                result = self.run_build()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                iso = output / f'current-installer-{arch}.iso'
+                self.assertTrue(iso.exists())
+                check = subprocess.run(['sha256sum', '-c', iso.name + '.sha256'], cwd=output,
+                                       capture_output=True, text=True)
+                self.assertEqual(check.returncode, 0, check.stderr)
+                commands = self.log.read_text()
+                self.assertIn('--bootc-default-fs xfs', commands)
+                self.assertIn('bootc-generic-iso', commands)
+                self.assertIn('--bootc-installer-payload-ref', commands)
+                self.assertIn('--seed 42', commands)
+                self.assertLess(commands.index('verify --key'), commands.index('pull --arch'))
+                again = self.run_build()
+                self.assertNotEqual(again.returncode, 0)
+                self.assertIn('empty output directory', again.stderr)
+
+    def test_wrong_architecture_or_unpinned_payload_fails_before_commands(self):
+        for overrides in ({'CURRENT_INSTALLER_ARCH': 'aarch64'},
+                          {'CURRENT_INSTALLER_PAYLOAD_REF': 'ghcr.io/pelagians/current-bootstrap:latest'},
+                          {'CURRENT_IMAGE_BUILDER': 'ghcr.io/osbuild/image-builder-cli:latest'}):
+            with self.subTest(overrides=overrides), patch.dict(self.env, overrides):
+                self.assertNotEqual(self.run_build().returncode, 0)
+                self.assertFalse(self.log.exists())
+
+    def test_verification_and_build_errors_do_not_publish_iso(self):
+        for key in ('MOCK_VERIFY_FAIL', 'MOCK_BUILD_FAIL'):
+            self.env.update({key: '1', 'CURRENT_INSTALLER_OUTPUT_DIR': str(self.root / key)})
+            self.assertNotEqual(self.run_build().returncode, 0)
+            self.assertFalse(list((self.root / key).glob('*.iso.sha256')))
+            self.env.pop(key)
+
+    def test_bootstrap_recipe_identity(self):
+        with patch.object(build, 'ROOT', self.root), patch.dict(os.environ,
+                GITHUB_SHA='a' * 40, GITHUB_RUN_ID='123', GITHUB_RUN_ATTEMPT='1'):
+            (self.root / 'recipes').mkdir()
+            (self.root / 'recipes/bootstrap.yml').write_text((ROOT / 'recipes/bootstrap.yml').read_text())
+            for arch in build.ARCHES:
+                relative = build.prepare(arch)
+                text = (self.root / 'recipes' / relative.lstrip('/')).read_text()
+                self.assertIn('name: current-bootstrap-' + arch, text)
+                self.assertIn('org.opencontainers.image.revision: "' + 'a' * 40 + '"', text)
+                self.assertIn('io.current.build: "run-123-1-', text)
+
+    def test_bootstrap_resolution_rejects_wrong_commit(self):
+        raw = json.dumps({'schemaVersion': 2})
+        config = {'architecture': 'amd64', 'os': 'linux', 'config': {'Labels': {
+            'containers.bootc': '1', 'org.opencontainers.image.revision': 'b' * 40,
+            'io.current.build': 'run-123-1-amd64'}}}
+        def run(*args):
+            if args[1] == 'list-tags':
+                return json.dumps({'Tags': ['run-123-1-amd64-44']})
+            return json.dumps(config) if '--config' in args else raw
+        with patch.dict(os.environ, GITHUB_SHA='a' * 40, GITHUB_RUN_ID='123', GITHUB_RUN_ATTEMPT='1'), patch.object(build, 'run', run):
+            with self.assertRaises(ValueError):
+                build.resolve('x86_64')
+            config['config']['Labels']['org.opencontainers.image.revision'] = 'a' * 40
+            self.assertIn('@sha256:', build.resolve('x86_64'))
+
+    def test_payload_is_not_the_installer_runtime(self):
+        recipe = (ROOT / 'recipes/bootstrap.yml').read_text()
+        for unwanted in ('layers/shared/core-base.yml', 'layers/shared/core.yml', 'anaconda', 'cosmic', 'gnome', 'k3s', 'ceph'):
+            self.assertNotIn(unwanted, recipe)
+        containerfile = (ROOT / 'installer/unified/Containerfile').read_text()
+        self.assertIn('FROM ${CURRENT_INSTALLER_BASE}', containerfile)
+        self.assertIn('grub2-efi-aa64-cdboot shim-aa64', containerfile)
+        kickstart = (ROOT / 'installer/unified/interactive-defaults.ks').read_text()
+        for forbidden in ('clearpart', 'autopart', 'zerombr', 'user --', 'rootpw --plaintext'):
+            self.assertNotIn(forbidden, kickstart)
+        self.assertIn('rootpw --lock', kickstart)
+        runtime = (ROOT / 'installer/unified/prepare-runtime.sh').read_text()
+        self.assertIn('default_file_system = xfs', runtime)
+
+
+if __name__ == '__main__':
+    unittest.main()

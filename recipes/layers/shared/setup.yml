@@ -11,4 +11,5 @@ modules:
         destination: /
   - type: containerfile
     snippets:
+      - LABEL io.current.setup-api="1"
       - COPY cosign.pub /usr/share/current/cosign.pub

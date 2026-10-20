@@ -32,7 +32,9 @@ def status(run=command):
     value = json.loads(run(['bootc', 'status', '--json']))
     if not isinstance(value.get('status'), dict) or not value['status'].get('booted'):
         raise SetupError('No booted bootc deployment found; refusing to stage')
-    return value['status']
+    if value['status']['booted'].get('incompatible'):
+        raise SetupError('Booted deployment has incompatible local changes')
+    return dict(value['status'], bootOrder=value.get('spec', {}).get('bootOrder', 'default'))
 
 
 def image(slot):
@@ -134,8 +136,9 @@ def resolve(candidate, run=command):
     labels = metadata.get('Labels') or {}
     if (metadata.get('Architecture') != arch or metadata.get('Os') != 'linux'
             or metadata.get('Digest') != digest or labels.get('containers.bootc') != '1'
+            or labels.get('io.current.setup-api') != '1'
             or not re.fullmatch(r'[0-9a-f]{40}', labels.get('org.opencontainers.image.revision', ''))):
-        raise SetupError('Destination architecture, digest, bootc or revision metadata is invalid')
+        raise SetupError('Destination architecture, digest, bootc, setup-api or revision metadata is invalid; use images built with the setup reconciler')
     return target, digest, labels['org.opencontainers.image.revision']
 
 

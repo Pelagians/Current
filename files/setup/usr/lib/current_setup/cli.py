@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import sys
 
@@ -49,7 +50,10 @@ def review(candidate, hardware):
 def plan(args, preferences):
     hardware = json.loads(args.fixture.read_text()) if args.fixture else hw.discover()
     rows, compatibility = hw.catalogue(args.matrix, args.compatibility)
-    return hw.recommend(hardware, rows, compatibility, **preferences)
+    result = hw.recommend(hardware, rows, compatibility, **preferences)
+    for candidate in result['candidates']:
+        candidate['reference'] = candidate['reference'].rsplit(':', 1)[0] + ':' + args.channel
+    return result
 
 
 def wizard(args, store=None):
@@ -132,10 +136,13 @@ def main(argv=None):
     parser.add_argument('--fixture', type=Path, help='Synthetic hardware JSON; plan/dry-run only')
     parser.add_argument('--matrix', type=Path, default=MATRIX)
     parser.add_argument('--compatibility', type=Path, default=COMPATIBILITY)
+    parser.add_argument('--channel', default='latest', help='Published Current channel, e.g. pr-123 for qualification')
     parser.add_argument('--distribution', choices=('auto', 'fedora', 'alma10', 'alma9'), default='auto')
     parser.add_argument('--role', choices=('server', 'workstation'), default='server')
     parser.add_argument('--desktop', choices=('gnome', 'cosmic'), default='gnome')
     args = parser.parse_args(argv)
+    if not re.fullmatch(r'latest|pr-[0-9]+|br-[A-Za-z0-9_.-]+', args.channel):
+        parser.error('Use latest, pr-N or a br-NAME channel')
     read_only = args.mode == 'plan' or (args.mode == 'wizard' and args.dry_run)
     if not read_only and (args.fixture or args.matrix != MATRIX or args.compatibility != COMPATIBILITY):
         parser.error('Fixture/catalogue overrides are restricted to plan and dry-run')

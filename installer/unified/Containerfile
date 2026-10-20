@@ -1,0 +1,20 @@
+# This image boots Anaconda; none of its installer services or credentials are
+# installed on disk. The separate signed bootstrap is embedded by image-builder.
+ARG CURRENT_INSTALLER_BASE=quay.io/fedora/fedora-bootc:44@sha256:e6fffeed9e9a13ca4d351c1ce4ae2b4a5119fe121268479e247a63a3ba2bfda2
+FROM ${CURRENT_INSTALLER_BASE}
+ARG CURRENT_PAYLOAD_REF
+RUN case "$(uname -m)" in \
+      x86_64) efi='grub2-efi-x64-cdboot shim-x64 grub2-pc-modules' ;; \
+      aarch64) efi='grub2-efi-aa64-cdboot shim-aa64' ;; \
+      *) exit 1 ;; \
+    esac && \
+    dnf install -y --setopt=install_weak_deps=False \
+      anaconda anaconda-install-env-deps anaconda-install-img-deps anaconda-dracut \
+      dracut-config-generic dracut-network NetworkManager net-tools \
+      plymouth default-fonts-core-sans default-fonts-other-sans \
+      grub2-tools-extra grub2-common efibootmgr $efi \
+      podman xorriso squashfs-tools isomd5sum python3 jq shadow-utils && dnf clean all
+COPY installer/unified/prepare-runtime.sh /tmp/prepare-runtime.sh
+COPY installer/unified/iso.yaml /usr/lib/image-builder/bootc/iso.yaml
+COPY installer/unified/interactive-defaults.ks /usr/share/anaconda/interactive-defaults.ks
+RUN bash /tmp/prepare-runtime.sh && rm /tmp/prepare-runtime.sh
