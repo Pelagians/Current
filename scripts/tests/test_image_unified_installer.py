@@ -129,7 +129,8 @@ fi''',
             self.assertNotIn(forbidden, kickstart)
         self.assertIn('rootpw --lock', kickstart)
         runtime = (ROOT / 'installer/unified/prepare-runtime.sh').read_text()
-        self.assertIn('default_file_system = xfs', runtime)
+        self.assertIn('file_system_type = xfs', runtime)
+        self.assertIn('default_scheme = LVM', runtime)
 
 
 class NativeEFI(unittest.TestCase):

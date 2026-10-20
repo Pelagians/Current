@@ -114,6 +114,7 @@ def wizard(args, store=None):
             candidate = next((item for item in fresh['candidates'] if item['image'] == candidate['image']), None)
             if candidate is None:
                 raise SetupError('Hardware/policy changed; restart selection')
+            print('Checking registry metadata and signing policy, then staging the image. This can take several minutes.', flush=True)
             state = stage(store, candidate, fresh['hardware'])
             print('Validated destination staged: ' + state['target'])
             print('Reboot with sudo systemctl reboot when ready. Then run sudo current setup to confirm completion.')

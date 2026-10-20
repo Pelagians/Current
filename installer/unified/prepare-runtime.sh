@@ -8,8 +8,11 @@ sed -i "s|@PAYLOAD@|$CURRENT_PAYLOAD_REF|g" /usr/share/anaconda/interactive-defa
 mkdir -p /etc/anaconda/conf.d
 cat > /etc/anaconda/conf.d/99-current.conf <<'CONFIG'
 [Storage]
-default_file_system = xfs
+file_system_type = xfs
+default_scheme = LVM
 CONFIG
+# Fail at image build if upstream changes the configuration contract.
+python3 -c 'from pyanaconda.core.configuration.storage import StorageSection; assert hasattr(StorageSection, "file_system_type"); assert hasattr(StorageSection, "default_scheme")'
 # Upstream generic ISO Anaconda runtime setup. Credentials are runtime-only.
 echo 'install:x:0:0:root:/root:/usr/libexec/anaconda/run-anaconda' >> /etc/passwd
 echo 'install::14438:0:99999:7:::' >> /etc/shadow
