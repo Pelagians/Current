@@ -118,7 +118,8 @@ GNOME and COSMIC are workstation-environment implementations.
 - `shared/nvidia-open-common.yml` owns the open-driver helper shim.
 - `shared/nvidia-common.yml` and `shared/nvidia-open.yml` own the Alma-family NVIDIA lanes.
 - `fedora/nvidia-open.yml` owns the architecture-specific Fedora open-driver dispatcher on top of the shared NVIDIA layers.
-- `fedora/nvidia-580.yml` selects the proprietary R580 contract; `fedora/nvidia-open.yml` selects NVIDIA CUDA packages on x64 and native Negativo17 open modules on ARM. Both use `fedora/nvidia-akmod.yml` for the exact signed header pair, kernel-preserving transactions, image-time module build, flavour/vermagic verification and cleanup. ARM open CUDA uses Negativo17's `cuda`/`cuda-devel` packages explicitly.
+- `fedora/nvidia-580.yml` selects the proprietary R580 contract; `fedora/nvidia-open.yml` selects NVIDIA CUDA packages on x64 and native Negativo17 open modules on ARM. R580 on both CPUs and ARM open use `fedora/nvidia-akmod.yml` for the exact signed header pair, kernel-preserving transactions, image-time module build, flavour/vermagic verification and cleanup. x64 open skips that akmod transaction. ARM open CUDA uses Negativo17's `cuda`/`cuda-devel` packages explicitly.
+- `fedora/nvidia-workstation.yml` installs the common workstation userspace extras, selecting the R580, x64 open or ARM open repository from the existing variant and native architecture. Temporary Negativo17 repository files are removed after the transaction.
 
 ## Current namespace
 

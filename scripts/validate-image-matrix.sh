@@ -101,7 +101,7 @@ platform_ceph_layers = {
 nvidia_base = root / 'recipes/layers/shared/nvidia-base.yml'
 alma9_nvidia_workstation = root / 'recipes/layers/alma9/nvidia-workstation.yml'
 fedora_nvidia_580 = root / 'recipes/layers/fedora/nvidia-580.yml'
-fedora_nvidia_580_workstation = root / 'recipes/layers/fedora/nvidia-580-workstation.yml'
+fedora_nvidia_workstation = root / 'recipes/layers/fedora/nvidia-workstation.yml'
 shared_nvidia_workstation = root / 'recipes/layers/shared/nvidia-workstation.yml'
 recipe_ymls = sorted((root / 'recipes').rglob('*.yml'))
 alma_only_shared_patterns = {
@@ -282,30 +282,22 @@ for row in rows:
         die(f"Image {row['image']} must not include Alma 9 NVIDIA workstation-only media backend layer")
 
     fedora_nvidia_580_count = graph.count(fedora_nvidia_580)
-    fedora_nvidia_580_workstation_count = graph.count(fedora_nvidia_580_workstation)
     shared_nvidia_workstation_count = graph.count(shared_nvidia_workstation)
     if row['platform'] == 'fedora' and row['driver'] == 'nvidia-580':
         if fedora_nvidia_580_count != 1:
             die(f"Fedora NVIDIA 580 image {row['image']} must include fedora/nvidia-580.yml exactly once")
-        if row['role'] == 'workstation':
-            if fedora_nvidia_580_workstation_count != 1:
-                die(f"Fedora NVIDIA 580 workstation {row['image']} must include fedora/nvidia-580-workstation.yml exactly once")
-            if shared_nvidia_workstation_count != 0:
-                die(f"Fedora NVIDIA 580 workstation {row['image']} must not include shared/nvidia-workstation.yml")
-        elif fedora_nvidia_580_workstation_count != 0:
-            die(f"Fedora NVIDIA 580 server {row['image']} must not include Fedora workstation-only NVIDIA layer")
-    elif fedora_nvidia_580_count != 0 or fedora_nvidia_580_workstation_count != 0:
+    elif fedora_nvidia_580_count != 0:
         die(f"Image {row['image']} must not include Fedora NVIDIA 580 layers")
 
     fedora_open = root / 'recipes/layers/fedora/nvidia-open.yml'
-    fedora_open_workstation = root / 'recipes/layers/fedora/nvidia-open-workstation.yml'
     expected_open = row['platform'] == 'fedora' and row['driver'] == 'nvidia-open'
     if graph.count(fedora_open) != int(expected_open):
         die(f"{row['image']}: incorrect Fedora open-module source dispatcher")
-    if graph.count(fedora_open_workstation) != int(expected_open and row['role'] == 'workstation'):
+    fedora_workstation = row['platform'] == 'fedora' and row['driver'] != 'standard' and row['role'] == 'workstation'
+    if graph.count(fedora_nvidia_workstation) != int(fedora_workstation):
         die(f"{row['image']}: incorrect Fedora NVIDIA workstation dispatcher")
-    if expected_open and shared_nvidia_workstation_count:
-        die(f"{row['image']}: use the explicit architecture-specific userspace source")
+    if fedora_workstation and shared_nvidia_workstation_count:
+        die(f"{row['image']}: use the explicit variant/architecture userspace source")
 
 expected_singletons = {
     'pcp package': (r'^\s*-\s+pcp\s*$', 1),

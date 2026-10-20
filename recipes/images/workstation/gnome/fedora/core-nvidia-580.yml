@@ -17,6 +17,6 @@ modules:
   - from-file: layers/shared/workstation-gnome.yml
   - from-file: layers/shared/workstation-gnome-modern.yml
   - from-file: layers/fedora/nvidia-580.yml
-  - from-file: layers/fedora/nvidia-580-workstation.yml
+  - from-file: layers/fedora/nvidia-workstation.yml
   - type: initramfs
   - type: signing

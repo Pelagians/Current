@@ -15,6 +15,71 @@ VERIFY = BODY[BODY.index('verify_modules()'):BODY.index('depmod "${kernel_versio
 
 
 class FedoraNvidia(unittest.TestCase):
+    def workstation(self, variant, arch, fail_install=False):
+        layer = (ROOT / 'recipes/layers/fedora/nvidia-workstation.yml').read_text()
+        body = ' '.join(layer.split('RUN ', 1)[1].split('  - type: kargs', 1)[0].splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = Path(directory)
+            repos = tmp / 'repos'
+            repos.mkdir()
+            (repos / 'cuda.repo').write_text('existing NVIDIA repo')
+            (repos / 'administrator.repo').write_text('administrator repo')
+            for name, script in {
+                'uname': 'echo "$TEST_ARCH"',
+                'curl': '''printf 'curl %s\\n' "$*" >> "$TEST_DIR/calls"
+while (($#)); do
+  if [[ "$1" == -o ]]; then printf 'temporary repo' > "$2"; fi
+  shift
+done''',
+                'dnf': '''printf 'dnf %s\\n' "$*" >> "$TEST_DIR/calls"
+[[ "$TEST_FAIL_INSTALL" == 0 ]]''',
+                'ldconfig': 'echo ldconfig >> "$TEST_DIR/calls"',
+            }.items():
+                path = tmp / name
+                path.write_text('#!/bin/bash\n' + script + '\n')
+                path.chmod(0o755)
+            env = dict(os.environ, PATH=str(tmp) + ':' + os.environ['PATH'], TEST_DIR=str(tmp),
+                       CURRENT_NVIDIA_VARIANT=variant, TEST_ARCH=arch,
+                       TEST_FAIL_INSTALL=str(int(fail_install)))
+            result = subprocess.run(['bash', '-euc', body.replace('/etc/yum.repos.d', str(repos))],
+                                    env=env, capture_output=True, text=True)
+            calls = (tmp / 'calls').read_text() if (tmp / 'calls').exists() else ''
+            remaining = {p.name: p.read_text() for p in repos.iterdir()}
+            return result, calls, remaining
+
+    def test_workstation_sources_preserve_packages_cleanup_and_admin_repos(self):
+        for variant, arch, repo in (
+                ('580', 'x86_64', 'fedora-nvidia-580'),
+                ('580', 'aarch64', 'fedora-nvidia-580'),
+                ('open', 'x86_64', 'cuda-fedora44-x86_64'),
+                ('open', 'aarch64', 'fedora-nvidia')):
+            with self.subTest(variant=variant, arch=arch):
+                result, calls, remaining = self.workstation(variant, arch)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(f'dnf -y --setopt=install_weak_deps=False --enablerepo={repo} '
+                              'install libnvidia-cfg libnvidia-fbc nvidia-libXNVCtrl nvidia-settings\n', calls)
+                self.assertEqual('curl ' in calls, repo != 'cuda-fedora44-x86_64')
+                if repo != 'cuda-fedora44-x86_64':
+                    self.assertIn(f'https://negativo17.org/repos/{repo}.repo', calls)
+                    self.assertIn('-fLsS --retry 5', calls)
+                self.assertTrue(calls.endswith('ldconfig\n'))
+                self.assertEqual(remaining, {'cuda.repo': 'existing NVIDIA repo',
+                                             'administrator.repo': 'administrator repo'})
+
+    def test_workstation_rejects_unknown_variant_or_architecture_before_changes(self):
+        for variant, arch in (('unknown', 'x86_64'), ('open', 'riscv64'), ('580', 'riscv64')):
+            with self.subTest(variant=variant, arch=arch):
+                result, calls, remaining = self.workstation(variant, arch)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Unsupported NVIDIA variant/architecture', result.stderr)
+                self.assertFalse(calls)
+                self.assertEqual(set(remaining), {'cuda.repo', 'administrator.repo'})
+
+    def test_workstation_failed_install_stops_transaction(self):
+        result, calls, _ = self.workstation('open', 'aarch64', fail_install=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('ldconfig\n', calls)
+
     def headers(self, arch='aarch64', available=False, signer='dbfcf71c6d9f90a6',
                 bad_payload=False, bad_signature=False):
         with tempfile.TemporaryDirectory() as directory:

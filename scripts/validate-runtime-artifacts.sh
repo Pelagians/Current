@@ -189,10 +189,10 @@ grep -q 'build_packages=(akmod-nvidia akmods kernel-devel)' recipes/layers/fedor
 grep -q 'rpm -q cuda cuda-devel cuda-nvcc cuda-gcc' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'nvidia-driver nvidia-persistenced nvidia-driver-cuda' recipes/layers/fedora/nvidia-akmod.yml
 ! grep -q 'libva-nvidia-driver' recipes/layers/fedora/nvidia-580.yml
-grep -q 'fedora-nvidia-580.repo' recipes/layers/fedora/nvidia-580-workstation.yml
-grep -q 'https://negativo17.org/repos/fedora-nvidia-580.repo' recipes/layers/fedora/nvidia-580-workstation.yml
-grep -q 'install libnvidia-cfg libnvidia-fbc nvidia-libXNVCtrl nvidia-settings' recipes/layers/fedora/nvidia-580-workstation.yml
-grep -q 'rm -f /etc/yum.repos.d/fedora-nvidia-580.repo' recipes/layers/fedora/nvidia-580-workstation.yml
+grep -q '580:x86_64|580:aarch64) repo=fedora-nvidia-580' recipes/layers/fedora/nvidia-workstation.yml
+grep -q 'open:x86_64) repo=cuda-fedora44-x86_64' recipes/layers/fedora/nvidia-workstation.yml
+grep -q 'open:aarch64) repo=fedora-nvidia' recipes/layers/fedora/nvidia-workstation.yml
+grep -q 'install libnvidia-cfg libnvidia-fbc nvidia-libXNVCtrl nvidia-settings' recipes/layers/fedora/nvidia-workstation.yml
 test -f files/nvidia/usr/local/libexec/current/current-pcp-nvidia-pmda-apply
 test -f files/nvidia/usr/lib/systemd/system/current-pcp-nvidia-pmda-apply.service
 
