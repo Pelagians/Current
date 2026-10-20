@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
-
 from image_matrix import ROOT as root, load_rows, recipe_graph, die
 core_base = root / 'recipes/layers/shared/core-base.yml'
 shared_core = root / 'recipes/layers/shared/core.yml'

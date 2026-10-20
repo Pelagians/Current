@@ -7,17 +7,13 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-LAYER = ROOT / 'recipes/layers/fedora/nvidia-akmod.yml'
-lines = LAYER.read_text().splitlines()
-BODY = ' '.join(line.strip() for line in lines[lines.index('      - >-') + 1:])
-HEADER = BODY[BODY.index('kernel_version='):BODY.index('cp /usr/sbin/akmodsbuild')]
-VERIFY = BODY[BODY.index('verify_modules()'):BODY.index('depmod "${kernel_version}"')]
+BUILD = ROOT / 'files/scripts/fedora-nvidia-build.sh'
+BODY = BUILD.read_text()
 
 
 class FedoraNvidia(unittest.TestCase):
     def workstation(self, variant, arch, fail_install=False):
-        layer = (ROOT / 'recipes/layers/fedora/nvidia-workstation.yml').read_text()
-        body = ' '.join(layer.split('RUN ', 1)[1].split('  - type: kargs', 1)[0].splitlines())
+        body = (ROOT / 'files/scripts/fedora-nvidia-workstation.sh').read_text()
         with tempfile.TemporaryDirectory() as directory:
             tmp = Path(directory)
             repos = tmp / 'repos'
@@ -121,13 +117,13 @@ done
             }
             for name, content in scripts.items():
                 file = tmp / name; file.write_text(content); file.chmod(0o755)
-            body = HEADER.replace('/usr/src/kernels/', str(tmp / 'kernels') + '/')
+            body = BODY.replace('/usr/src/kernels/', str(tmp / 'kernels') + '/')
             body = body.replace('/tmp/${package}-', str(tmp) + '/${package}-')
             env = dict(os.environ, PATH=str(tmp) + ':' + os.environ['PATH'],
                        TEST_DIR=str(tmp), TEST_ARCH=arch, TEST_SIGNER=signer,
                        TEST_AVAILABLE=str(int(available)), TEST_BAD_PAYLOAD=str(int(bad_payload)),
                        TEST_BAD_SIGNATURE=str(int(bad_signature)))
-            result = subprocess.run(['bash', '-euxo', 'pipefail', '-c', body],
+            result = subprocess.run(['bash', '-euxo', 'pipefail', '-c', body + '\ninstall_kernel_headers'],
                                     env=env, capture_output=True, text=True)
             calls = (tmp / 'calls').read_text()
             return result, calls
@@ -185,11 +181,11 @@ if [[ "$2" == license ]]; then
 else printf '%s SMP preempt mod_unload aarch64' "$TEST_KERNEL"; fi
 ''')
             modinfo.chmod(0o755)
-            body = VERIFY.replace('/usr/lib/modules/${kernel_version}/extra/nvidia', str(tmp))
+            body = BODY.replace('/usr/lib/modules/${kernel_version}/extra/nvidia', str(tmp))
             env = dict(os.environ, PATH=str(tmp) + ':' + os.environ['PATH'],
                        TEST_LICENSE=core_license, TEST_KERNEL='wrong' if wrong_kernel else '7.2.7-200.fc44.aarch64')
             return subprocess.run(['bash', '-euo', 'pipefail', '-c',
-                                   'kernel_version=7.2.7-200.fc44.aarch64; expected_license="' + core_license + '"; ' + body],
+                                   'kernel_version=7.2.7-200.fc44.aarch64; expected_license="' + core_license + '"; ' + body + '\nverify_modules'],
                                   env=env, capture_output=True, text=True)
 
     def test_compressed_modules_and_mixed_submodule_licenses_are_valid(self):
@@ -203,7 +199,7 @@ else printf '%s SMP preempt mod_unload aarch64' "$TEST_KERNEL"; fi
 
 
     def test_cleanup_preserves_cuda_compiler_headers_and_checks_retained_sdk(self):
-        cleanup = BODY[BODY.index('build_packages='):BODY.index('rm -f "/etc/yum.repos.d/${repo}.repo"')]
+        cleanup = BODY
         for variant in ('580', 'open'):
             with self.subTest(variant=variant), tempfile.TemporaryDirectory() as directory:
                 tmp = Path(directory)
@@ -217,7 +213,7 @@ else printf '%s SMP preempt mod_unload aarch64' "$TEST_KERNEL"; fi
                            PATH=str(tmp) + ':' + os.environ['PATH'])
                 body = cleanup.replace('/usr/bin/nvcc', str(tmp / 'nvcc'))
                 result = subprocess.run(['bash', '-euo', 'pipefail', '-c',
-                                         'kernel_version=kernel-test; verify_modules() { :; }; ' + body],
+                                         body + '\nkernel_version=kernel-test; verify_modules() { :; }; cleanup_build_packages'],
                                         env=env, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 calls = (tmp / 'calls').read_text()

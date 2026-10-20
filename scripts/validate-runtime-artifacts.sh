@@ -7,7 +7,7 @@ source scripts/validation.sh
 command -v python3 >/dev/null 2>&1 || { printf 'Missing required tool: python3
 ' >&2; exit 127; }
 
-bash -n files/scripts/just-el9.sh
+for script in files/scripts/*.sh; do bash -n "$script"; done
 bash -n files/workstation/shared/usr/libexec/current-workstation-dm-apply
 bash -n files/workstation/shared/usr/lib/systemd/system-generators/current-workstation-dm-generator
 bash -n files/flatpak/base/usr/libexec/current-flatpak-session-env
@@ -166,7 +166,7 @@ grep -q 'transparent_hugepage=madvise' recipes/layers/shared/system-policy.yml
 
 test -f files/k3s/shared/usr/lib/systemd/system/k3s.service
 test -f files/k3s/shared/usr/lib/systemd/system/k3s-agent.service
-grep -q "version='v1.36.1+k3s1'" recipes/layers/features/k3s.yml
+grep -q "version='v1.36.1+k3s1'" files/scripts/install-k3s.sh
 reject_matches -q 'current cluster' recipes/layers/features/k3s.yml
 
 test -f files/ceph-host/shared/usr/lib/modules-load.d/90-current-ceph-host.conf
@@ -180,20 +180,20 @@ grep -q 'ARG CURRENT_NVIDIA_VARIANT=580' recipes/layers/fedora/nvidia-580.yml
 grep -q 'from-file: layers/fedora/nvidia-akmod.yml' recipes/layers/fedora/nvidia-580.yml
 grep -q 'ARG CURRENT_NVIDIA_VARIANT=open' recipes/layers/fedora/nvidia-open.yml
 grep -q 'from-file: layers/fedora/nvidia-akmod.yml' recipes/layers/fedora/nvidia-open.yml
-grep -q '580) repo=fedora-nvidia-580; expected_license=NVIDIA' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'open) repo=fedora-nvidia; expected_license="Dual MIT/GPL"' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'kernel-devel-matched' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'localpkg_gpgcheck=True' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'akmods --force --kernels' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'modinfo -F vermagic' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'build_packages=(akmod-nvidia akmods kernel-devel)' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'rpm -q cuda cuda-devel cuda-nvcc cuda-gcc' recipes/layers/fedora/nvidia-akmod.yml
-grep -q 'nvidia-driver nvidia-persistenced nvidia-driver-cuda' recipes/layers/fedora/nvidia-akmod.yml
+grep -q '580) repo=fedora-nvidia-580; expected_license=NVIDIA' files/scripts/fedora-nvidia-build.sh
+grep -q 'open) repo=fedora-nvidia; expected_license="Dual MIT/GPL"' files/scripts/fedora-nvidia-build.sh
+grep -q 'kernel-devel-matched' files/scripts/fedora-nvidia-build.sh
+grep -q 'localpkg_gpgcheck=True' files/scripts/fedora-nvidia-build.sh
+grep -q 'akmods --force --kernels' files/scripts/fedora-nvidia-build.sh
+grep -q 'modinfo -F vermagic' files/scripts/fedora-nvidia-build.sh
+grep -q 'build_packages=(akmod-nvidia akmods kernel-devel)' files/scripts/fedora-nvidia-build.sh
+grep -q 'rpm -q cuda cuda-devel cuda-nvcc cuda-gcc' files/scripts/fedora-nvidia-build.sh
+grep -q 'nvidia-driver nvidia-persistenced nvidia-driver-cuda' files/scripts/fedora-nvidia-build.sh
 reject_matches -q 'libva-nvidia-driver' recipes/layers/fedora/nvidia-580.yml
-grep -q '580:x86_64|580:aarch64) repo=fedora-nvidia-580' recipes/layers/fedora/nvidia-workstation.yml
-grep -q 'open:x86_64) repo=cuda-fedora44-x86_64' recipes/layers/fedora/nvidia-workstation.yml
-grep -q 'open:aarch64) repo=fedora-nvidia' recipes/layers/fedora/nvidia-workstation.yml
-grep -q 'install libnvidia-cfg libnvidia-fbc nvidia-libXNVCtrl nvidia-settings' recipes/layers/fedora/nvidia-workstation.yml
+grep -q '580:x86_64|580:aarch64) repo=fedora-nvidia-580' files/scripts/fedora-nvidia-workstation.sh
+grep -q 'open:x86_64) repo=cuda-fedora44-x86_64' files/scripts/fedora-nvidia-workstation.sh
+grep -q 'open:aarch64) repo=fedora-nvidia' files/scripts/fedora-nvidia-workstation.sh
+grep -q 'install libnvidia-cfg libnvidia-fbc nvidia-libXNVCtrl nvidia-settings' files/scripts/fedora-nvidia-workstation.sh
 test -f files/nvidia/usr/local/libexec/current/current-pcp-nvidia-pmda-apply
 test -f files/nvidia/usr/lib/systemd/system/current-pcp-nvidia-pmda-apply.service
 
