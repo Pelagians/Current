@@ -51,8 +51,8 @@ jobs:
         with:
           name: current-alma10-server-installer
           path: |
-            output/installer/alma10-server/*.iso
-            output/installer/alma10-server/*.sha256
+            output/installer/alma10-server/**/*.iso
+            output/installer/alma10-server/**/*.iso.sha256
           if-no-files-found: error
           retention-days: 7
           compression-level: 0

@@ -45,7 +45,10 @@ The default output directory is:
 output/installer/alma10-server/
 ```
 
-The output should include an ISO and a matching `.sha256` file.
+The builder currently writes `bootiso/install.iso` and `bootiso/install.iso.sha256`
+under that directory. CI uploads both files, including nested output directories.
+After downloading, run `sha256sum -c install.iso.sha256` from the directory
+containing the ISO.
 
 ## Override the installer config
 

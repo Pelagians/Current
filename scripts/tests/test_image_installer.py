@@ -1,9 +1,12 @@
 """Exercise installer EFI preparation without touching host boot files."""
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import tomllib
 import unittest
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "installer/alma10-server/prepare-efi.sh"
@@ -89,6 +92,54 @@ class InstallerEFI(unittest.TestCase):
         self.assertIn("\ngraphical\n", kickstart)
         self.assertNotIn("clearpart", kickstart)
         self.assertNotIn("autopart", kickstart)
+
+
+class InstallerArtifacts(unittest.TestCase):
+    def test_nested_output_is_uploaded_with_a_portable_checksum(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "output/installer/alma10-server"
+            tools = root / "tools"
+            tools.mkdir()
+            # Run the real build wrapper without containers or privileged actions.
+            for name, body in {
+                "sudo": 'if [[ "$1" != chown ]]; then exec "$@"; fi',
+                "podman": '''if [[ "$1" == run ]]; then
+mkdir -p "$CURRENT_INSTALLER_OUTPUT_DIR/bootiso"
+printf 'fixture ISO' > "$CURRENT_INSTALLER_OUTPUT_DIR/bootiso/install.iso"
+fi''',
+            }.items():
+                path = tools / name
+                path.write_text("#!/bin/bash\nset -eu\n" + body + "\n")
+                path.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(ROOT / "scripts/build-alma10-installer-iso.sh")],
+                text=True, capture_output=True,
+                env=dict(os.environ, PATH=str(tools) + ":" + os.environ["PATH"],
+                         SUDO=str(tools / "sudo"), PODMAN=str(tools / "podman"),
+                         CURRENT_INSTALLER_OUTPUT_DIR=str(output)))
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            workflow = yaml.safe_load(
+                (ROOT / ".github/workflows/build-alma10-installer-iso.yml").read_text())
+            upload = next(step for step in workflow["jobs"]["build"]["steps"]
+                          if step.get("uses", "").startswith("actions/upload-artifact@"))
+            # Match the workflow's paths against the actual nested builder layout.
+            paths = upload["with"]["path"].splitlines()
+            selected = {file.relative_to(output).as_posix()
+                        for pattern in paths for file in root.glob(pattern)}
+            self.assertEqual(selected, {"bootiso/install.iso", "bootiso/install.iso.sha256"})
+            self.assertEqual(upload["with"]["if-no-files-found"], "error")
+
+            downloaded = root / "downloaded"
+            (output / "bootiso").rename(downloaded)
+            check = subprocess.run(["sha256sum", "-c", "install.iso.sha256"],
+                                   cwd=downloaded, text=True, capture_output=True)
+            self.assertEqual(check.returncode, 0, check.stderr)
+            (downloaded / "install.iso").write_bytes(b"corrupted")
+            check = subprocess.run(["sha256sum", "-c", "install.iso.sha256"],
+                                   cwd=downloaded, text=True, capture_output=True)
+            self.assertNotEqual(check.returncode, 0)
 
 
 if __name__ == "__main__":
