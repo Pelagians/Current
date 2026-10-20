@@ -39,7 +39,7 @@ class Alma9Nvidia(unittest.TestCase):
         self.assertEqual(verify.transaction('podman', verify.PACKAGES['server']), GOOD)
         sleep.assert_called_once_with(5)
         command = run.call_args.args[0]
-        self.assertEqual(command[:4], ['podman', 'run', '--rm', verify.IMAGE])
+        self.assertEqual(command[:6], ['podman', 'run', '--rm', '--platform', 'linux/amd64', verify.IMAGE])
         self.assertIn('dnf -y --assumeno install nvidia-driver nvidia-driver-cuda', command[-1])
         self.assertIn('module enable nvidia-driver:580', command[-1])
 

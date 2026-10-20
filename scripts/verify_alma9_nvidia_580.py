@@ -57,7 +57,7 @@ dnf -y module enable nvidia-driver:{STREAM} >/dev/null
 dnf -y --assumeno install {shlex.join(packages)} 2>&1 || true
 '''
     for attempt in range(1, 4):
-        result = subprocess.run([runtime, 'run', '--rm', IMAGE, 'bash', '-lc', script],
+        result = subprocess.run([runtime, 'run', '--rm', '--platform', 'linux/amd64', IMAGE, 'bash', '-lc', script],
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if result.returncode == 0:
             return result.stdout
