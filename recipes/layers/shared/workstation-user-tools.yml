@@ -10,7 +10,6 @@ modules:
 
   - type: containerfile
     snippets:
-      # Legacy validation marker: brave-origin-beta was replaced by brave-origin release.
       - RUN curl -fsSL https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo -o /etc/yum.repos.d/brave-browser.repo
       - RUN dnf install -y brave-origin
       - RUN dnf clean all && rm -rf /var/cache/dnf /var/tmp/* /tmp/*

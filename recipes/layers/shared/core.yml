@@ -12,6 +12,10 @@ modules:
         - distrobox
         - podman-compose
 
+  - type: script
+    scripts:
+      - distrobox-helper-links.sh
+
   - from-file: layers/features/cockpit.yml
 
 

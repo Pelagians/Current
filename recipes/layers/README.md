@@ -30,7 +30,7 @@ These files are the reusable composition units included from image recipes with 
 - `alma9/gnome.yml`, `alma10/gnome.yml`: GNOME-only distro drift where the shared GNOME layers are not enough.
 - `alma/cosmic.yml`: Alma-family COSMIC COPR source setup and COPR-backed applets shared by Alma 9 and Alma 10.
 - `fedora/cosmic.yml`, `fedora/nvidia-open.yml`, `fedora/nvidia-580.yml`: Fedora edge-lane drift, including the Fedora proprietary R580 akmod-built lane.
-- `fedora/nvidia-580-workstation.yml`: Fedora R580 workstation-only userspace extras; it temporarily restores the Negativo17 R580 repo after the base R580 layer removes it, then removes the repo again.
+- `fedora/nvidia-workstation.yml`: common Fedora NVIDIA workstation extras with explicit R580, x64 open and ARM open package sources. Negativo17 repos are restored only for this transaction and removed afterward.
 - `alma9/nvidia-580.yml`: the Alma 9 implementation of the public NVIDIA 580 lane shared by server and workstation images, using Alma/NVIDIA prebuilt module-stream kmods.
 - `alma9/nvidia-workstation.yml`: Alma 9 NVIDIA workstation-only media backend additions, kept out of the server lane.
 

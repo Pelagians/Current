@@ -1,5 +1,5 @@
 modules:
-  # Workstation-only VAAPI backend for the Alma 9 NVIDIA 580 lane.
+  # Workstation-only VAAPI backend for the Alma 9 NVIDIA lanes.
   #
   # EPEL's libva-nvidia-driver supplies nvidia_drv_video.so. Do not set
   # LIBVA_DRIVER_NAME globally here; multi-GPU systems may have AMD/Intel as

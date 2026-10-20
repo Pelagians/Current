@@ -69,3 +69,7 @@ modules:
       - 779
       - 1401
       - 3193
+
+  - type: containerfile
+    snippets:
+      - RUN /usr/libexec/current-workstation-dm-apply --check gnome

@@ -1,80 +1,19 @@
-# Current Compatibility Migration
+# Compatibility policy
 
-Current is the public identity and primary technical namespace. myOS-era names remain compatibility aliases during the transition.
+Current uses `current`, `ghcr.io/pelagians`, `/usr/share/current`, and `CURRENT_*`.
+The earlier myOS CLI, runtime paths, environment fallbacks and cross-namespace
+publisher have been removed. Historical decision records describe that migration;
+they do not promise that retired interfaces remain installed.
 
-## Primary names
+## Supported compatibility surfaces
 
-Use these for new docs, scripts, and examples:
+- Architecture-aware rebasing accepts the earlier matrix headers as well as the
+  current manifest. See [image architecture](maintainers/image-architecture.md).
+- Published `*-arm64` repositories remain migration aliases for existing ARM
+  deployments. New installs use the canonical multi-architecture repository.
+  See [image publishing](maintainers/image-publishing.md).
+- `current clean-system` remains an alias for managed system Flatpak maintenance.
 
-- CLI: `current`
-- Registry namespace: `ghcr.io/pelagians`
-- Installed runtime path: `/usr/share/current`
-- Environment variables: `CURRENT_*`
-- Repository/docs: `https://github.com/Pelagians/Current`
-
-## Compatibility aliases
-
-These remain supported for existing users and automation:
-
-- CLI: `myos`
-- Registry namespace: `ghcr.io/myos-dev`
-- Installed/source runtime path: `/usr/share/myos`
-- Environment variables: `MYOS_*`
-- Old docs/raw URLs that GitHub redirects or compatibility notes still cover
-
-## CLI
-
-`current` is the primary wrapper. `myos` remains installed as a compatibility alias and execs `current`.
-
-Prefer:
-
-```bash
-current rebase
-current update-system
-```
-
-Old commands still work:
-
-```bash
-myos rebase
-myos update-system
-```
-
-## Registry
-
-New examples should use:
-
-```bash
-sudo bootc switch ghcr.io/pelagians/alma10-gnome:latest
-```
-
-Legacy references are aliases when compatibility publishing is enabled:
-
-```bash
-sudo bootc switch ghcr.io/myos-dev/alma10-gnome:latest
-```
-
-`scripts/sync-ghcr-compat-aliases.sh` copies supported tags from `ghcr.io/pelagians` to `ghcr.io/myos-dev` when old-namespace credentials are available.
-
-## Runtime paths
-
-Installed systems expose `/usr/share/current` as a symlink to `/usr/share/myos`.
-
-The repository still keeps shared payloads under `files/.../usr/share/myos` to avoid duplicating the image matrix and Justfile payloads during the migration.
-
-## Environment variables
-
-Current-native variables win. Legacy variables are fallback only.
-
-Examples:
-
-- `CURRENT_IMAGE_MATRIX_URL` falls back to `MYOS_IMAGE_MATRIX_URL`
-- `CURRENT_REGISTRY_NAMESPACE` falls back to `MYOS_REGISTRY_NAMESPACE`
-- `CURRENT_INSTALLER_PAYLOAD_REF` falls back to `MYOS_INSTALLER_PAYLOAD_REF`
-- `CURRENT_INSTALLER_CONFIG` falls back to `MYOS_INSTALLER_CONFIG`
-
-## Docs and redirects
-
-Canonical docs links should use `https://github.com/Pelagians/Current`.
-
-Old `myos-dev/myOS` URLs may still appear in user reports, package metadata, or automation. Treat them as redirect/compatibility surfaces, not as a separate product name.
+Use Current names in new automation. A redirect from an old repository URL does
+not imply that old image namespaces, commands or environment variables work.
+Changes to the supported surfaces above must update their tests and documentation.

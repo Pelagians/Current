@@ -1,0 +1,5 @@
+modules:
+  # The existing variant ARG selects the build contract without runtime state.
+  - type: containerfile
+    snippets:
+      - RUN --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,ro /usr/bin/bash /tmp/files/scripts/fedora-nvidia-build.sh

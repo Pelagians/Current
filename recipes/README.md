@@ -21,7 +21,10 @@ recipes/images/
     fedora/
 ```
 
-The repo is role-first.
+CI selects architecture first, then server/workstation role. Both architectures
+use the same recipes under `images/server/` and `images/workstation/`, with
+explicit platform declarations and architecture-specific package transactions.
+See [ARM candidate status](../docs/maintainers/arm-image-lanes.md).
 
 - `workstation` is the flagship desktop role.
 - `server` is the headless admin/operator role.

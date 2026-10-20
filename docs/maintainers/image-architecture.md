@@ -1,160 +1,64 @@
-# Image Architecture
+# Image architecture
 
-The repo models Current by role first, and the supported image set is rendered directly from the matrix manifest.
+The support contract is `files/base/runtime/usr/share/current/image-matrix.tsv`.
+It describes 45 native builds across 24 public image families. Shared recipes
+select CPU-specific package work explicitly; CI selects architecture before role.
 
-## Authoritative image tree
+## Where to edit
+
+| Concern | Owner |
+| --- | --- |
+| Supported image/platform/desktop/driver combinations | Shipped TSV manifest |
+| Image composition and OCI platforms | `recipes/images/server/<platform>/` or `recipes/images/workstation/<environment>/<platform>/` |
+| Low-level baseline, payloads and command surface | `recipes/layers/shared/core-base.yml` |
+| Distro repository setup | `recipes/layers/alma/core.yml` and version/platform layers |
+| Cross-distro operator tools and Distrobox compatibility links | `recipes/layers/shared/core.yml` |
+| Individual capabilities | `recipes/layers/features/` |
+| Workstation policy and desktop implementations | `recipes/layers/shared/workstation-*.yml` and matching `files/` trees |
+| Native build split and publishing gates | `.github/workflows/build.yml`, `build-architecture.yml`, `scripts/publish-image-index.py` |
+
+[Runtime contracts](runtime-contracts.md) define layer ownership and safeguards.
+[Workstation layering](workstation-layering.md) records desktop/distro exceptions.
+Keep one owner for shared packages and payloads; platform layers should carry
+actual drift. Ceph's common payload (`features/ceph.yml`) applies to all images;
+its host package transaction (`features/ceph-host.yml`) applies once per server.
+
+## Manifest and naming
+
+The TSV is shipped at `/usr/share/current/image-matrix.tsv`. The rebase picker
+fetches the same source from the stable branch. The nine columns are:
 
 ```text
-recipes/images/
-  workstation/
-    gnome/
-      alma9/
-      alma10/
-      fedora/
-    cosmic/
-      alma9/
-      alma10/
-      fedora/
-  server/
-    alma9/
-    alma10/
-    fedora/
+job architecture platform role environment driver image legacy-image recipe
 ```
 
-This is the authoritative image tree.
+`architecture` is `x86_64` or `aarch64`. Public image names are
+`<platform>-<environment>` with an optional `-<driver>` suffix; internal recipe
+filenames such as `core.yml` do not define public roles. `legacy-image` identifies
+supported ARM migration aliases. New references use
+`ghcr.io/pelagians/<image>:<tag>` and let the OCI index select the native platform.
 
-Internal filenames like `core.yml` and `nvidia-580.yml` are maintenance details. The public product model comes from the manifest and the recipe `name:` fields.
+`scripts/image_matrix.py` validates the schema, naming, allowed combinations and
+recipe includes. The renderer CLI, publisher and build validators share it:
 
-## Product model
+```bash
+python3 scripts/render-image-matrix.py recipes
+python3 scripts/render-image-matrix.py gha --architecture aarch64 workstation-images
+python3 scripts/render-image-matrix.py rebase
+```
 
-Public names follow this grammar:
+The runtime picker stays a Bash/awk implementation so installed images need no
+build-side Python modules. Compatibility fixtures exercise its three supported
+TSV formats and native CPU filtering.
 
-- `<platform>-<environment>`
-- `<platform>-<environment>-<driver>`
+## CI and qualification
 
-The exact supported set lives in `files/base/runtime/usr/share/current/image-matrix.tsv`.
+The 24 recipes declare their supported OCI platforms. Each CI build restricts
+the recipe to one native platform. The publisher combines all 45 native outputs
+into verified, signed indexes and preserves ARM repository aliases. Branch-head
+and PR-merge candidates both build; branch-tag publishing remains enabled.
 
-The renderer and CI treat that TSV as the canonical support contract for:
-
-- published image names
-- supported recipe paths
-- workflow matrix expansion
-- `current rebase` output
-
-## Machine-readable matrix
-
-`files/base/runtime/usr/share/current/image-matrix.tsv` is shipped into images at `/usr/share/current/image-matrix.tsv`. `current rebase` downloads the same source path from the Current GitHub repo at runtime so the picker can reflect the online support matrix.
-
-It is consumed by:
-
-- `scripts/render-image-matrix.py`
-- `scripts/validate-image-matrix.sh`
-- `.github/workflows/build.yml`
-- `current rebase` through the raw GitHub copy
-
-The TSV schema is intentionally small:
-
-- `job`
-- `platform`
-- `role`
-- `environment`
-- `driver`
-- `image`
-- `recipe`
-
-## Layer ownership
-
-### Cross-distro core baseline
-
-`recipes/layers/shared/core-base.yml` owns the low-level baseline shared by Alma and Fedora builds.
-
-It owns:
-
-- common core packages
-- base runtime payloads and branding
-- shared Justfile command surface
-- distrobox helper symlinks
-- inclusion of shared feature and policy layers
-
-The core base intentionally delegates feature areas that were getting too large:
-
-- `recipes/layers/features/k3s.yml` owns k3s binary and disabled service units
-- `recipes/layers/features/pcp.yml` owns PCP local metrics collection and history
-- `recipes/layers/features/tailscale.yml` owns Tailscale package and daemon baseline
-- `recipes/layers/shared/system-policy.yml` owns shared groups, kernel args, and masked update/counting services
-
-`recipes/layers/shared/core.yml` owns the small distro-neutral host/operator package baseline layered after `shared/core-base.yml` and any required distro-family repository setup.
-
-### Distro core delta
-
-- `recipes/layers/alma/core.yml` adds Alma-family repository and package-manager setup.
-- `recipes/layers/fedora/core.yml` adds the Fedora edge-lane delta.
-- `recipes/layers/alma10/core.yml` and `recipes/layers/alma9/core.yml` keep the remaining Alma-version drift after the Alma-family layer.
-
-### Feature overlays and shared remainder
-
-`recipes/layers/features/cockpit.yml` owns Cockpit.
-
-`recipes/layers/features/ceph.yml` owns shared Ceph host prerequisites.
-
-`recipes/layers/features/k3s.yml` owns shared k3s runtime capability.
-
-`recipes/layers/features/pcp.yml` owns shared PCP runtime capability.
-
-`recipes/layers/features/tailscale.yml` owns shared Tailscale runtime capability.
-
-`recipes/layers/shared/system-policy.yml` owns shared system policy.
-
-`recipes/layers/shared/core.yml` owns the remaining host/operator package baseline:
-
-- fastfetch, fzf, zstd, gcc, distrobox, and podman-compose
-- inclusion of Cockpit and Ceph feature overlays
-
-### Workstation layers
-
-`recipes/layers/shared/flatpak-base.yml` owns the workstation Flatpak baseline, remotes, managed shared apps, policy payloads, session environment import hook, and cleanup helper inclusion.
-
-`recipes/layers/shared/workstation-common.yml` is the DE-agnostic workstation orchestrator.
-
-It delegates visible ownership to:
-
-- `workstation-substrate.yml`: shared desktop and hardware package substrate
-- `workstation-admin-tools.yml`: workstation diagnostics, storage, network, and admin utilities
-- `workstation-policy.yml`: graphical target, display-manager reconciliation, and workstation sleep policy
-- `workstation-user-tools.yml`: Homebrew and Brave Origin Beta
-
-`recipes/layers/shared/workstation-modern.yml` carries the shared workstation delta reused by the Alma 10 and Fedora lanes.
-
-`recipes/layers/shared/workstation-gnome.yml` and `recipes/layers/shared/workstation-cosmic.yml` own environment identity and session behavior. Their nested Flatpak layers own portal backend selection and environment-specific Flatpak app/remote drift.
-
-`recipes/layers/shared/workstation-gnome-modern.yml` carries the shared GNOME app delta reused by the Alma 10 and Fedora lanes.
-
-Remaining distro workstation layers only add real drift:
-
-- `alma9/workstation.yml` and `alma9/gnome.yml` for the Alma 9 compatibility lane
-- `alma10/workstation.yml` and `alma10/gnome.yml` for the Alma 10 stable lane
-- `alma/cosmic.yml` for Alma-family COSMIC COPR source setup shared by Alma 9 and Alma 10
-- `fedora/workstation.yml` and `fedora/cosmic.yml` for Fedora edge-lane drift
-
-### NVIDIA layers
-
-NVIDIA ownership is split three ways:
-
-- `shared/nvidia-base.yml`: common repo bootstrap, NVIDIA container toolkit setup, NVIDIA PCP PMDA package, copied NVIDIA support payloads, and kernel args
-- `shared/nvidia-common.yml` / `shared/nvidia-open.yml`: Alma-family NVIDIA lane wiring
-- `fedora/nvidia-open.yml`: Fedora open-driver delta on top of the shared NVIDIA base
-- `fedora/nvidia-580.yml`: Fedora proprietary R580 lane that builds Negativo17 akmods during image build and verifies the resulting modules
-
-That keeps common repo bootstrap, container-toolkit wiring, copied support files, and driver-lane-specific package/build behavior separated instead of repeated across image recipes.
-
-## Naming
-
-The public tags are uniform and short.
-
-- no `workstation-*` prefix
-- no `default` suffix in published names
-- no `nvidia-legacy` naming in the supported recipe tree or manifest
-
-## Registry namespace
-
-Current image references use `ghcr.io/pelagians/<image>:<tag>`.
+See [publishing](image-publishing.md) for digest/signature and channel gates,
+[ARM lanes](arm-image-lanes.md) for package differences and qualification status,
+and [validation](validation.md) for local checks. A passing build does not qualify
+booted desktop switching, retained containers or GPU hardware.

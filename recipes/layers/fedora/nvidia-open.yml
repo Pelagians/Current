@@ -7,17 +7,21 @@ modules:
   - type: containerfile
     snippets:
       - >-
-        RUN curl -fsSL
+        RUN if [ "$(uname -m)" = x86_64 ]; then curl -fsSL
         "https://developer.download.nvidia.com/compute/cuda/repos/fedora44/$(uname -m)/cuda-fedora44.repo"
         -o /etc/yum.repos.d/cuda.repo &&
-        dnf config-manager setopt cuda-fedora44-x86_64.enabled=0
+        dnf config-manager setopt cuda-fedora44-x86_64.enabled=0; fi
 
       - >-
-        RUN dnf -y --setopt=install_weak_deps=False
+        RUN if [ "$(uname -m)" = x86_64 ]; then dnf -y --setopt=install_weak_deps=False
         --enablerepo=cuda-fedora44-x86_64
         install
         kmod-nvidia-open-dkms
         nvidia-open
         nvidia-driver
         nvidia-driver-cuda
-        cuda-toolkit
+        cuda-toolkit; fi
+  - type: containerfile
+    snippets:
+      - ARG CURRENT_NVIDIA_VARIANT=open
+  - from-file: layers/fedora/nvidia-akmod.yml

@@ -1,0 +1,10 @@
+modules:
+  # Alma's signed EL9 repository publishes native open kABI modules on both CPUs.
+  - from-file: layers/shared/nvidia-open.yml
+  - type: containerfile
+    snippets:
+      - >-
+        RUN set -eux;
+        kernel_version="$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')";
+        depmod "$kernel_version";
+        test "$(modinfo -k "$kernel_version" -F license nvidia)" = 'Dual MIT/GPL'

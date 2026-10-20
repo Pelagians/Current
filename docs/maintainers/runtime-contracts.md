@@ -1,6 +1,6 @@
 # Runtime Contracts
 
-The purpose of the refactor is to keep layer ownership explicit while simplifying the public image model.
+These contracts define the owners of shared behavior and the safeguards that changes must preserve. See [image architecture](image-architecture.md) for assembly and manifest details.
 
 ## Cross-distro core contract
 
@@ -25,20 +25,20 @@ Current delegated layers:
 
 `recipes/layers/shared/core.yml` owns the small distro-neutral host/operator package baseline shared by every supported image. It runs after `shared/core-base.yml` and any distro-family repository setup needed to make the shared package set available.
 
-ROCm userspace is not a universal cross-image promise. It belongs to the platform lanes that can support the package set cleanly, currently Alma 10 and Fedora. Alma 9 should remain focused on the NVIDIA 580 compatibility lane.
+ROCm userspace is not a universal cross-image promise. It belongs to the platform lanes that can support the package set cleanly, currently Alma 10 and Fedora. Alma 9 omits ROCm across its standard, open and R580 lanes.
 
 ## Distro core deltas
 
 - `recipes/layers/alma/core.yml` owns Alma-family repository setup such as EPEL/CRB enablement and subscription-manager cleanup.
-- `recipes/layers/fedora/core.yml` owns the Fedora edge-lane delta such as `dnf5-plugins`, Fedora-native ROCm packages, and Fedora-specific package drift.
+- `recipes/layers/fedora/core.yml` owns the Fedora edge-lane delta such as `dnf5-plugins` and Fedora-specific package drift.
 - `recipes/layers/alma9/core.yml` and `recipes/layers/alma10/core.yml` own only the remaining Alma-version drift that does not belong in the shared Alma-family layer.
-- `recipes/layers/alma10/core.yml` may carry ROCm-related Alma 10 enablement when that support belongs to the Alma 10 lane rather than the cross-distro contract.
+- `recipes/layers/alma10/rocm.yml` and `recipes/layers/fedora/rocm.yml` own their architecture-guarded ROCm transactions.
 
 ## Feature overlays and shared remainder
 
 `recipes/layers/features/cockpit.yml` owns the Cockpit admin surface.
 
-`recipes/layers/features/ceph.yml` owns the shared Ceph host prerequisites.
+`recipes/layers/features/ceph.yml` owns common Ceph runtime payloads on every image. `features/ceph-host.yml` owns the shared server-only kernel/LVM package transaction.
 
 `recipes/layers/features/k3s.yml` owns shared k3s runtime capability.
 
@@ -50,7 +50,7 @@ ROCm userspace is not a universal cross-image promise. It belongs to the platfor
 
 `recipes/layers/shared/core.yml` owns the remaining host/operator package baseline:
 
-- fastfetch, fzf, zstd, gcc, distrobox, and podman-compose
+- fastfetch, fzf, zstd, gcc, distrobox, podman-compose, and image-time Distrobox helper links (created after the package install)
 - inclusion of Cockpit and Ceph feature overlays
 
 ## Flatpak contract
@@ -80,7 +80,7 @@ There is no explicit GL/VAAPI extension warmup: Flatpak transaction metadata sel
 
 Audit sources: [Flatpak policy and helper](https://github.com/flatpak/flatpak/tree/ddcd5c4ebb545a7a1e7225a96bd44256c61ac5cb/system-helper), [Flatpak transaction dependency and pin handling](https://github.com/flatpak/flatpak/blob/ddcd5c4ebb545a7a1e7225a96bd44256c61ac5cb/common/flatpak-transaction.c), [BlueBuild default-flatpaks v2](https://github.com/blue-build/modules/tree/7d51cca7502a41ef4fd05ad75ff9702f2ef8d147/modules/default-flatpaks/v2/post-boot), and [polkit rule ordering](https://polkit.pages.freedesktop.org/polkit/polkit.8.html). The upstream action set includes `update-remote` and both parental-control overrides; `DeployAppstream` is a D-Bus method, not an allowed polkit action ID.
 
-Behavior tests run through `scripts/validate-runtime-artifacts.sh` using Python 3, Bash, flock, and Node.js. They model runtime branch migration and pin/dependency retention, exercise signal restoration and lock contention, and execute rule decisions and extracted Justfile shell bodies. These are deterministic mocks, not proof of real Flatpak dependency resolution or a running polkit daemon. Image smoke tests must check the installed Flatpak version/action policy, complete distro/local rule ordering, authentication prompts, BlueBuild/systemd stop behavior, GNOME/KDE branch transitions, and actual graphics extensions. Administrators can override image policy with earlier local rules; inspect both `/etc/polkit-1/rules.d` and `/usr/share/polkit-1/rules.d` in basename order.
+Behavior tests run through `scripts/validate-runtime-artifacts.sh` using Python 3, Bash, flock, and Node.js. They model runtime branch migration and pin/dependency retention, exercise signal restoration and lock contention, and execute rule decisions and the installed command helpers. These are deterministic mocks, not proof of real Flatpak dependency resolution or a running polkit daemon. Image smoke tests must check the installed Flatpak version/action policy, complete distro/local rule ordering, authentication prompts, BlueBuild/systemd stop behavior, GNOME/KDE branch transitions, and actual graphics extensions. Administrators can override image policy with earlier local rules; inspect both `/etc/polkit-1/rules.d` and `/usr/share/polkit-1/rules.d` in basename order.
 
 `recipes/layers/shared/flatpak-gnome.yml` and `recipes/layers/shared/flatpak-cosmic.yml` own desktop portal backend selection and environment-specific Flatpak remotes/apps.
 
@@ -97,7 +97,7 @@ It should stay small and delegate real ownership to explicit sublayers:
 - `workstation-substrate.yml`: shared desktop, hardware, audio, printing, scanning, camera, input, language, and base workstation packages
 - `workstation-admin-tools.yml`: workstation-only diagnostics, storage, network, and admin utilities
 - `workstation-policy.yml`: graphical target, display-manager reconciliation, and workstation sleep policy
-- `workstation-user-tools.yml`: opinionated user-facing workstation tooling such as Homebrew and Brave Origin Beta
+- `workstation-user-tools.yml`: opinionated user-facing workstation tooling such as Homebrew and Brave Origin
 
 `recipes/layers/shared/workstation-modern.yml` owns the extra workstation delta shared by the Alma 10 and Fedora lanes.
 
@@ -117,9 +117,31 @@ GNOME and COSMIC are workstation-environment implementations.
 - `shared/nvidia-base.yml` owns the common NVIDIA repo bootstrap, NVIDIA container toolkit setup, NVIDIA PCP PMDA package, copied NVIDIA support payloads, and kernel args.
 - `shared/nvidia-open-common.yml` owns the open-driver helper shim.
 - `shared/nvidia-common.yml` and `shared/nvidia-open.yml` own the Alma-family NVIDIA lanes.
-- `fedora/nvidia-open.yml` owns only the Fedora-specific open-driver delta on top of the shared NVIDIA layers.
-- `fedora/nvidia-580.yml` owns the Fedora-specific proprietary R580 akmod build path: Negativo17 repo setup, matched kernel-devel install, akmods build, `modinfo` verification, userspace package install, and akmod/kernel-devel cleanup.
+- `fedora/nvidia-open.yml` owns the architecture-specific Fedora open-driver dispatcher on top of the shared NVIDIA layers.
+- `fedora/nvidia-580.yml` selects the proprietary R580 contract; `fedora/nvidia-open.yml` selects NVIDIA CUDA packages on x64 and native Negativo17 open modules on ARM. R580 on both CPUs and ARM open use `fedora/nvidia-akmod.yml` for the exact signed header pair, kernel-preserving transactions, image-time module build, flavour/vermagic verification and cleanup. x64 open skips that akmod transaction. ARM open CUDA uses Negativo17's `cuda`/`cuda-devel` packages explicitly.
+- `fedora/nvidia-workstation.yml` installs the common workstation userspace extras, selecting the R580, x64 open or ARM open repository from the existing variant and native architecture. Temporary Negativo17 repository files are removed after the transaction.
 
 ## Current namespace
 
 `current` is the only project command wrapper. Justfile command payloads live under `/usr/share/current/just`. Runtime data payloads live under `/usr/share/current`. New scripts and workflows use `CURRENT_*` environment variables.
+
+## Command implementation
+
+`files/justfiles/usr/local/bin/current` preserves the public Just command surface.
+The larger update/rebase recipes delegate to ordinary executable helpers under
+`files/justfiles/usr/libexec/`. Build-only download and NVIDIA transactions live
+under `files/scripts/` and are mounted into the build, not installed as runtime
+commands. Tests execute those scripts or named Bash functions with isolated
+paths and command stubs.
+
+System updates attempt managed Flatpak maintenance when the immutable workstation
+marker or the helper is present. A server without either skips that stage; bootc
+still runs independently, and any attempted stage failure remains in the final
+status. Workstations with a missing helper fail visibly. User updates require
+Flatpak on workstations and also update it on servers where it is available.
+The immutable workstation marker controls Homebrew eligibility.
+
+The explicit Podman credential-file fallback and rootless Distrobox mount repair
+remain until cross-lane and retained-container tests qualify their removal.
+Image-time Distrobox helper links are created and checked after installation;
+existing executable compatibility helpers are preserved.

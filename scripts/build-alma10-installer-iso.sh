@@ -83,7 +83,8 @@ if [[ -z "$ISO_PATH" ]]; then
   exit 1
 fi
 
-sha256sum "$ISO_PATH" > "$ISO_PATH.sha256"
+# Keep the checksum usable after downloading the artifact to another machine.
+(cd "$(dirname "$ISO_PATH")" && sha256sum "$(basename "$ISO_PATH")") > "$ISO_PATH.sha256"
 
 cat <<EOF
 == installer ISO complete ==

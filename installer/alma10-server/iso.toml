@@ -1,8 +1,3 @@
-[customizations.iso]
-volume_id = "CURRENT-ALMA10"
-application_id = "Current Alma 10 Server Installer"
-publisher = "Current"
-
 [customizations.installer.kickstart]
 contents = """
 # --- Locale & input (safe defaults) ---

@@ -1,0 +1,18 @@
+modules:
+  # The native greeter requires fprintd-pam. Alma 9 publishes no ARM runtime;
+  # use the signed EL9 ARM builds from Rocky for these three packages only.
+  - type: containerfile
+    snippets:
+      - >-
+        RUN set -eux;
+        . /etc/os-release;
+        test "$ID" = almalinux;
+        test "${VERSION_ID%%.*}" = 9;
+        case "$(uname -m)" in x86_64) exit 0 ;; aarch64) ;; *) echo "Unsupported architecture" >&2; exit 1 ;; esac;
+        dnf -y --setopt=install_weak_deps=False
+        --repofrompath=current-rocky-arm-fprint,https://dl.rockylinux.org/pub/rocky/9/devel/aarch64/os/
+        --setopt=current-rocky-arm-fprint.includepkgs=fprintd,fprintd-pam,libfprint
+        --setopt=current-rocky-arm-fprint.gpgcheck=1
+        --setopt=current-rocky-arm-fprint.gpgkey=https://dl.rockylinux.org/pub/rocky/RPM-GPG-KEY-Rocky-9
+        install fprintd-pam;
+        rpm -q fprintd fprintd-pam libfprint

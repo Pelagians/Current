@@ -3,4 +3,15 @@ modules:
   - type: containerfile
     snippets:
       - >-
-        RUN . /usr/share/current/os-release-meta.env &&           arch="$(uname -m)" &&           repo_id="cuda-rhel${EL_MAJOR}-${arch}" &&           repo_url="https://developer.download.nvidia.com/compute/cuda/repos/rhel${EL_MAJOR}/${arch}/cuda-rhel${EL_MAJOR}.repo" &&           curl -fsSL "${repo_url}" -o /etc/yum.repos.d/cuda.repo &&           if dnf config-manager --help 2>&1 | grep -q -- '--set-disabled'; then dnf config-manager --set-disabled "${repo_id}"; else dnf config-manager setopt "${repo_id}.enabled=0"; fi
+        RUN . /usr/share/current/os-release-meta.env &&
+        case "$(uname -m)" in
+        x86_64) cuda_arch=x86_64 ;;
+        aarch64) cuda_arch=sbsa ;;
+        *) echo "Unsupported CUDA architecture" >&2; exit 1 ;;
+        esac &&
+        repo_id="cuda-rhel${EL_MAJOR}-${cuda_arch}" &&
+        repo_url="https://developer.download.nvidia.com/compute/cuda/repos/rhel${EL_MAJOR}/${cuda_arch}/cuda-rhel${EL_MAJOR}.repo" &&
+        curl -fsSL "${repo_url}" -o /etc/yum.repos.d/cuda.repo &&
+        if dnf config-manager --help 2>&1 | grep -q -- '--set-disabled'; then
+        dnf config-manager --set-disabled "${repo_id}";
+        else dnf config-manager setopt "${repo_id}.enabled=0"; fi

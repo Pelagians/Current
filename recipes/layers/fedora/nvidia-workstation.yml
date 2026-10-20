@@ -1,0 +1,10 @@
+modules:
+  # The akmod layer removes its temporary Negativo17 repo. Restore only the
+  # selected source for workstation extras; x64 open retains NVIDIA's CUDA repo.
+  - type: containerfile
+    snippets:
+      - RUN --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,ro /usr/bin/bash /tmp/files/scripts/fedora-nvidia-workstation.sh
+  - type: kargs
+    kargs:
+      - nvidia-drm.modeset=1
+      - nvidia-drm.fbdev=1

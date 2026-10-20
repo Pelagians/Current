@@ -1,5 +1,6 @@
 ---
 modules:
+  # util-linux/flock comes from shared/core-base.yml.
   # Shared Flatpak base for desktop-capable workstation images.
   - from-file: layers/shared/flatpak-cleanup.yml
 
@@ -9,7 +10,6 @@ modules:
       packages:
         - flatpak
         - flatpak-selinux
-        - util-linux # flock serializes startup and interactive maintenance
         - xdg-desktop-portal
 
   - type: files
