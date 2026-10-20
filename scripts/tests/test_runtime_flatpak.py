@@ -15,7 +15,7 @@ import tempfile
 import time
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / 'files/flatpak/cleanup/usr/libexec/current-flatpak-system-maintenance'
 WRAPPER = ROOT / 'files/flatpak/base/etc/profile.d/flatpak-user-default.sh'
 RECIPES = ROOT / 'files/justfiles/usr/share/current/just/update.just'
@@ -332,7 +332,7 @@ case ",$FAILURES," in *,"$1",*) exit 8 ;; esac
 
 class Policy(unittest.TestCase):
     def test_policy(self):
-        r=subprocess.run(['node',str(ROOT/'scripts/test-flatpak-policy.js'),str(POLICY)],capture_output=True,text=True)
+        r=subprocess.run(['node',str(ROOT/'scripts/tests/flatpak_policy.js'),str(POLICY)],capture_output=True,text=True)
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
 
 

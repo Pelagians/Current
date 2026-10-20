@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+source scripts/validation.sh
 
 command -v python3 >/dev/null 2>&1 || { printf 'Missing required tool: python3
 ' >&2; exit 127; }
@@ -9,7 +10,6 @@ command -v python3 >/dev/null 2>&1 || { printf 'Missing required tool: python3
 bash -n files/scripts/just-el9.sh
 bash -n files/workstation/shared/usr/libexec/current-workstation-dm-apply
 bash -n files/workstation/shared/usr/lib/systemd/system-generators/current-workstation-dm-generator
-python3 scripts/tests/test-workstation-dm.py
 bash -n files/flatpak/base/usr/libexec/current-flatpak-session-env
 bash -n files/flatpak/cleanup/usr/libexec/current-flatpak-system-maintenance
 bash -n files/nvidia/usr/local/libexec/current/current-pcp-nvidia-pmda-apply
@@ -40,22 +40,23 @@ test ! -e files/base/runtime/usr/share/myos
 grep -q 'JUSTFILE="/usr/share/current/just/index.just"' files/justfiles/usr/local/bin/current
 grep -q 'default_matrix_url="https://raw.githubusercontent.com/Pelagians/Current/stable/files/base/runtime/usr/share/current/image-matrix.tsv"' files/justfiles/usr/share/current/just/rebase.just
 grep -q 'CURRENT_IMAGE_MATRIX_URL' files/justfiles/usr/share/current/just/rebase.just
-! grep -q 'MYOS_IMAGE_MATRIX_URL' files/justfiles/usr/share/current/just/rebase.just
+reject_matches -q 'MYOS_IMAGE_MATRIX_URL' files/justfiles/usr/share/current/just/rebase.just
 grep -q 'CURRENT_REGISTRY_NAMESPACE' files/justfiles/usr/share/current/just/rebase.just
-! grep -q 'MYOS_REGISTRY_NAMESPACE' files/justfiles/usr/share/current/just/rebase.just
+reject_matches -q 'MYOS_REGISTRY_NAMESPACE' files/justfiles/usr/share/current/just/rebase.just
 grep -q 'ghcr.io/pelagians' files/justfiles/usr/share/current/just/rebase.just
 grep -q 'current --list' files/justfiles/usr/share/current/just/index.just
 grep -q 'CURRENT_INSTALLER_PAYLOAD_REF' scripts/build-alma10-installer-iso.sh
-! grep -q 'MYOS_INSTALLER_PAYLOAD_REF' scripts/build-alma10-installer-iso.sh
+reject_matches -q 'MYOS_INSTALLER_PAYLOAD_REF' scripts/build-alma10-installer-iso.sh
 test ! -e scripts/sync-ghcr-compat-aliases.sh
 
 # No Current runtime implementation should keep old myOS env/config/path names.
-! grep -RInE \
+reject_matches -RInE \
   --exclude-dir=.git \
   --exclude='*.svg' \
   --exclude='validate-runtime-artifacts.sh' \
+  --exclude-dir=tests --exclude-dir=__pycache__ --exclude-dir=.generated \
   -- 'myos|myOS|myos-dev|MYOS_' \
-  files scripts modules recipes .github installer README.md docs/README.md docs/user docs/brand docs/maintainers SUPPORT.md CONTRIBUTING.md
+  files scripts modules recipes .github installer README.md docs/README.md docs/user docs/brand docs/maintainers CONTRIBUTING.md
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
@@ -124,18 +125,18 @@ grep -q 'from-file: layers/shared/workstation-media.yml' recipes/layers/shared/w
 grep -q 'from-file: layers/shared/workstation-admin-tools.yml' recipes/layers/shared/workstation-common.yml
 grep -q 'from-file: layers/shared/workstation-policy.yml' recipes/layers/shared/workstation-common.yml
 grep -q 'from-file: layers/shared/workstation-user-tools.yml' recipes/layers/shared/workstation-common.yml
-! grep -q 'brave-browser-rpm-beta' recipes/layers/shared/workstation-common.yml
-! grep -q 'current-workstation-dm-apply.service' recipes/layers/shared/workstation-common.yml
+reject_matches -q 'brave-browser-rpm-beta' recipes/layers/shared/workstation-common.yml
+reject_matches -q 'current-workstation-dm-apply.service' recipes/layers/shared/workstation-common.yml
 grep -q '^        - ModemManager$' recipes/layers/shared/workstation-substrate.yml
 grep -q '^        - libva$' recipes/layers/shared/workstation-media.yml
 grep -q '^        - libvdpau$' recipes/layers/shared/workstation-media.yml
 grep -q '^        - mesa-dri-drivers$' recipes/layers/shared/workstation-media.yml
 grep -q '^        - libva-utils$' recipes/layers/alma9/workstation.yml
 grep -q 'libva-nvidia-driver' recipes/layers/alma9/nvidia-workstation.yml
-! grep -q 'libva-nvidia-driver' recipes/layers/alma9/nvidia-580.yml
+reject_matches -q 'libva-nvidia-driver' recipes/layers/alma9/nvidia-580.yml
 grep -q '^        - tcpdump$' recipes/layers/shared/workstation-admin-tools.yml
 grep -q 'current-workstation-dm-apply.service' recipes/layers/shared/workstation-policy.yml
-grep -q 'brave-origin-beta' recipes/layers/shared/workstation-user-tools.yml
+grep -q 'dnf install -y brave-origin$' recipes/layers/shared/workstation-user-tools.yml
 test -f files/workstation/user-tools/usr/lib/tmpfiles.d/current-brave-origin-opt.conf
 grep -Eq '^L\+ /var/opt/brave\.com .*/usr/lib/opt/brave\.com$' files/workstation/user-tools/usr/lib/tmpfiles.d/current-brave-origin-opt.conf
 
@@ -143,19 +144,19 @@ test -f files/base/runtime/etc/ld.so.conf.d/rocm.conf
 test -f files/base/runtime/etc/profile.d/rocm.sh
 test -f files/base/runtime/etc/udev/rules.d/70-render.rules
 test -f files/base/runtime/etc/udev/rules.d/70-amdgpu-kfd.rules
-! grep -q 'agent/runtime-core' recipes/layers/shared/core-base.yml
-! grep -q 'agent/platform-host' recipes/layers/shared/core.yml
-! grep -q '/etc/current/dns' recipes/layers/shared/core.yml
-! grep -q '/etc/current/firewall' recipes/layers/shared/core.yml
-! grep -q '/etc/current' recipes/layers/shared/core.yml
+reject_matches -q 'agent/runtime-core' recipes/layers/shared/core-base.yml
+reject_matches -q 'agent/platform-host' recipes/layers/shared/core.yml
+reject_matches -q '/etc/current/dns' recipes/layers/shared/core.yml
+reject_matches -q '/etc/current/firewall' recipes/layers/shared/core.yml
+reject_matches -q '/etc/current' recipes/layers/shared/core.yml
 
 grep -q 'from-file: layers/features/k3s.yml' recipes/layers/shared/core-base.yml
 grep -q 'from-file: layers/features/pcp.yml' recipes/layers/shared/core-base.yml
 grep -q 'from-file: layers/features/tailscale.yml' recipes/layers/shared/core-base.yml
 grep -q 'from-file: layers/shared/system-policy.yml' recipes/layers/shared/core-base.yml
-! grep -q 'tailscale.repo' recipes/layers/shared/core-base.yml
-! grep -q 'pmcd.service' recipes/layers/shared/core-base.yml
-! grep -q 'bootc-fetch-apply-updates' recipes/layers/shared/core-base.yml
+reject_matches -q 'tailscale.repo' recipes/layers/shared/core-base.yml
+reject_matches -q 'pmcd.service' recipes/layers/shared/core-base.yml
+reject_matches -q 'bootc-fetch-apply-updates' recipes/layers/shared/core-base.yml
 grep -q '^        - pcp$' recipes/layers/features/pcp.yml
 grep -q 'pmcd.service' recipes/layers/features/pcp.yml
 grep -q 'tailscale.repo' recipes/layers/features/tailscale.yml
@@ -166,7 +167,7 @@ grep -q 'transparent_hugepage=madvise' recipes/layers/shared/system-policy.yml
 test -f files/k3s/shared/usr/lib/systemd/system/k3s.service
 test -f files/k3s/shared/usr/lib/systemd/system/k3s-agent.service
 grep -q "version='v1.36.1+k3s1'" recipes/layers/features/k3s.yml
-! grep -q 'current cluster' recipes/layers/features/k3s.yml
+reject_matches -q 'current cluster' recipes/layers/features/k3s.yml
 
 test -f files/ceph-host/shared/usr/lib/modules-load.d/90-current-ceph-host.conf
 grep -q 'from-file: layers/features/ceph.yml' recipes/layers/shared/core.yml
@@ -188,7 +189,7 @@ grep -q 'modinfo -F vermagic' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'build_packages=(akmod-nvidia akmods kernel-devel)' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'rpm -q cuda cuda-devel cuda-nvcc cuda-gcc' recipes/layers/fedora/nvidia-akmod.yml
 grep -q 'nvidia-driver nvidia-persistenced nvidia-driver-cuda' recipes/layers/fedora/nvidia-akmod.yml
-! grep -q 'libva-nvidia-driver' recipes/layers/fedora/nvidia-580.yml
+reject_matches -q 'libva-nvidia-driver' recipes/layers/fedora/nvidia-580.yml
 grep -q '580:x86_64|580:aarch64) repo=fedora-nvidia-580' recipes/layers/fedora/nvidia-workstation.yml
 grep -q 'open:x86_64) repo=cuda-fedora44-x86_64' recipes/layers/fedora/nvidia-workstation.yml
 grep -q 'open:aarch64) repo=fedora-nvidia' recipes/layers/fedora/nvidia-workstation.yml
@@ -199,10 +200,10 @@ test -f files/nvidia/usr/lib/systemd/system/current-pcp-nvidia-pmda-apply.servic
 grep -q "import '/usr/share/current/just/default.just'" files/justfiles/usr/share/current/just/index.just
 grep -q "import '/usr/share/current/just/rebase.just'" files/justfiles/usr/share/current/just/index.just
 grep -q "import '/usr/share/current/just/update.just'" files/justfiles/usr/share/current/just/index.just
-! grep -q "cluster.just" files/justfiles/usr/share/current/just/index.just
+reject_matches -q "cluster.just" files/justfiles/usr/share/current/just/index.just
 test ! -e files/justfiles/usr/share/current/just/cluster.just
 grep -q '^rebase:$' files/justfiles/usr/share/current/just/rebase.just
 
 # Flatpak transaction, wrapper, policy, and orchestration behavior.
 bash -n files/flatpak/base/etc/profile.d/flatpak-user-default.sh
-python3 scripts/test-flatpak-maintenance.py
+python3 -m unittest discover -s scripts/tests -p 'test_runtime_*.py' -v

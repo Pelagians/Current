@@ -1,6 +1,8 @@
 # Contributing
 
-Current is the public identity and primary technical namespace. The project preserves myOS compatibility aliases, so changes to `myos`, `/usr/share/myos`, `MYOS_*`, or `ghcr.io/myos-dev/*` must keep the compatibility policy in [docs/compatibility.md](docs/compatibility.md).
+Use the Current CLI, runtime paths and environment variables. Supported migration
+interfaces are listed in [the compatibility policy](docs/compatibility.md).
+Start with the [maintainer map](docs/maintainers/README.md) to find the owner of a change.
 
 ## Start with the image contract
 
@@ -46,7 +48,7 @@ bash ./scripts/validate-image-matrix.sh
 If you touch Alma 9 NVIDIA legacy logic and have the tooling available:
 
 ```bash
-pwsh ./scripts/verify-alma9-nvidia-legacy.ps1
+pwsh ./scripts/verify-alma9-nvidia-580.ps1
 ```
 
 More detail lives in [docs/maintainers/validation.md](docs/maintainers/validation.md).

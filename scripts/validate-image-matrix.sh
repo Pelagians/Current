@@ -362,7 +362,5 @@ for snippet in 'x64-images:' 'arm64-images:' 'architecture: x86_64' 'architectur
 done
 [[ "$(grep -Fc 'uses: ./.github/workflows/build-architecture.yml' .github/workflows/build.yml)" == 2 ]]
 [[ "$(grep -Fc 'runs-on: ${{ inputs.runner }}' "$workflow_file")" == 3 ]]
-python3 scripts/tests/test-image-architectures.py
-python3 scripts/tests/test-fedora-nvidia.py
 
-python3 scripts/tests/test-image-publication.py
+python3 -m unittest discover -s scripts/tests -p 'test_image_*.py' -v

@@ -2,6 +2,11 @@
 
 Use the repo validation scripts as the source of truth for the supported image matrix.
 
+Run from the repository root. Bash and Python 3 run the validators; runtime
+fixtures also require Node.js, util-linux (`flock`/`setsid`) and systemd tools.
+Tests use temporary roots and mocks, never the host display manager or Flatpak
+installation. Negative source assertions fail on matches **and** grep errors.
+
 Primary checks:
 
 - scripts/validate-runtime-artifacts.sh
@@ -14,7 +19,7 @@ The image-matrix validator checks that recipes, CI, and the shipped matrix descr
 Workstation regression checks run automatically through the runtime validator:
 
 ```bash
-python3 scripts/tests/test-workstation-dm.py
+python3 scripts/tests/test_runtime_workstation_dm.py
 ```
 
 They use temporary roots, real offline `systemctl`, and native systemd dependency
@@ -35,7 +40,24 @@ pass [the gated CI publisher](image-publishing.md).
 Flatpak behavior checks are included in the runtime validator and can also run alone:
 
 ```bash
-python3 scripts/test-flatpak-maintenance.py
+python3 scripts/tests/test_runtime_flatpak.py
 ```
 
 They require Python 3, Bash, Node.js, and util-linux (`flock`/`setsid`). They use temporary mocks, never host Flatpak installations. Run as an ordinary user to exercise the real root-rejection gate; root containers that cannot change UID report that case as skipped. See the Flatpak section of `runtime-contracts.md` for remaining image integration checks.
+
+## Test entrypoints
+
+All Python regressions are discoverable without a maintained list of filenames:
+
+```bash
+python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+```
+
+The runtime validator runs `test_runtime_*.py`; the matrix validator runs
+`test_image_*.py`. The JavaScript policy fixture is called by the Flatpak tests.
+Historical decision records and test fixtures are excluded from the active-source
+namespace check; active implementation and maintainer/user documentation remain
+checked. A historical spelling in a fixture must not make validation pass or fail.
+
+CI intentionally runs both branch-head and PR-merge candidates. Branch tags remain
+published; PR tags identify merge candidates. See [image publishing](image-publishing.md).
