@@ -27,8 +27,10 @@ Artifacts must cover every matrix row from the same commit and run;
 paired architectures must also agree on their distro version.
 
 The publisher depends on both complete architecture workflows. It validates all
-artifacts and registry configs before publishing. It signs/verifies native child
-digests, creates a complete index for each family, verifies its exact platform /
+artifacts and registry configs before publishing. BlueBuild signs native child
+digests recursively; the publisher verifies those existing signatures without
+re-signing them. Missing or invalid signatures fail publication. It creates a
+complete index for each family, verifies its exact platform /
 digest set and source revision, then signs/verifies the index. ARM compatibility
 repositories are also copied and signed at staging references. Only after every
 index and compatibility reference is ready does promotion advance public tags.
@@ -52,6 +54,8 @@ preserving the `.sig` attachments consumed by containers/image and bootc.
 Existing distro streams also advance: `:44` on stable Fedora, and `:pr-28-44`
 on its PR channel, for example. ARM compatibility repositories receive those
 streams too. Historical dated/SHA tags remain unchanged.
+Each promotion command applies both channel/version tags to the same immutable
+digest. This batches CLI work without changing the per-tag atomicity limit.
 
 After a transient native failure, rerun the failed jobs. Successful native
 artifacts from earlier attempts of this same run and source revision remain

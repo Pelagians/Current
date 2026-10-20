@@ -187,7 +187,8 @@ def publish(directory):
         repo = namespace + '/' + image
         for digest in children.values():
             ref = repo + '@' + digest
-            sign_and_verify(ref)
+            # BlueBuild signs native children recursively; require its existing signature.
+            run('cosign', 'verify', '--key', str(ROOT / 'cosign.pub'), ref)
         staged_ref = f'{repo}:run-{run_id}-{attempt}'
         run('docker', 'buildx', 'imagetools', 'create', '--prefer-index=true',
             '--annotation', 'index:org.opencontainers.image.revision=' + revision,
@@ -210,17 +211,18 @@ def publish(directory):
         version = next(r['version'] for r in records.values() if r['image'] == image)
         # Preserve stock BlueBuild version streams, including older installed ARM refs.
         targets = [target, version if target == 'latest' else target + '-' + version]
-        for tag in targets:
-            run('docker', 'buildx', 'imagetools', 'create', '--tag', f'{namespace}/{image}:{tag}', ref)
-            for arch, digest in grouped[image].items():
-                native = namespace + '/' + image + '@' + digest
+        repo = namespace + '/' + image
+        run('docker', 'buildx', 'imagetools', 'create',
+            *[arg for tag in targets for arg in ('--tag', f'{repo}:{tag}')], ref)
+        for arch, digest in grouped[image].items():
+            native = repo + '@' + digest
+            run('docker', 'buildx', 'imagetools', 'create', '--prefer-index=false',
+                *[arg for tag in targets for arg in ('--tag', f'{repo}:{tag}-{OCI_ARCH[arch]}')], native)
+            if arch == 'aarch64':
+                # Compatibility signatures were staged in their own repository above.
                 run('docker', 'buildx', 'imagetools', 'create', '--prefer-index=false',
-                    '--tag', f'{namespace}/{image}:{tag}-{OCI_ARCH[arch]}', native)
-                if arch == 'aarch64':
-                    # Compatibility signatures were staged in their own repository above.
-                    run('docker', 'buildx', 'imagetools', 'create', '--prefer-index=false',
-                        '--tag', f'{namespace}/{image}-arm64:{tag}',
-                        f'{namespace}/{image}-arm64@{digest}')
+                    *[arg for tag in targets for arg in ('--tag', f'{repo}-arm64:{tag}')],
+                    f'{repo}-arm64@{digest}')
         print(f'Published {namespace}/{image}:{target}: ' + ', '.join(grouped[image]))
 
 

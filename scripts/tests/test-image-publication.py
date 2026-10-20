@@ -37,7 +37,12 @@ class Publication(unittest.TestCase):
                          version={'alma9':'9','alma10':'10','fedora':'44'}[row['platform']])
             (self.directory / f'{index}.json').write_text(json.dumps(value))
 
-    def fake_registry(self, wrong_config=False, signing_failure=False, wrong_index=False, wrong_build=False):
+    @staticmethod
+    def tags(call):
+        return [call[index + 1] for index, arg in enumerate(call) if arg == '--tag']
+
+    def fake_registry(self, wrong_config=False, signing_failure=False, wrong_index=False, wrong_build=False,
+                      missing_native_signature=False):
         self.calls, indexes = [], {}
         digests = {json.loads(p.read_text())['digest']: json.loads(p.read_text())
                    for p in self.directory.glob('*.json')}
@@ -51,22 +56,26 @@ class Publication(unittest.TestCase):
                                        config=dict(Labels={'org.opencontainers.image.revision': ENV['GITHUB_SHA'],
                                                            'io.current.build': pub.marker(arch, '99' if wrong_build else record['attempt'])})))
             if args[:4] == ('docker', 'buildx', 'imagetools', 'create'):
-                target = args[args.index('--tag') + 1]
                 if '--annotation' in args:
                     descriptors = [{'platform': {'os': 'linux', 'architecture': pub.OCI_ARCH[digests[a.split('@')[1]]['architecture']]},
                                     'digest': a.split('@')[1]} for a in args if '@' in a]
-                    indexes[target] = dict(manifests=descriptors,
-                                           annotations={'org.opencontainers.image.revision': ENV['GITHUB_SHA']})
-                    if wrong_index: indexes[target]['manifests'].append(descriptors[0])
+                    index = dict(manifests=descriptors,
+                                 annotations={'org.opencontainers.image.revision': ENV['GITHUB_SHA']})
+                    if wrong_index: index['manifests'].append(descriptors[0])
+                    for target in self.tags(args): indexes[target] = index
             if args[:3] == ('skopeo', 'inspect', '--raw'):
                 return json.dumps(indexes[args[-1].removeprefix('docker://')])
             if args[:2] == ('cosign', 'sign') and signing_failure:
                 raise ValueError('fixture signature failure')
+            if (args[:2] == ('cosign', 'verify') and missing_native_signature
+                    and args[-1].split('@')[1] == max(digests)
+                    and '-arm64@' not in args[-1]):
+                raise ValueError('fixture missing native signature')
             return ''
         return command
 
     def mutable_updates(self):
-        return [c for c in self.calls if '--tag' in c and ':run-123-2' not in c[c.index('--tag') + 1]]
+        return [c for c in self.calls if self.tags(c) and ':run-123-2' not in self.tags(c)[0]]
 
     def test_all_platforms_merge_and_sign_before_any_channel_advances(self):
         # Failed-job reruns retain successful native builds from earlier attempts.
@@ -76,19 +85,51 @@ class Publication(unittest.TestCase):
         with patch.object(pub, 'run', self.fake_registry()), redirect_stdout(io.StringIO()):
             pub.publish(self.directory)
         updates = self.mutable_updates()
-        canonical = [c for c in updates if c[c.index('--tag') + 1].endswith(':latest')
-                     and '-arm64:' not in c[c.index('--tag') + 1]]
-        self.assertEqual(len(canonical), 24)
-        self.assertTrue(any(c[c.index('--tag') + 1] == 'ghcr.io/pelagians/fedora-gnome:44' for c in updates))
-        self.assertEqual(sum(c[c.index('--tag') + 1].endswith(':latest-arm64') for c in updates), 21)
-        self.assertEqual(sum('-arm64:latest' in c[c.index('--tag') + 1] for c in updates), 21)
+        self.assertEqual(len(updates), 90)
+        promoted = {tag: c[-1] for c in updates for tag in self.tags(c)}
+        self.assertEqual(sum(len(self.tags(c)) for c in updates), len(promoted))
+        expected_tags, native_refs = set(), set()
+        for record in pub.load_records(self.directory).values():
+            repo = 'ghcr.io/pelagians/' + record['image']
+            native = repo + '@' + record['digest']
+            native_refs.add(native)
+            for tag in ('latest', record['version']):
+                expected_tags.add(repo + ':' + tag)
+                self.assertEqual(promoted[repo + ':' + tag], promoted[repo + ':latest'])
+                debug = repo + ':' + tag + '-' + pub.OCI_ARCH[record['architecture']]
+                expected_tags.add(debug)
+                self.assertEqual(promoted[debug], native)
+                if record['architecture'] == 'aarch64':
+                    alias = repo + '-arm64:' + tag
+                    expected_tags.add(alias)
+                    self.assertEqual(promoted[alias], repo + '-arm64@' + record['digest'])
+        self.assertEqual(set(promoted), expected_tags)
+        for call in updates:
+            self.assertEqual(len(self.tags(call)), 2)
+            if any('-arm64:' in tag or tag.endswith(('-amd64', '-arm64')) for tag in self.tags(call)):
+                self.assertIn('--prefer-index=false', call)
         first = self.calls.index(updates[0])
         self.assertEqual(sum(c[:2] == ('cosign', 'verify') for c in self.calls[:first]), 90)
+        signed = {c[-1] for c in self.calls[:first] if c[:2] == ('cosign', 'sign')}
+        verified = {c[-1] for c in self.calls[:first] if c[:2] == ('cosign', 'verify')}
+        self.assertEqual(len(signed), 45)  # 24 new indexes and 21 repository-local aliases.
+        self.assertFalse(signed & native_refs)
+        self.assertEqual(verified, signed | native_refs)
+        self.assertEqual(set(promoted.values()), verified)
         for call in self.calls[:first]:
             if call[:2] == ('cosign', 'sign'):
                 self.assertIn('--new-bundle-format=false', call)
                 self.assertIn('--use-signing-config=false', call)
         self.assertFalse(any(c[:2] == ('cosign', 'sign') for c in self.calls[first:]))
+
+    def test_missing_native_signature_does_not_sign_it_or_advance_channels(self):
+        with patch.object(pub, 'run', self.fake_registry(missing_native_signature=True)), \
+                self.assertRaisesRegex(ValueError, 'missing native signature'):
+            pub.publish(self.directory)
+        native_refs = {'ghcr.io/pelagians/' + r['image'] + '@' + r['digest']
+                       for r in pub.load_records(self.directory).values()}
+        self.assertFalse(any(c[:2] == ('cosign', 'sign') and c[-1] in native_refs for c in self.calls))
+        self.assertFalse(self.mutable_updates())
 
     def test_missing_wrong_attempt_duplicate_and_invalid_digest_stop_before_registry_calls(self):
         for change in ('missing', 'attempt', 'future_attempt', 'run_id', 'duplicate', 'digest', 'version'):
@@ -140,7 +181,7 @@ class Publication(unittest.TestCase):
             with patch.dict(os.environ, changes): self.assertEqual(pub.channel(), expected)
         with patch.dict(os.environ, GITHUB_EVENT_NAME='pull_request'), patch.object(pub, 'run', self.fake_registry()), redirect_stdout(io.StringIO()):
             pub.publish(self.directory)
-        targets = [c[c.index('--tag') + 1] for c in self.mutable_updates()]
+        targets = [tag for c in self.mutable_updates() for tag in self.tags(c)]
         self.assertIn('ghcr.io/pelagians/fedora-gnome-arm64:pr-28-44', targets)
         self.assertFalse(any(':latest' in tag for tag in targets))
 
@@ -205,8 +246,21 @@ class Publication(unittest.TestCase):
 
     def test_workflow_native_override_and_publication_gate(self):
         native = (ROOT / '.github/workflows/build-architecture.yml').read_text()
-        self.assertEqual(native.count('build_opts: --platform ${{ matrix.platform }}'), 3)
-        self.assertEqual(native.count('skip_checkout: true'), 3)
+        # Assert the shared mapping and each caller, rather than requiring copies.
+        server = native.split('- name: Build Server image\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn('with: &native_build_options\n', server)
+        for option in ('recipe: ${{ steps.prepare.outputs.recipe }}', 'skip_checkout: true',
+                       'build_opts: --platform ${{ matrix.platform }}',
+                       'cosign_private_key: ${{ secrets.SIGNING_SECRET }}',
+                       'registry_token: ${{ github.token }}', 'pr_event_number: ${{ github.event.number }}',
+                       'maximize_build_space: true'):
+            self.assertIn('          ' + option + '\n', server + '\n')
+        for name in ('Build Workstation image', 'Retry workstation image'):
+            step = native.split('- name: ' + name + '\n', 1)[1].split('\n      - ', 1)[0]
+            self.assertIn('uses: blue-build/github-action@v1.13\n', step)
+            self.assertIn('        with: *native_build_options\n', step + '\n')
+            if name == 'Retry workstation image':
+                self.assertIn("if: ${{ steps.build.outcome == 'failure' }}", step)
         workflow = (ROOT / '.github/workflows/build.yml').read_text()
         self.assertIn('needs: [x64-images, arm64-images]', workflow)
         self.assertIn('pattern: native-*', workflow)
