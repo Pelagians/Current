@@ -15,6 +15,16 @@ installer config      = installer/alma10-server/iso.toml
 
 The installer environment includes Anaconda and related installer dependencies. The installed system payload is passed separately to `bootc-image-builder` with `--installer-payload-ref`.
 
+This installer targets x86_64. Its build restores Alma's signed shim and
+MokManager from `/usr/lib/bootupd/updates/EFI/almalinux` when they are absent
+from `/boot/efi/EFI/almalinux`. It checks those binaries, the separately packaged
+CD-boot GRUB binary, and the GRUB font before invoking osbuild. This preparation
+only affects the installer environment.
+
+The config uses the builder's default ISO volume metadata: the current
+`bootc-installer` builder rejects `[customizations.iso]`. The interactive
+Kickstart and Anaconda module settings remain in the canonical config.
+
 ## Build from the repository config
 
 From the repository root:

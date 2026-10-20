@@ -6,7 +6,9 @@ FROM ${CURRENT_PAYLOAD_REF}
 # separately with --installer-payload-ref by scripts/build-alma10-installer-iso.sh.
 RUN dnf install -y     anaconda     anaconda-install-env-deps     anaconda-dracut     dracut-config-generic     dracut-network     net-tools     squashfs-tools     grub2-efi-x64-cdboot     grub2-tools-extra     efibootmgr     shim-x64     python3-mako     lorax-templates-rhel     biosdevname     prefixdevname     && dnf clean all
 
-# bootc-image-builder / lorax compatibility glue for installer media builds.
-RUN mkdir -p /boot/efi &&     if [ -d /usr/lib/efi ]; then cp -ra /usr/lib/efi/*/*/EFI /boot/efi || true; fi
+# Restore the signed bootupd assets to the layout osbuild's grub2.iso expects.
+# Fail here if any required installer boot asset is missing.
+COPY installer/alma10-server/prepare-efi.sh /tmp/current-installer-prepare-efi.sh
+RUN bash /tmp/current-installer-prepare-efi.sh && rm /tmp/current-installer-prepare-efi.sh
 
 RUN mkdir -p /var/mnt
