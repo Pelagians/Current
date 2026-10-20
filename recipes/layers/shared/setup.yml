@@ -1,0 +1,14 @@
+modules:
+  # Shared backend and destination-boot observation; inert without setup state.
+  - type: dnf
+    install:
+      install-weak-deps: false
+      packages:
+        - python3
+  - type: files
+    files:
+      - source: setup
+        destination: /
+  - type: containerfile
+    snippets:
+      - COPY cosign.pub /usr/share/current/cosign.pub

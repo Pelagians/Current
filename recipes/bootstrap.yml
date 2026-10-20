@@ -1,0 +1,59 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+name: current-bootstrap
+description: Minimal experimental Current first-boot installer payload.
+base-image: quay.io/fedora/fedora-bootc
+image-version: 44@sha256:e6fffeed9e9a13ca4d351c1ce4ae2b4a5119fe121268479e247a63a3ba2bfda2
+platforms:
+  - linux/amd64
+  - linux/arm64
+modules:
+  - type: dnf
+    install:
+      install-weak-deps: false
+      packages:
+        - bootc
+        - NetworkManager
+        - NetworkManager-tui
+        - NetworkManager-wifi
+        - linux-firmware
+        - pciutils
+        - usbutils
+        - util-linux
+        - mokutil
+        - skopeo
+        - sudo
+        - openssh-server
+        - iproute
+        - iputils
+        - curl
+        - ca-certificates
+        - xfsprogs
+        - vim-minimal
+        - less
+  - from-file: layers/shared/setup.yml
+  - type: files
+    files:
+      - source: bootstrap
+        destination: /
+      - source: base/runtime/usr/share/current/image-matrix.tsv
+        destination: /usr/share/current/image-matrix.tsv
+      - source: justfiles/usr/local/bin/current
+        destination: /usr/local/bin/current
+  - type: systemd
+    system:
+      enabled:
+        - NetworkManager.service
+        - sshd.service
+      masked:
+        - bootc-fetch-apply-updates.service
+        - bootc-fetch-apply-updates.timer
+  - type: containerfile
+    snippets:
+      # Vendor default only: do not persist a bootstrap default.target in /etc.
+      - RUN rm -f /etc/systemd/system/default.target && ln -sfn multi-user.target /usr/lib/systemd/system/default.target
+  - type: initramfs
+  - type: signing
+  - type: script
+    scripts:
+      - setup-trust-policy.sh

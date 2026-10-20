@@ -93,6 +93,8 @@ modules:
       - source: base/branding
         destination: /
 
+  - from-file: layers/shared/setup.yml
+
   - from-file: layers/features/k3s.yml
   - from-file: layers/features/pcp.yml
   - from-file: layers/features/tailscale.yml
