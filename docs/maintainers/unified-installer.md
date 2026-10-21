@@ -250,6 +250,12 @@ bash scripts/validate-image-matrix.sh
 The systemd graph checks need ordinary local socket access; a sandbox denial is
 an environment failure and must not be hidden by skipping the assertion.
 
+## Qualification history
+
+The following entries preserve results at their recorded revisions, including
+superseded failures and artifacts. Use the qualification table above and the
+latest receipts below for the current state.
+
 ### Initial native build evidence
 
 [CI run 39517286831](https://github.com/Pelagians/Current/actions/runs/39517286831)

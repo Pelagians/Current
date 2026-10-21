@@ -428,6 +428,7 @@ def run(args):
         command('sudo journalctl -b -1 -u ostree-finalize-staged.service --no-pager')
         command('test ! -e /usr/lib/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf && test ! -e /etc/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf')
         command('getenforce; test "$(getenforce)" = Enforcing')
+        command('rpm -q xfsprogs; sudo xfs_info /sysroot; sudo xfs_info /boot')
         command('test "$(cat ~/current-sentinel)" = retained-user-data && test "$(id -u)" = "$(cat ~/current-original-uid)" && sudo sha256sum -c ~/current-network-hashes && systemctl is-active NetworkManager')
         command('code=$(curl -sS -o /dev/null -w "%{http_code}" https://ghcr.io/v2/) && { test "$code" = 401 || test "$code" = 200; }')
         command('sudo current setup status')
