@@ -261,7 +261,7 @@ def run(args):
                 raise RuntimeError('GRUB rejected command: ' + output)
         grub('linux (cd0)/images/pxeboot/vmlinuz inst.stage2=hd:LABEL=Current-Installer '
                            f'inst.ks=http://10.0.2.2:{server.server_port}/test.ks inst.graphical '
-                           'ip=dhcp console=tty0 console=ttyS0,115200n8 selinux=0')
+                           'ip=dhcp console=tty0 console=ttyS0,115200n8 selinux=1 enforcing=0')
         grub('initrd (cd0)/images/pxeboot/initrd.img')
         vm.serial.send('boot\r')
         if vm.serial.expect(['Linux version', 'error:'], timeout=120):
