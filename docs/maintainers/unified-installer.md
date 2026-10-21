@@ -697,3 +697,21 @@ A disposable 512 MiB regular-file check with xfsprogs 7.1.1 created XFS with
 This verifies the formatter option, not Alma boot compatibility. The replacement
 native ISOs and complete Fedora/Alma UEFI flows must still pass before removing
 the current transition holds.
+
+The persistent-journal [Alma 10 diagnostic run 39537058913](https://github.com/Pelagians/Current/actions/runs/39537058913)
+identified the finalization failure precisely:
+
+```text
+bwrap: execvp semodule: No such file or directory
+Finalizing deployment: Finalizing SELinux policy: failed to run semodule
+```
+
+[OSTree's finalizer](https://github.com/ostreedev/ostree/blob/main/src/libostree/ostree-sysroot-deploy.c)
+inherits its service environment while executing the destination's `semodule`.
+Fedora's merged bin/sbin layout does not ensure that PATH finds Alma's separate
+`/usr/sbin`. A bootstrap-only vendor drop-in now sets the finalizer's PATH to
+`/usr/sbin:/usr/bin:/sbin:/bin`. No policy store is deleted and no SELinux checks,
+enforcement or policy refresh are disabled. Keeping the setting in bootstrap
+`/usr` avoids carrying it into the destination's `/etc`; the VM harness checks
+that it disappears after the destination boots, and records the actual previous
+finalization journal and XFS feature reports. Full boot qualification is pending.

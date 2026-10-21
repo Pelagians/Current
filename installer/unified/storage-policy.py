@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Install Current's filesystem check into the Anaconda runtime only.
+"""Install Current's filesystem policy into the Anaconda runtime only.
 
 Anaconda 44 provides a root-device allowlist, but no filesystem denylist.
 Register one check in its existing pre-install storage validator; fail the image
 build if that integration point changes. Do not replace upstream checks.
+Apply the Alma-compatible XFS creation option at Blivet's formatter, rather than
+changing the storage plan during validation or rewriting existing filesystems.
 """
 import inspect
 import importlib.util
