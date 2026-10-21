@@ -5,6 +5,12 @@ bootstrap through graphical Anaconda; it does not install a full desktop at that
 stage. Existing image-specific installers remain available. See the
 [build architecture and test limits](../maintainers/unified-installer.md).
 
+Current VM testing found two installation blockers: automatic partitioning with
+a separate `/home` can leave the new account without its home directory, and the
+installer's disabled SELinux mode can reach the installed system. Keep this draft
+ISO on disposable test disks. Root-only storage and an explicit installed SELinux
+policy are being evaluated; neither is a qualified workaround yet.
+
 In Anaconda choose storage, timezone, networking and an administrator account.
 The default root filesystem is XFS; root login is locked. After reboot, log in
 on the local console with the account you created. Setup opens after normal

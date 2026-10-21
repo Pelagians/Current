@@ -55,6 +55,7 @@ keyboard us
 timezone UTC --utc
 network --bootproto=dhcp --device=link --activate --onboot=on --hostname=current-vm
 rootpw --lock
+selinux --enforcing
 user --name=currenttest --groups=wheel --password={password} --plaintext
 ignoredisk --only-use=vda
 zerombr
@@ -301,11 +302,14 @@ def run(args):
             # Disable echo and prompt hooks; encode the first prompt character so
             # command echo cannot be mistaken for the subsequent real prompt.
             vm.serial.sendline("unset PROMPT_COMMAND; bind 'set enable-bracketed-paste off'; stty -echo; export TERM=dumb; PS1=$(printf '\\103URRENT_VM> ')")
-            vm.serial.expect(r'\r?\nCURRENT_VM> ')
+            vm.serial.expect_exact('CURRENT_VM> ')
             vm.serial.sendline("printf 'READY\\n'")
-            vm.serial.expect(r'READY\r?\nCURRENT_VM> ')
+            vm.serial.expect(r'READY\r?\n')
+            vm.serial.expect_exact('CURRENT_VM> ')
 
         def command(text, timeout=120):
+            with (evidence / 'guest-commands.log').open('a') as commands:
+                commands.write(text + '\n')
             vm.serial.sendline(text + "; printf '\\nVM_RC=%s\\n' \"$?\"")
             vm.serial.expect(r'\r?\nVM_RC=([0-9]+)\r?\n', timeout=timeout)
             output = vm.serial.before
@@ -318,8 +322,9 @@ def run(args):
         record('Authenticated wheel login automatically launched setup; q safely paused it')
         command('findmnt; getent passwd currenttest; cat /etc/fstab; ls -ld /home /var/home "$HOME"; test -d "$HOME" && test -w "$HOME"')
         command('systemctl show systemd-remount-fs.service -p Result; cat /proc/cmdline; getenforce')
+        command('test "$(getenforce)" = Enforcing')
         command('test "$(findmnt -n -o FSTYPE /sysroot)" = xfs')
-        command('test -d /sys/firmware/efi; id; nmcli -t -f STATE general; systemctl is-active NetworkManager')
+        command('test -d /sys/firmware/efi && id && nmcli -t -f STATE general && systemctl is-active NetworkManager')
         command("printf 'retained-user-data\\n' > ~/current-sentinel; sha256sum ~/current-sentinel")
         command('id -u > ~/current-original-uid; sudo sh -c \'sha256sum /etc/NetworkManager/system-connections/*\' > ~/current-network-hashes')
         command('sudo bootc status --json')
@@ -357,7 +362,7 @@ def run(args):
         vm.serial.expect(r'\[sudo\] password for currenttest:')
         vm.serial.sendline(password)
         vm.serial.expect('CURRENT_VM> ')
-        command('test ! -e /usr/share/current/bootstrap; cat /usr/lib/os-release; sudo bootc status --json')
+        command('test ! -e /usr/share/current/bootstrap && cat /usr/lib/os-release && sudo bootc status --json')
         command('test "$(cat ~/current-sentinel)" = retained-user-data && test "$(id -u)" = "$(cat ~/current-original-uid)" && sudo sha256sum -c ~/current-network-hashes && systemctl is-active NetworkManager')
         command('code=$(curl -sS -o /dev/null -w "%{http_code}" https://ghcr.io/v2/) && { test "$code" = 401 || test "$code" = 200; }')
         command('sudo current setup status')

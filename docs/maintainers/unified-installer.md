@@ -382,13 +382,13 @@ automatically launched the distribution questionnaire; `q` paused it successfull
 `systemd-remount-fs.service` succeeded, and NetworkManager acquired a DHCP lease.
 These are real installed-bootstrap observations, not a destination qualification.
 
-The run exposed a material storage defect: automatic LVM partitioning created a
+The run used Anaconda `44.30-2.fc44` and exposed a material storage defect: automatic LVM partitioning created a
 separate `/home` volume, but the account's home was absent on first boot. Anaconda's
 `packaging.log` shows it unmounting and removing `/mnt/sysimage/home` before bootc
 deployment, then binding only `/proc`, `/sys`, `/var` and `/boot`. The first boot
 mounted `var-home.mount`, hiding the account directory created on the root volume.
 This is consistent with the older Anaconda mount assembly path. Upstream
-[current source](https://github.com/rhinstaller/anaconda/blob/main/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py)
+[commit dc4d94d](https://github.com/rhinstaller/anaconda/commit/dc4d94d279fee544b9ab58cef57a3987172963a2)
 now preserves user mount points and handles them in `PrepareBootcMountTargetsTask`;
 that source is not evidence that the RPM in this ISO contains the fix. Do not
 qualify separate-home installation or silently recreate a home after boot.
