@@ -721,3 +721,64 @@ enforcement or policy refresh are disabled. Keeping the setting in bootstrap
 `/usr` avoids carrying it into the destination's `/etc`; the VM harness checks
 that it disappears after the destination boots, and records the actual previous
 finalization journal and XFS feature reports. Full boot qualification is pending.
+
+### Combined Alma fixes: native ISO receipts
+
+Both jobs in [run 39538575885](https://github.com/Pelagians/Current/actions/runs/39538575885)
+passed at installer/bootstrap source `7d1994f37f312a1091137b485e988e139187c481`.
+Both archived checksum/build-input files were independently read, including the
+native architecture, immutable payload and digest-bound embedded source.
+Subsequent harness/documentation changes do not change these product inputs.
+
+| Architecture | ISO SHA256 | Artifact |
+| --- | --- | --- |
+| x86_64 | `e938802184bb8c611d0632447942217470a64701c2e0916a261de011389676fe` | [12318762090](https://github.com/Pelagians/Current/actions/runs/39538575885/artifacts/12318762090) |
+| aarch64 | `e3b37d2ca50dbe5ad156b3e5fada1c61acc5e8bccc3765660133a79aa4e2b22f` | [12319315828](https://github.com/Pelagians/Current/actions/runs/39538575885/artifacts/12319315828) |
+
+Signed native bootstrap payloads:
+
+- x86_64: `ghcr.io/pelagians/current-bootstrap-x86_64@sha256:4add8053fcb609c4153e85d76e3f696510476edb673759092ed3c8fe7a99ffca`
+- aarch64: `ghcr.io/pelagians/current-bootstrap-aarch64@sha256:982b5578d626450b63cc05173070520c77dc8cd6010675b5504c20f147d8674c`
+
+The pinned Fedora base and image-builder digests are unchanged. These are ISO
+hashes, not GitHub ZIP hashes. Artifacts expire after seven days. The ARM result
+establishes native assembly only, not UEFI/board/Secure Boot qualification.
+The earlier XFS-only build `39537608289` was superseded and cancelled by this
+combined build; it is not a qualified artifact.
+
+The final source passed 77 runtime tests and 72 image tests (149 total), Actionlint
+for both installer workflows, and diff checks. The three Alma 9 R580 static recipe
+contracts also passed. The optional live NVIDIA package-transaction preflight
+could not start locally because the sandbox's `/run/user/1000/libpod` is read-only;
+that transaction and physical driver qualification were not rerun in this pass.
+No driver recipe or destination publishing/trust gate changed.
+
+The same combined-fix ISO passed the [Btrfs rejection run 39539805272](https://github.com/Pelagians/Current/actions/runs/39539805272).
+Both the original ISO graphical Anaconda welcome screen and the negative-test
+summary screenshot were visually inspected. The validator logged Current's
+explicit Btrfs rejection; Begin Installation stayed disabled, no post-install
+marker appeared, and `disk-map.json` reported all 68,719,476,736 bytes as
+`present=false`, `zero=true`, `data=false`. This is allocation evidence, not a
+separate block-I/O trace. The unchanged harness source was `438f2579`.
+
+### Combined-fix server observations and command-path follow-up
+
+[Fedora run 39539802663](https://github.com/Pelagians/Current/actions/runs/39539802663)
+passed the complete server flow, including enforcing SELinux, destination
+completion/resume and authenticated bootstrap rollback.
+
+[Alma 9 run 39539797589](https://github.com/Pelagians/Current/actions/runs/39539797589)
+booted the signed Alma 9 destination on kernel `5.14.0-687.58.1.el9_8.x86_64`.
+The XFS blocker is resolved: both filesystems mounted, and Alma's
+`xfsprogs-6.4.0-7.el9` inspected `/sysroot` and `/boot`. SELinux was enforcing;
+account/data/network-profile retention and registry connectivity passed. The
+previous-boot journal records successful SELinux refresh and finalization.
+
+The flow then exposed a separate completion-command issue: `sudo current setup
+status` reported `sudo: current: command not found`. The shared setup layer now
+installs the existing command implementation at `/usr/bin/current` as well as
+its legacy location. This avoids dependence on a distribution's sudo secure_path
+or mutable `/usr/local` population without changing sudo permissions. Destination
+images and bootstrap must be rebuilt, and the full flows rerun before claiming
+completion/rollback qualification for Alma 9. Additional VM diagnostics record
+both command locations and sudo's actual PATH.

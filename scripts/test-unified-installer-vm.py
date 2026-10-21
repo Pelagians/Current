@@ -431,6 +431,7 @@ def run(args):
         command('rpm -q xfsprogs; sudo xfs_info /sysroot; sudo xfs_info /boot')
         command('test "$(cat ~/current-sentinel)" = retained-user-data && test "$(id -u)" = "$(cat ~/current-original-uid)" && sudo sha256sum -c ~/current-network-hashes && systemctl is-active NetworkManager')
         command('code=$(curl -sS -o /dev/null -w "%{http_code}" https://ghcr.io/v2/) && { test "$code" = 401 || test "$code" = 200; }')
+        command("command -v current; ls -ld /usr/local /usr/local/bin /usr/local/bin/current /usr/bin/current; sudo sh -c 'printf \"sudo PATH=%s\\n\" \"$PATH\"; command -v current'; true")
         command('sudo current setup status')
         vm.serial.sendline('sudo current setup')
         vm.serial.expect('The selected image is booted.')
