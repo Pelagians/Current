@@ -321,3 +321,42 @@ private ephemeral runner files. Use separate runs for `fedora`, `alma10` and
 both ISO and destination source identities: a moving PR channel may be newer
 than the installed bootstrap. Keep this workflow experimental until actual
 results are recorded below.
+
+### Final implementation build verification — 2026-10-20 (Vancouver)
+
+[Push run 39519851052](https://github.com/Pelagians/Current/actions/runs/39519851052)
+succeeded on both native architectures. Both archived `build-inputs.txt` receipts
+identify exact branch source `d00468df19b3dca60d51d4ba1a65b0a54602dd60`, including
+the final policy-precedence and malformed-metadata guards. This closes the prior
+native rebuild gap. Later harness-only changes do not change the installed payload.
+
+| Architecture | ISO SHA256 from archived receipt | Bootstrap digest |
+| --- | --- | --- |
+| x86_64 | `546538e79b6d235ebfe66efcca98f736fc360dd93d86a1cb2aa7578bed1e00a8` | `sha256:74ea3d799b760dd465edb65743ec8f7ff2b9eab65548b059ebb5d457f88cf2cc` |
+| aarch64 | `a02641771479945664eabe77c5dd6557bb5042af0319b1535c9953aeb400d5f9` | `sha256:d24a7f92986b2b009d0c7ac0391c21f4dcb2355e8e3d62a80b6cfa042bb9263a` |
+
+Artifacts: [x86_64](https://github.com/Pelagians/Current/actions/runs/39519851052/artifacts/12310459257),
+[aarch64](https://github.com/Pelagians/Current/actions/runs/39519851052/artifacts/12310608726).
+The small source/checksum receipts were read independently; the VM harness also
+hashes the complete downloaded ISO before boot. These are ISO checksum values,
+not GitHub ZIP archive digests. PR-event builds use synthetic merge revisions;
+do not silently equate their receipt revision with the branch head.
+
+Harness safety/receipt tests increase local validation to 144 passing tests
+(77 runtime, 67 image), with Actionlint and diff checks passing. The runtime suite
+requires the bundled Node binary on PATH and ordinary systemd socket access.
+The harness follows the upstream [Kickstart bootc contract](https://pykickstart.readthedocs.io/en/latest/kickstart-docs.html#bootc)
+and [QEMU monitor interface](https://www.qemu.org/docs/master/system/monitor.html).
+
+[UEFI run 39521364548](https://github.com/Pelagians/Current/actions/runs/39521364548)
+verified the full x86_64 ISO checksum, used working KVM on a 15 GiB runner, and
+booted the unmodified ISO into graphical Anaconda. The 135/180-second screenshots
+were visually inspected: the language-selection welcome screen is rendered.
+This qualifies initial UEFI/graphical installer startup only, not installation.
+The first continuation failed in the harness before installation: `fdspawn`
+closed a serial descriptor still owned by a Python socket, whose later destructor
+closed the next QMP descriptor. Ownership is now explicitly transferred with
+`detach()`, and QMP/serial handles are closed before restarting. Three real local
+QEMU socket lifecycles passed after the fix using an empty 64 MiB emulated machine,
+with no disks or guest OS attached. This socket regression check is not boot
+qualification. The same original ISO must now continue through installation.

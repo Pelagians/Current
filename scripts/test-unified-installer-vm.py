@@ -140,9 +140,11 @@ class VM:
             args += ['-boot', 'order=c']
         self.process = subprocess.Popen(args, stdout=(self.evidence / (label + '-qemu.log')).open('w'), stderr=subprocess.STDOUT)
         self.qmp = QMP(self.root / 'qmp')
-        self.serial_socket = socket.socket(socket.AF_UNIX)
-        self.serial_socket.connect(str(self.root / 'serial'))
-        self.serial = pexpect.fdpexpect.fdspawn(self.serial_socket, encoding='utf-8', codec_errors='replace', timeout=600)
+        serial_socket = socket.socket(socket.AF_UNIX)
+        serial_socket.connect(str(self.root / 'serial'))
+        # fdspawn closes its descriptor directly. Transfer ownership so a later
+        # socket destructor cannot close a descriptor reused by the next QMP.
+        self.serial = pexpect.fdpexpect.fdspawn(serial_socket.detach(), encoding='utf-8', codec_errors='replace', timeout=600)
         self.serial.logfile_read = (self.evidence / (label + '-serial.log')).open('w')
 
     def screenshot(self, name):
@@ -163,6 +165,11 @@ class VM:
         if self.serial:
             self.serial.logfile_read.close()
             self.serial.close()
+            self.serial = None
+        if self.qmp:
+            self.qmp.stream.close()
+            self.qmp.socket.close()
+            self.qmp = None
 
 
 def run(args):
