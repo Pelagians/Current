@@ -207,13 +207,15 @@ snapshot package repositories and pin the module/tool versions as well.
 
 Remote disposable x86_64 UEFI testing has reached installed bootstrap login and
 automatic setup activation; see the dated results below for storage limitations.
-No destination transition is qualified yet. The development host is ARM64, lacks `/dev/kvm`, and had only
+The Fedora server flow passed with recorded test overrides; final default-ISO
+and cross-distribution qualification remain pending. The development host is ARM64, lacks `/dev/kvm`, and had only
 4.6 GiB free on the container-storage filesystem. A large local installer build
 was not attempted. No host installation or host bootc mutation occurred.
 
 | Transition / hardware | Status |
 | --- | --- |
-| Bootstrap Fedora 44 → Fedora server/GNOME/COSMIC | Implemented, experimental; UEFI VM boot required |
+| Bootstrap Fedora 44 → Fedora server | Full UEFI VM flow passed with test-only storage/runtime overrides; replacement ISO defaults pending |
+| Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
 | Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Experimental cross-distribution; bootloader/SELinux/network tests required |
 | Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Experimental downgrade/cross-distribution; same tests plus older userspace compatibility |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
@@ -496,3 +498,46 @@ and compiles it without execution. This does not pretend the build host is UEFI.
 Runtime registration and pre-write rejection remain VM qualification gates.
 Both repository validators passed after the policy changes: 77 runtime and 70
 image tests (147 total); Actionlint and diff checks also passed.
+
+### Fedora server end-to-end result
+
+[Run 39531508575](https://github.com/Pelagians/Current/actions/runs/39531508575)
+passed the full server sequence with original ISO source `d00468df`, harness
+`d352feee`, test-only root-only storage and SELinux-enabled runtime arguments.
+The original default ISO graphical boot was also retained as a separate smoke
+check. The installed bootstrap had a writable home, XFS and enforcing SELinux.
+
+Disconnecting the virtual NIC caused a real registry/DNS error. The wizard kept
+the selection and offered retry; restoring the link staged native Fedora server
+digest `776f85a171f439dcb7b2e17e2155bff382917d38b6f96116eaf8d56a58aceb93`.
+Bootc's receipt recorded `signature: containerPolicy` and `phase: image-staged`,
+then the same digest booted and the reconciler recorded `destination-booted`.
+The original UID, home sentinel and NetworkManager profile hashes survived;
+NetworkManager ran and the registry was reachable. Explicit acceptance produced
+`complete`, and repeated setup did not restart the questionnaire.
+
+A real `bootc rollback` and reboot returned to the bootstrap with authenticated
+login intact. The completed receipt remains historical after rollback; the
+bootstrap prints the completed message and directs later changes to `current
+rebase`. Do not interpret that receipt as asserting that the destination is still
+booted. Destination SELinux enforcement was not separately asserted in this run;
+subsequent harness revisions add that check. No graphical desktop or Secure Boot
+qualification is implied. Replacement ISO defaults and Btrfs rejection still need
+their own VM results.
+
+### Alma 10 staging versus activation
+
+[Run 39531595719](https://github.com/Pelagians/Current/actions/runs/39531595719)
+installed the enforcing XFS bootstrap, retained selection through the deliberate
+network failure and staged signed Alma 10 native digest
+`a8096a6c9771a5738ec4d21861881c893c0296b24c65f91ea0dbb4ea7d7c8b7f`.
+The reboot displayed only the original Fedora bootstrap entry and returned to
+that bootstrap. `ostree-boot-complete.service` failed; no Alma kernel was observed.
+This is an activation failure, not evidence of an Alma XFS kernel failure.
+The original test timed out at the unexpected bootstrap wizard; the harness now
+recognizes that recovery login and collects bootc/setup state, boot entries and
+staged-finalization journals before failing explicitly. Alma 10 remains unqualified.
+
+The next VM revision uses bare `autopart`, so the shipping Anaconda configuration
+must supply both the XFS filesystem and root-only layout. It also asserts enforcing
+SELinux after the destination reboot, not only on the bootstrap.

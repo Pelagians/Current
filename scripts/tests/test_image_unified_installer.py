@@ -88,7 +88,9 @@ class UnifiedISO(unittest.TestCase):
         self.assertIn('ignoredisk --only-use=vda', ks)
         self.assertIn('clearpart --all --initlabel --drives=vda', ks)
         self.assertIn('rootpw --lock', ks)
-        self.assertIn('--fstype=xfs', ks)
+        self.assertIn('autopart\n', ks)
+        self.assertNotIn('--fstype=', ks)
+        self.assertNotIn('--nohome', ks)  # Exercise the shipping Anaconda layout.
         self.assertNotIn('NOPASSWD', ks)
         self.assertNotIn('autologin', ks)
         rejected = vm.kickstart({'payload': 'pinned', 'embedded_source': 'bound'}, 'ephemeral', 8080, 'reject-btrfs')

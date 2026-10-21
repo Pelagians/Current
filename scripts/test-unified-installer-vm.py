@@ -48,7 +48,7 @@ def inputs(artifact, revision):
 
 
 def kickstart(receipt, password, port, scenario='server-flow'):
-    partitioning = '--type=btrfs' if scenario == 'reject-btrfs' else '--type=lvm --fstype=xfs --nohome'
+    partitioning = ' --type=btrfs' if scenario == 'reject-btrfs' else ''
     return f'''# TEST ONLY: vda is a newly created QEMU disk. Never install this on hardware.
 graphical
 lang en_US.UTF-8
@@ -61,7 +61,7 @@ user --name=currenttest --groups=wheel --password={password} --plaintext
 ignoredisk --only-use=vda
 zerombr
 clearpart --all --initlabel --drives=vda
-autopart {partitioning}
+autopart{partitioning}
 bootloader --append="console=tty0 console=ttyS0,115200n8"
 bootc --source-imgref containers-storage:{receipt['embedded_source']} --target-imgref {receipt['payload']}
 reboot --eject
@@ -303,16 +303,24 @@ def run(args):
             vm.serial.sendline('currenttest')
             vm.serial.expect('Password:')
             vm.serial.sendline(password)
-            if bootstrap:
-                vm.serial.expect('Current initial setup')
+            shell_prompt = r'\[currenttest@current-vm [^\r\n]*\]\$ '
+            started_setup = vm.serial.expect(['Current initial setup', shell_prompt]) == 0
+            if bootstrap and not started_setup:
+                raise RuntimeError('Bootstrap login did not automatically launch setup')
+            if started_setup:
                 vm.serial.expect(r'\[sudo\] password for currenttest:')
                 vm.serial.sendline(password)
-                vm.serial.expect('Choose a distribution')
-                vm.serial.sendline('q')
-                vm.serial.expect('Setup paused')
+                step = vm.serial.expect(['Choose a distribution', 'Resume the previous selection?',
+                                         'Destination staged:', 'Current setup is complete.'])
+                if step == 1:
+                    vm.serial.sendline('n')
+                    vm.serial.expect('Choose a distribution')
+                if step < 2:
+                    vm.serial.sendline('q')
+                    vm.serial.expect('Setup paused')
+                vm.serial.expect(shell_prompt)
             # sudo can flush queued TTY input while returning to the shell. Wait
             # for bash, not the wizard's final message, before issuing commands.
-            vm.serial.expect(r'\[currenttest@current-vm [^\r\n]*\]\$ ')
             # Disable echo and prompt hooks; encode the first prompt character so
             # command echo cannot be mistaken for the subsequent real prompt.
             vm.serial.sendline("unset PROMPT_COMMAND; bind 'set enable-bracketed-paste off'; stty -echo; export TERM=dumb; PS1=$(printf '\\103URRENT_VM> ')")
@@ -320,6 +328,7 @@ def run(args):
             vm.serial.sendline("printf 'READY\\n'")
             vm.serial.expect(r'READY\r?\n')
             vm.serial.expect_exact('CURRENT_VM> ')
+            return started_setup
 
         def command(text, timeout=120):
             with (evidence / 'guest-commands.log').open('a') as commands:
@@ -375,13 +384,17 @@ def run(args):
         record('Real wizard staged a signature-enforced destination; completion still pending')
         vm.serial.sendline('sudo systemctl reboot')
         vm.serial.expect('current-vm login:', timeout=600)
-        login(False)
+        returned_to_bootstrap = login(False)
+        if returned_to_bootstrap:
+            command('sudo bootc status --json; sudo current setup reconcile; sudo systemctl --failed --no-pager; sudo journalctl -b -1 -u ostree-finalize-staged.service --no-pager; sudo journalctl -b -u ostree-boot-complete.service --no-pager; sudo sh -c \'cat /boot/loader/entries/*.conf\'; true')
+            raise RuntimeError('Staged destination did not boot; bootstrap remains accessible and finalization diagnostics were captured')
         # Refresh sudo through normal password authentication; never install a bypass.
         vm.serial.sendline('sudo -v')
         vm.serial.expect(r'\[sudo\] password for currenttest:')
         vm.serial.sendline(password)
         vm.serial.expect('CURRENT_VM> ')
         command('test ! -e /usr/share/current/bootstrap && cat /usr/lib/os-release && sudo bootc status --json')
+        command('getenforce; test "$(getenforce)" = Enforcing')
         command('test "$(cat ~/current-sentinel)" = retained-user-data && test "$(id -u)" = "$(cat ~/current-original-uid)" && sudo sha256sum -c ~/current-network-hashes && systemctl is-active NetworkManager')
         command('code=$(curl -sS -o /dev/null -w "%{http_code}" https://ghcr.io/v2/) && { test "$code" = 401 || test "$code" = 200; }')
         command('sudo current setup status')
