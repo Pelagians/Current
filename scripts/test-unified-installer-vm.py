@@ -59,18 +59,18 @@ user --name=currenttest --groups=wheel --password={password} --plaintext
 ignoredisk --only-use=vda
 zerombr
 clearpart --all --initlabel --drives=vda
-autopart --type=lvm --fstype=xfs
+autopart --type=lvm --fstype=xfs --nohome
 bootloader --append="console=tty0 console=ttyS0,115200n8"
 bootc --source-imgref containers-storage:{receipt['embedded_source']} --target-imgref {receipt['payload']}
 reboot --eject
 %post --nochroot
-for f in /tmp/anaconda.log /tmp/storage.log /tmp/program.log /tmp/packaging.log; do
+for f in /tmp/anaconda.log /tmp/storage.log /tmp/program.log /tmp/packaging.log /tmp/users.log; do
   test ! -f "$f" || curl -sS --max-time 10 --data-binary @"$f" http://10.0.2.2:{port}/$(basename "$f")
 done
 curl -sS --max-time 10 --data-binary 'post-install-reached' http://10.0.2.2:{port}/install-marker.log
 %end
 %onerror
-for f in /tmp/anaconda.log /tmp/storage.log /tmp/program.log /tmp/packaging.log; do
+for f in /tmp/anaconda.log /tmp/storage.log /tmp/program.log /tmp/packaging.log /tmp/users.log; do
   test ! -f "$f" || curl -sS --max-time 10 --data-binary @"$f" http://10.0.2.2:{port}/$(basename "$f")
 done
 curl -sS --max-time 10 --data-binary 'anaconda-error' http://10.0.2.2:{port}/install-error.log
@@ -145,7 +145,7 @@ class VM:
         serial_socket.connect(str(self.root / 'serial'))
         # fdspawn closes its descriptor directly. Transfer ownership so a later
         # socket destructor cannot close a descriptor reused by the next QMP.
-        self.serial = pexpect.fdpexpect.fdspawn(serial_socket.detach(), encoding='utf-8', codec_errors='replace', timeout=600)
+        self.serial = pexpect.fdpexpect.fdspawn(serial_socket.detach(), encoding='utf-8', codec_errors='replace', timeout=120)
         self.serial.logfile_read = (self.evidence / (label + '-serial.log')).open('w')
 
     def screenshot(self, name):
@@ -206,7 +206,7 @@ def run(args):
             self.wfile.write(ks)
 
         def do_POST(self):
-            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/install-marker.log', '/install-error.log'):
+            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log'):
                 self.send_error(404)
                 return
             length = int(self.headers.get('Content-Length', '0'))
@@ -295,9 +295,13 @@ def run(args):
                 vm.serial.expect('Choose a distribution')
                 vm.serial.sendline('q')
                 vm.serial.expect('Setup paused')
-            vm.serial.sendline("bind 'set enable-bracketed-paste off'; export TERM=dumb; export PS1='CURRENT_VM> '")
-            vm.serial.expect('CURRENT_VM> ')
-            # Consume the real prompt after command echo.
+            # sudo can flush queued TTY input while returning to the shell. Wait
+            # for bash, not the wizard's final message, before issuing commands.
+            vm.serial.expect(r'\[currenttest@current-vm [^\r\n]*\]\$ ')
+            # Disable echo and prompt hooks; encode the first prompt character so
+            # command echo cannot be mistaken for the subsequent real prompt.
+            vm.serial.sendline("unset PROMPT_COMMAND; bind 'set enable-bracketed-paste off'; stty -echo; export TERM=dumb; PS1=$(printf '\\103URRENT_VM> ')")
+            vm.serial.expect(r'\r?\nCURRENT_VM> ')
             vm.serial.sendline("printf 'READY\\n'")
             vm.serial.expect(r'READY\r?\nCURRENT_VM> ')
 
@@ -312,6 +316,8 @@ def run(args):
 
         login(True)
         record('Authenticated wheel login automatically launched setup; q safely paused it')
+        command('findmnt; getent passwd currenttest; cat /etc/fstab; ls -ld /home /var/home "$HOME"; test -d "$HOME" && test -w "$HOME"')
+        command('systemctl show systemd-remount-fs.service -p Result; cat /proc/cmdline; getenforce')
         command('test "$(findmnt -n -o FSTYPE /sysroot)" = xfs')
         command('test -d /sys/firmware/efi; id; nmcli -t -f STATE general; systemctl is-active NetworkManager')
         command("printf 'retained-user-data\\n' > ~/current-sentinel; sha256sum ~/current-sentinel")

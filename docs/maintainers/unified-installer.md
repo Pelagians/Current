@@ -205,8 +205,9 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-No real installer boot or destination transition has been verified in this PR's
-local environment. The development host is ARM64, lacks `/dev/kvm`, and had only
+Remote disposable x86_64 UEFI testing has reached installed bootstrap login and
+automatic setup activation; see the dated results below for storage limitations.
+No destination transition is qualified yet. The development host is ARM64, lacks `/dev/kvm`, and had only
 4.6 GiB free on the container-storage filesystem. A large local installer build
 was not attempted. No host installation or host bootc mutation occurred.
 
@@ -372,3 +373,36 @@ GRUB command for errors, and requires an observed kernel-start message. Anaconda
 errors also upload an explicit marker so the harness can stop promptly. The
 cancelled run's JSON still says `running` because runner termination interrupted
 receipt finalization; the Actions cancellation status is authoritative.
+
+[Installation run 39525121044](https://github.com/Pelagians/Current/actions/runs/39525121044)
+booted graphical Anaconda, deployed the checksum-bound bootstrap through its real
+bootc payload task, installed the Fedora shim/GRUB EFI entry, and rebooted to the
+new administrator's password-authenticated console login. Normal sudo authentication
+automatically launched the distribution questionnaire; `q` paused it successfully.
+`systemd-remount-fs.service` succeeded, and NetworkManager acquired a DHCP lease.
+These are real installed-bootstrap observations, not a destination qualification.
+
+The run exposed a material storage defect: automatic LVM partitioning created a
+separate `/home` volume, but the account's home was absent on first boot. Anaconda's
+`packaging.log` shows it unmounting and removing `/mnt/sysimage/home` before bootc
+deployment, then binding only `/proc`, `/sys`, `/var` and `/boot`. The first boot
+mounted `var-home.mount`, hiding the account directory created on the root volume.
+This is consistent with the older Anaconda mount assembly path. Upstream
+[current source](https://github.com/rhinstaller/anaconda/blob/main/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py)
+now preserves user mount points and handles them in `PrepareBootcMountTargetsTask`;
+that source is not evidence that the RPM in this ISO contains the fix. Do not
+qualify separate-home installation or silently recreate a home after boot.
+
+The next bounded test uses the documented
+[`autopart --nohome`](https://pykickstart.readthedocs.io/en/latest/kickstart-docs.html#autopart)
+layout, and asserts that the installed home exists and is writable. This test-only
+choice does not fix or qualify the shipping automatic partitioning defaults.
+The harness also now waits for bash after sudo exits, disables terminal echo and
+distinguishes prompt output from echoed commands. The previous run timed out in
+that synchronization before any destination staging attempt.
+
+The installed kernel command line also retained `selinux=0` from the generic ISO
+runtime. SELinux-enforcing installation and transitions are therefore unqualified;
+capture `/proc/cmdline` and `getenforce` in subsequent tests. Resolve runtime versus
+payload kernel-argument handling before promoting this ISO. Secure Boot remains
+disabled in these disposable VM tests.
