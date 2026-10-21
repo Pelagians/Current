@@ -216,8 +216,8 @@ was not attempted. No host installation or host bootc mutation occurred.
 | --- | --- |
 | Bootstrap Fedora 44 → Fedora server | Full UEFI VM flow passed with test-only storage/runtime overrides; replacement ISO defaults pending |
 | Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Experimental cross-distribution; bootloader/SELinux/network tests required |
-| Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Experimental downgrade/cross-distribution; same tests plus older userspace compatibility |
+| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Server staged but failed activation; returned to bootstrap. Desktop untested |
+| Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Server kernel rejected XFS parent-pointer feature; do not use this transition. Desktop untested |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |
@@ -541,3 +541,26 @@ staged-finalization journals before failing explicitly. Alma 10 remains unqualif
 The next VM revision uses bare `autopart`, so the shipping Anaconda configuration
 must supply both the XFS filesystem and root-only layout. It also asserts enforcing
 SELinux after the destination reboot, not only on the bootstrap.
+
+### Alma 9 XFS incompatibility — confirmed boot failure
+
+[Run 39531601375](https://github.com/Pelagians/Current/actions/runs/39531601375)
+staged signed Alma 9 native digest
+`6a0b95ef642ae1505fe2353caabf28ad4ccb52122878368c474bbdd9d13a0cc3`.
+GRUB exposed both Alma 9 and the Fedora rollback entry. Alma kernel
+`5.14.0-687.58.1.el9_8.x86_64` then rejected `/sysroot`: unknown incompatible
+XFS feature `0x80`, error `-22`, and entered the initramfs emergency shell.
+The installation log records `parent=1`. Upstream's
+[XFS format definitions](https://github.com/torvalds/linux/blob/master/fs/xfs/libxfs/xfs_format.h)
+identify bit 7 as parent pointers. This is a real filesystem compatibility failure,
+not a signature or image-build failure. Do not use this installer for Alma 9 yet.
+
+The safest next experiment is an explicitly pinned XFS feature profile for every
+new XFS installation filesystem, including `/boot`, verified against the oldest
+supported destination kernel. The upstream
+[mkfs.xfs interface](https://kernel.googlesource.com/pub/scm/fs/xfs/xfsprogs-dev/+/master/man/man8/mkfs.xfs.8.in)
+provides `-n parent=0`; disabling that observed blocker alone is not proof of full
+compatibility. Validate all enabled features, actual Alma boot, SELinux, network,
+rollback and repair tooling before adopting a shipping profile. Do not rewrite
+existing filesystem superblocks or switch to Btrfs. Current artifacts retain
+Fedora's XFS feature defaults and therefore retain this Alma 9 blocker.

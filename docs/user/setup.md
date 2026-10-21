@@ -12,6 +12,11 @@ permissive installer runtime with an enforcing installed system. Those settings
 passed installed-bootstrap VM checks; rebuilt ISO and destination qualification
 must be recorded separately. Manual separate-home layouts remain unqualified.
 
+**Do not select AlmaLinux 9 with these draft ISOs:** its tested kernel cannot
+mount the Fedora-created XFS filesystem. AlmaLinux 10 staged successfully but
+failed to activate in the VM test. Both transitions remain blocked on qualification;
+see the linked maintainer evidence and recovery procedure.
+
 In Anaconda choose storage, timezone, networking and an administrator account.
 The default root filesystem is XFS; Btrfs is excluded because the selected system
 may be AlmaLinux. The installer rejects Btrfs assigned to the installation, including
