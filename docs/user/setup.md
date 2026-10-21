@@ -17,7 +17,9 @@ and 10 servers to boot with enforcing SELinux and retained networking in UEFI
 VMs. Those runs then exposed a `sudo current` command-lookup failure during setup
 completion. The shared command-path fix is rebuilding; full completion and
 rollback remain under qualification. Earlier ISOs with XFS parent pointers remain
-unsuitable for Alma 9. Use only disposable test disks and consult the linked
+unsuitable for Alma 9. A subsequent read-only test also found that its bundled
+repair tool rejects atomic extent exchange; the installer now disables both
+features, and that final profile is rebuilding for qualification. Use only disposable test disks and consult the linked
 maintainer evidence for exact artifact revisions.
 
 In Anaconda choose storage, timezone, networking and an administrator account.

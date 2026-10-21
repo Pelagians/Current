@@ -379,7 +379,7 @@ def run(args):
         command('systemctl show systemd-remount-fs.service -p Result; cat /proc/cmdline; getenforce')
         command('test "$(getenforce)" = Enforcing')
         command('test "$(findmnt -n -o FSTYPE /sysroot)" = xfs')
-        command('sudo xfs_info /sysroot; sudo xfs_info /boot')
+        command('sudo python3 -c \'import subprocess; reports = [subprocess.check_output(["xfs_info", mount], text=True) for mount in ("/sysroot", "/boot")]; print("".join(reports)); assert all("parent=0" in r and "exchange=0" in r for r in reports)\'')
         # Check older destination repair tools against the bootstrap formatter's
         # feature profile, on an unmounted disposable regular file only.
         command('sudo truncate -s 512M /var/tmp/current-xfs-repair.img && sudo mkfs.xfs -f -nparent=0 -iexchange=0 /var/tmp/current-xfs-repair.img')
