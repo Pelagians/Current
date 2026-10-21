@@ -28,7 +28,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: installer-vm-${{ github.ref }}
+  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}
   cancel-in-progress: true
 
 jobs:

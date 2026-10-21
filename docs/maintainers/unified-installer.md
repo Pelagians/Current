@@ -406,3 +406,18 @@ runtime. SELinux-enforcing installation and transitions are therefore unqualifie
 capture `/proc/cmdline` and `getenforce` in subsequent tests. Resolve runtime versus
 payload kernel-argument handling before promoting this ISO. Secure Boot remains
 disabled in these disposable VM tests.
+
+[Root-only diagnostic run 39528084333](https://github.com/Pelagians/Current/actions/runs/39528084333)
+repeated installation and authenticated setup launch with `autopart --nohome`.
+The login shell now entered `/home/currenttest`; the missing-home warning was
+absent. A systemd OSC terminal marker immediately before the new shell prompt
+exposed another harness parsing assumption. Prompt matching now tolerates those
+markers and passed a real local Bash/PTY regression check. Writable-home and
+full-flow assertions still require the next VM run.
+
+[Run 39529174507](https://github.com/Pelagians/Current/actions/runs/39529174507)
+adds explicit `selinux --enforcing` to test-only Kickstart answers and requires
+`getenforce` to report `Enforcing` after installed login. Anaconda 44.30's
+[security module](https://github.com/rhinstaller/anaconda/blob/anaconda-44.30/pyanaconda/modules/security/security.py)
+honors this installed-system setting; runtime SELinux mode alone is not the
+intended installed policy. This is a test, not yet a qualification result.
