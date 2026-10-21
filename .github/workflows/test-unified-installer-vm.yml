@@ -60,7 +60,7 @@ jobs:
           DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
           CHANNEL: ${{ inputs.channel || 'pr-29' }}
         run: |
-          /usr/bin/python3 scripts/test-unified-installer-vm.py \
+          exec /usr/bin/python3 scripts/test-unified-installer-vm.py \
             --artifact iso --revision "$ISO_REVISION" --output vm-evidence \
             --distribution "$DISTRIBUTION" --channel "$CHANNEL"
       - uses: actions/upload-artifact@v7

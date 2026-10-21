@@ -73,6 +73,7 @@ curl -sS --max-time 10 --data-binary 'post-install-reached' http://10.0.2.2:{por
 for f in /tmp/anaconda.log /tmp/storage.log /tmp/program.log /tmp/packaging.log; do
   test ! -f "$f" || curl -sS --max-time 10 --data-binary @"$f" http://10.0.2.2:{port}/$(basename "$f")
 done
+curl -sS --max-time 10 --data-binary 'anaconda-error' http://10.0.2.2:{port}/install-error.log
 %end
 '''
 
@@ -205,7 +206,7 @@ def run(args):
             self.wfile.write(ks)
 
         def do_POST(self):
-            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/install-marker.log'):
+            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/install-marker.log', '/install-error.log'):
                 self.send_error(404)
                 return
             length = int(self.headers.get('Content-Length', '0'))
@@ -246,23 +247,32 @@ def run(args):
         else:
             raise RuntimeError('UEFI did not reach the Current GRUB menu within 120 seconds')
         vm.qmp.keys('c')
-        time.sleep(1)
+        # This ISO's GRUB already exposes the firmware serial console. Do not
+        # mix queued emulated keystrokes with serial commands or consume a stale
+        # prompt while an earlier command is still being entered.
+        vm.serial.expect('grub>', timeout=30)
         vm.screenshot('grub-command-line')
-        vm.qmp.keys('serial --unit=0 --speed=115200\nterminal_output console serial\nterminal_input console serial\n')
-        vm.serial.expect('grub>', timeout=30)
-        vm.serial.send('linux (cd0)/images/pxeboot/vmlinuz inst.stage2=hd:LABEL=Current-Installer '
+        def grub(command, timeout=60):
+            vm.serial.send(command + '\r')
+            vm.serial.expect('grub>', timeout=timeout)
+            output = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', vm.serial.before)
+            if 'error:' in output.lower():
+                raise RuntimeError('GRUB rejected command: ' + output)
+        grub('linux (cd0)/images/pxeboot/vmlinuz inst.stage2=hd:LABEL=Current-Installer '
                            f'inst.ks=http://10.0.2.2:{server.server_port}/test.ks inst.graphical '
-                           'ip=dhcp console=tty0 console=ttyS0,115200n8 selinux=0\r')
-        vm.serial.expect('grub>', timeout=30)
-        vm.serial.send('initrd (cd0)/images/pxeboot/initrd.img\r')
-        vm.serial.expect('grub>', timeout=60)
+                           'ip=dhcp console=tty0 console=ttyS0,115200n8 selinux=0')
+        grub('initrd (cd0)/images/pxeboot/initrd.img')
         vm.serial.send('boot\r')
-        record('Booting original ISO through its UEFI GRUB with test-only Kickstart answers')
+        if vm.serial.expect(['Linux version', 'error:'], timeout=120):
+            raise RuntimeError('GRUB could not start the installation kernel')
+        record('Installation kernel started through original ISO UEFI GRUB with test-only Kickstart answers')
         # Keep reading serial output and preserve screenshots even on installer failure.
         deadline = time.monotonic() + 1800
         while time.monotonic() < deadline:
             result = vm.serial.expect(['current-vm login:', pexpect.TIMEOUT, pexpect.EOF], timeout=45)
             vm.screenshot('installation-latest')
+            if (evidence / 'install-error.log').exists():
+                raise RuntimeError('Anaconda reported an installation error; inspect uploaded logs')
             if result == 0:
                 break
             if result == 2:
@@ -367,8 +377,8 @@ def run(args):
         vm.screenshot('rollback')
         record('Bootc rollback returned to bootstrap and preserved authenticated login; inspect completed-state semantics')
         report['status'] = 'passed-server-flow'
-    except Exception as error:
-        report['status'] = 'failed'
+    except BaseException as error:
+        report['status'] = 'interrupted' if isinstance(error, KeyboardInterrupt) else 'failed'
         report['error'] = str(error).replace(password, '[REDACTED]')
         try:
             vm.screenshot('failure')

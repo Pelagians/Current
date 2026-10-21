@@ -360,3 +360,15 @@ closed the next QMP descriptor. Ownership is now explicitly transferred with
 QEMU socket lifecycles passed after the fix using an empty 64 MiB emulated machine,
 with no disks or guest OS attached. This socket regression check is not boot
 qualification. The same original ISO must now continue through installation.
+
+[Diagnostic run 39522612550](https://github.com/Pelagians/Current/actions/runs/39522612550)
+repeated the graphical smoke boot but was stopped to inspect a stalled continuation.
+Its serial transcript shows keyboard setup text interleaved with serial `linux`
+commands: the ISO's GRUB already provided serial input, and the harness consumed a
+stale prompt. GRUB rejected the corrupted commands and never started the kernel.
+This is a harness failure, not an Anaconda installation result. The continuation
+now waits for the rendered menu, uses one serial command stream, checks every
+GRUB command for errors, and requires an observed kernel-start message. Anaconda
+errors also upload an explicit marker so the harness can stop promptly. The
+cancelled run's JSON still says `running` because runner termination interrupted
+receipt finalization; the Actions cancellation status is authoritative.
