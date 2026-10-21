@@ -380,6 +380,9 @@ def run(args):
         command('test "$(getenforce)" = Enforcing')
         command('test "$(findmnt -n -o FSTYPE /sysroot)" = xfs')
         command('sudo xfs_info /sysroot; sudo xfs_info /boot')
+        # Check older destination repair tools against the bootstrap formatter's
+        # feature profile, on an unmounted disposable regular file only.
+        command('sudo truncate -s 512M /var/tmp/current-xfs-repair.img && sudo mkfs.xfs -f -nparent=0 /var/tmp/current-xfs-repair.img')
         command('test -d /sys/firmware/efi && id && nmcli -t -f STATE general && systemctl is-active NetworkManager')
         command("printf 'retained-user-data\\n' > ~/current-sentinel; sha256sum ~/current-sentinel")
         command('id -u > ~/current-original-uid; sudo sh -c \'sha256sum /etc/NetworkManager/system-connections/*\' > ~/current-network-hashes')
@@ -429,6 +432,7 @@ def run(args):
         command('test ! -e /usr/lib/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf && test ! -e /etc/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf')
         command('getenforce; test "$(getenforce)" = Enforcing')
         command('rpm -q xfsprogs; sudo xfs_info /sysroot; sudo xfs_info /boot')
+        command('sudo xfs_repair -n -f /var/tmp/current-xfs-repair.img && sudo rm /var/tmp/current-xfs-repair.img')
         command('test "$(cat ~/current-sentinel)" = retained-user-data && test "$(id -u)" = "$(cat ~/current-original-uid)" && sudo sha256sum -c ~/current-network-hashes && systemctl is-active NetworkManager')
         command('code=$(curl -sS -o /dev/null -w "%{http_code}" https://ghcr.io/v2/) && { test "$code" = 401 || test "$code" = 200; }')
         command("command -v current; ls -ld /usr/local /usr/local/bin /usr/local/bin/current /usr/bin/current; sudo sh -c 'printf \"sudo PATH=%s\\n\" \"$PATH\"; command -v current'; true")

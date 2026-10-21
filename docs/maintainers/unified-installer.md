@@ -797,3 +797,39 @@ x86_64 runner, as well as all runtime and image tests. This resolves the local
 container-runtime verification limitation for package transactions; it does not
 qualify physical NVIDIA hardware. The existing complete native matrix and signed
 multi-architecture publisher are retained for the command-path image update.
+
+The old-candidate [command-path diagnostic 39541164363](https://github.com/Pelagians/Current/actions/runs/39541164363)
+confirmed the cause: `/usr/local/bin/current` existed and was executable, but
+`/usr/bin/current` was absent and sudo's actual PATH was
+`/sbin:/bin:/usr/sbin:/usr/bin`. This was a sudo lookup failure, not a missing
+setup backend. The correction supplies the command on that standard path and
+leaves sudo's permissions and search policy unchanged.
+
+### Final command-path correction: native ISO receipts
+
+Both native jobs in [run 39541161544](https://github.com/Pelagians/Current/actions/runs/39541161544)
+passed at product source `2d3b0b61c0a723e5a4121dca2075d63a57e5c17a`.
+Both archived receipts were independently read and their architecture, immutable
+bootstrap digest and embedded-source binding verified. Later changes only record
+qualification evidence or adjust the test harness/default inputs.
+
+| Architecture | ISO SHA256 | Artifact |
+| --- | --- | --- |
+| x86_64 | `f99beee82dbfdad0b6a95911de0e579a81504b11c8669d1d879eec5985eaad88` | [12320061655](https://github.com/Pelagians/Current/actions/runs/39541161544/artifacts/12320061655) |
+| aarch64 | `02eaf646909688ee4557f54b32903df91292b77b3ac70e40a4997668ff178a9c` | [12319957146](https://github.com/Pelagians/Current/actions/runs/39541161544/artifacts/12319957146) |
+
+Signed native bootstrap payloads:
+
+- x86_64: `ghcr.io/pelagians/current-bootstrap-x86_64@sha256:368e4475a9d56dee212a858518b4e3c40c996714f19bae6f69f09e8b94a2f430`
+- aarch64: `ghcr.io/pelagians/current-bootstrap-aarch64@sha256:a00051fa02ada507fcdddccd56a45e245ae8ac06d93b64afbde42e316551f5bd`
+
+The Fedora base and image-builder pins are unchanged. ISO digests differ from
+GitHub archive digests. Artifact retention is seven days. ARM boot qualification
+is still required independently of these successful native builds.
+
+The final ISO also passed [Btrfs rejection run 39542388652](https://github.com/Pelagians/Current/actions/runs/39542388652),
+harness `ad4303b7`, with its exact `f99beee8...` ISO checksum. The original
+Anaconda welcome screen and rejection summary were visually inspected. Current's
+validator reported Btrfs errors, Begin Installation remained disabled, and the
+entire 64 GiB disk remained unallocated. The receipt now states that allocation
+result precisely rather than claiming a separate history of block writes.
