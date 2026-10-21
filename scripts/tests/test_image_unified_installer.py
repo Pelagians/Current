@@ -23,6 +23,39 @@ policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_xfs_formatter_applies_profile_without_changing_other_formats(self):
+        source = self.root / 'fsmkfs.py'
+        original = '''from types import SimpleNamespace
+availability = SimpleNamespace(BLOCKDEV_XFS_MKFS=True)
+class FSBlockDevMkfs:
+    def do_task(self, **kwargs): return kwargs
+class XFSMkfs(FSBlockDevMkfs):
+    ext = availability.BLOCKDEV_XFS_MKFS
+    fstype = "xfs"
+    can_nodiscard = True
+    can_set_uuid = True
+    can_label = True
+    force = True
+'''
+        source.write_text(original)
+        policy.install_xfs(source)
+        namespace = {}
+        exec(compile(source.read_text(), str(source), 'exec'), namespace)
+        formatter = namespace['XFSMkfs']()
+        options = ['-mreflink=1']
+        self.assertEqual(formatter.do_task(options=options, label=True, set_uuid=True, nodiscard=True),
+                         dict(options=['-mreflink=1', '-nparent=0'], label=True, set_uuid=True, nodiscard=True))
+        self.assertEqual(options, ['-mreflink=1'])
+        self.assertEqual(formatter.do_task()['options'], ['-nparent=0'])
+        self.assertEqual(namespace['FSBlockDevMkfs']().do_task(), {})
+        subclass = type('Subclass', (namespace['XFSMkfs'],), {})
+        self.assertEqual(subclass().do_task()['options'], ['-nparent=0'])
+        for changed in (source.read_text(), original + '    def do_task(self): pass\n',
+                        original.replace('force = True', 'force = False')):
+            source.write_text(changed)
+            with self.assertRaisesRegex(ValueError, 'contract changed'):
+                policy.install_xfs(source)
+
     def test_vm_qmp_named_device_arguments(self):
         writes = []
         qmp = vm.QMP.__new__(vm.QMP)

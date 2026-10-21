@@ -681,3 +681,19 @@ unchanged), 71 image tests, Actionlint for both new workflows and diff checks.
 The shipping installer/bootstrap inputs remain identical to build `dbdb3cab`.
 PR #29 stays draft because Alma transitions and the remaining hardware/UI gates
 are not qualified. No development-host installation or bootc switch occurred.
+
+### Alma transition fixes under qualification
+
+The Alma 9 kernel rejected XFS incompatible feature bit `0x80`, parent pointers.
+The installer now adds `-nparent=0` at Blivet's XFS formatter, for all newly
+formatted XFS filesystems (including `/boot` and manual partitioning). XFS remains
+the default and the Btrfs validator remains active. Existing filesystems are not
+rewritten. An explicit conflicting parent-pointer option is rejected by mkfs.xfs
+before formatting. The guarded integration fails the ISO build if Blivet's XFS
+task changes; it does not import storage detection during container construction.
+
+A disposable 512 MiB regular-file check with xfsprogs 7.1.1 created XFS with
+`parent=0` and incompatible flags `0x6b`; conflicting parent options exited 1.
+This verifies the formatter option, not Alma boot compatibility. The replacement
+native ISOs and complete Fedora/Alma UEFI flows must still pass before removing
+the current transition holds.

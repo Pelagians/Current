@@ -7,7 +7,9 @@ build if that integration point changes. Do not replace upstream checks.
 """
 import inspect
 import importlib.util
+import ast
 from pathlib import Path
+import textwrap
 
 
 def verify_current_filesystems(storage, constraints, report_error, report_warning):
@@ -32,9 +34,46 @@ def install(path):
     path.write_text(source)
 
 
+def xfs_do_task(self, options=None, label=False, set_uuid=False, nodiscard=False):
+    """Create XFS without parent pointers, which Alma 9 cannot mount.
+
+    Apply at the formatter, including manual partitions and /boot. Existing
+    filesystems are untouched. An explicit conflicting parent option makes
+    mkfs.xfs reject the request before formatting instead of weakening this.
+    """
+    return super(type(self), self).do_task(
+        options=[*(options or []), '-nparent=0'], label=label,
+        set_uuid=set_uuid, nodiscard=nodiscard)
+
+
+def install_xfs(path):
+    source = path.read_text()
+    anchor = '''class XFSMkfs(FSBlockDevMkfs):
+    ext = availability.BLOCKDEV_XFS_MKFS
+    fstype = "xfs"
+    can_nodiscard = True
+    can_set_uuid = True
+    can_label = True
+    force = True
+'''
+    classes = [node for node in ast.parse(source).body
+               if isinstance(node, ast.ClassDef) and node.name == 'XFSMkfs']
+    if (source.count(anchor) != 1 or len(classes) != 1
+            or ast.get_source_segment(source, classes[0]) != anchor.rstrip()):
+        raise ValueError('Blivet XFS formatter contract changed; review integration')
+    method = inspect.getsource(xfs_do_task).replace('def xfs_do_task(', 'def do_task(', 1)
+    # Bind super to the concrete upstream class, including when it is subclassed.
+    method = method.replace('super(type(self), self)', 'super(XFSMkfs, self)')
+    source = source.replace(anchor, anchor + '\n' + textwrap.indent(method, '    '))
+    compile(source, str(path), 'exec')
+    path.write_text(source)
+
+
 if __name__ == '__main__':
     # Importing the storage package probes live firmware. A native ARM container
     # build has no EFI runtime, so locate and compile the packaged source without
     # initializing Anaconda's hardware detection. Real VM tests exercise it.
     package = importlib.util.find_spec('pyanaconda')
     install(Path(package.origin).parent / 'modules/storage/checker/utils.py')
+    package = importlib.util.find_spec('blivet')
+    install_xfs(Path(package.origin).parent / 'tasks/fsmkfs.py')
