@@ -95,7 +95,7 @@ jobs:
           path: native-digests
           merge-multiple: true
       - uses: sigstore/cosign-installer@v4.1.2
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Install registry inspection tool
         run: |
           sudo apt-get update
