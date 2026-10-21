@@ -283,3 +283,41 @@ predate that follow-up. Final-HEAD native rebuild results must be checked separa
 Local validation passed all 77 runtime and 65 image tests, including 33 new setup
 and installer cases, plus Actionlint 1.7.12, YAML/shell checks and `git diff --check`.
 No UEFI VM installation or destination boot is included in these results.
+
+### Disposable UEFI qualification harness
+
+`test-unified-installer-vm.yml` downloads an explicitly selected ISO run, checks
+its checksum and exact source receipt, and runs
+`scripts/test-unified-installer-vm.py` on a native x86_64 runner. It creates a new
+64 GiB sparse QEMU disk and a private OVMF variable store; existing output paths
+are refused. No host block devices, forwarded host ports, shared folders or
+privileged guest agents are attached. KVM is detected, with bounded software
+emulation as a diagnostic fallback. GitHub does not guarantee nested
+virtualization; a runner failure is not an installer qualification result.
+
+The original ISO boots first with its default arguments for graphical screenshot
+review. A second boot uses the original ISO's UEFI GRUB, kernel, initrd and payload,
+with a test-only Kickstart supplied through QEMU's user-network gateway. It answers
+storage/timezone/user questions and appends a serial console. That automated
+storage path is distinct from manually exercising Anaconda's storage/user UI.
+The locked root account and normal wheel-user password/sudo authentication remain
+in force. Test credentials are generated per VM, redacted from evidence and never
+added to an image. Only the newly created `vda` disk is eligible for partitioning.
+
+The harness attempts authenticated first-boot prompting and safe exit, manual
+resume on the chosen PR channel, real signature-enforced destination staging,
+reboot, retained UID/home sentinel/NetworkManager profile hashes, destination
+completion, already-completed resume and bootc rollback. No registry response,
+bootc command or hardware discovery is mocked inside the VM. A failed stage keeps
+its recovery receipt and fails the test. The current server flow does not qualify
+desktop login, GPU drivers, Secure Boot, manual storage UI, interruption under real
+power loss or ARM firmware. Screenshot capture alone is not a graphical success
+assertion; inspect the frames and logs before recording that result.
+
+Artifacts contain a JSON result, source/digest receipt, QEMU/serial/Anaconda logs
+and screenshots. Disk images, EFI variables and Kickstart credentials remain
+private ephemeral runner files. Use separate runs for `fedora`, `alma10` and
+`alma9`; the workflow accepts the ISO run/revision and destination channel. Record
+both ISO and destination source identities: a moving PR channel may be newer
+than the installed bootstrap. Keep this workflow experimental until actual
+results are recorded below.

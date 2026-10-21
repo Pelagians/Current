@@ -1,0 +1,72 @@
+name: Qualify unified installer in disposable UEFI VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      iso_run:
+        description: Successful unified ISO workflow run ID
+        required: true
+        default: '39519851052'
+      iso_revision:
+        description: Exact source revision in the ISO build receipt
+        required: true
+        default: d00468df19b3dca60d51d4ba1a65b0a54602dd60
+      distribution:
+        type: choice
+        options: [fedora, alma10, alma9]
+        default: fedora
+      channel:
+        description: Published destination channel with setup API
+        default: pr-29
+  push:
+    paths:
+      - .github/workflows/test-unified-installer-vm.yml
+      - scripts/test-unified-installer-vm.py
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: installer-vm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  uefi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install test tools and inspect runner
+        run: |
+          # These SDKs belong only to this disposable GitHub runner.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf python3-pexpect python3-pil
+          uname -a
+          free -h
+          df -h .
+          if test -e /dev/kvm; then sudo chmod a+rw /dev/kvm; fi
+          ls -l /dev/kvm || true
+      - uses: actions/download-artifact@v4
+        with:
+          name: current-installer-x86_64-experimental
+          path: iso
+          run-id: ${{ inputs.iso_run || '39519851052' }}
+          github-token: ${{ github.token }}
+      - name: Exercise original ISO and first boot on a new virtual disk
+        env:
+          ISO_REVISION: ${{ inputs.iso_revision || 'd00468df19b3dca60d51d4ba1a65b0a54602dd60' }}
+          DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
+          CHANNEL: ${{ inputs.channel || 'pr-29' }}
+        run: |
+          /usr/bin/python3 scripts/test-unified-installer-vm.py \
+            --artifact iso --revision "$ISO_REVISION" --output vm-evidence \
+            --distribution "$DISTRIBUTION" --channel "$CHANNEL"
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: unified-installer-uefi-evidence
+          path: vm-evidence/evidence/
+          if-no-files-found: warn
+          retention-days: 7

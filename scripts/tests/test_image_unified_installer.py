@@ -1,5 +1,6 @@
 """Exercise the ISO build wrapper with isolated container, signing and sudo mocks."""
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,9 +13,37 @@ ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('bootstrap_build', ROOT / 'scripts/bootstrap-build.py')
 build = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(build)
+vm_spec = importlib.util.spec_from_file_location('installer_vm', ROOT / 'scripts/test-unified-installer-vm.py')
+vm = importlib.util.module_from_spec(vm_spec)
+vm_spec.loader.exec_module(vm)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_vm_receipt_binding_and_checksum(self):
+        iso = self.root / 'current-installer-x86_64.iso'
+        iso.write_bytes(b'fixture ISO')
+        digest = hashlib.sha256(iso.read_bytes()).hexdigest()
+        iso.with_suffix('.iso.sha256').write_text(digest + '  ' + iso.name + '\n')
+        receipt = self.root / 'build-inputs.txt'
+        receipt.write_text('revision=' + 'a' * 40 + '\narchitecture=x86_64\npayload=' +
+                           self.env['CURRENT_INSTALLER_PAYLOAD_REF'] + '\nembedded_source=' +
+                           'localhost/current-bootstrap-payload:sha256-' + 'a' * 64 + '\n')
+        self.assertEqual(vm.inputs(self.root, 'a' * 40)[1], digest)
+        with self.assertRaisesRegex(ValueError, 'revision'):
+            vm.inputs(self.root, 'b' * 40)
+        iso.write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+            vm.inputs(self.root, 'a' * 40)
+
+    def test_vm_kickstart_only_targets_new_virtual_disk(self):
+        ks = vm.kickstart({'payload': 'pinned', 'embedded_source': 'bound'}, 'ephemeral', 8080)
+        self.assertIn('ignoredisk --only-use=vda', ks)
+        self.assertIn('clearpart --all --initlabel --drives=vda', ks)
+        self.assertIn('rootpw --lock', ks)
+        self.assertIn('--fstype=xfs', ks)
+        self.assertNotIn('NOPASSWD', ks)
+        self.assertNotIn('autologin', ks)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
