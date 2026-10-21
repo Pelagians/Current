@@ -252,8 +252,8 @@ an environment failure and must not be hidden by skipping the assertion.
 [CI run 39517286831](https://github.com/Pelagians/Current/actions/runs/39517286831)
 built both native bootstraps and passed the isolated runtime/image validators.
 Bootstrap lint passed 11 checks with warnings for runtime-directory, log and
-`/var` tmpfiles content; these are not boot qualification. The ARM installer
-runtime also built with native EFI assets and its Anaconda initramfs.
+`/var` tmpfiles content; these are not boot qualification. Both native installer
+runtimes also built with native EFI assets and its Anaconda initramfs.
 
 The first assembly attempt reproduced an upstream containers-storage constraint:
 `Copying this image would require changing layer representation ... Destination
@@ -264,5 +264,22 @@ checks that both names resolve to the identical image ID. Only that local name
 is passed for embedding and the Kickstart source. The installed target remains
 the original immutable registry reference. No mutable remote tag is trusted and
 no signature verification is bypassed. The local transport reference and original
-registry target are recorded separately in the build receipt. The subsequent
-native assembly run is required to validate this transport change.
+registry target are recorded separately in the build receipt. [Native run 39518324445](https://github.com/Pelagians/Current/actions/runs/39518324445)
+validated this transport change on both architectures at source candidate
+`c4ad00b92db854ac0981682afe0f687efcde050d`. Both complete bootstrap → Anaconda
+runtime → generic ISO builds succeeded, with checksum and provenance receipts:
+
+- [x86_64 artifact](https://github.com/Pelagians/Current/actions/runs/39518324445/artifacts/12309972577): `current-installer-x86_64.iso` (artifact archive approximately 2.15 GB).
+- [aarch64 artifact](https://github.com/Pelagians/Current/actions/runs/39518324445/artifacts/12310117567): `current-installer-aarch64.iso` (artifact archive approximately 1.98 GB).
+
+Artifacts expire after seven days; rebuild from the recorded inputs when needed.
+These sizes/digests describe CI archives, not installation or boot qualification.
+Osbuild also emitted nonfatal read-only `/usr/local/sbin` tmpfiles warnings;
+retain the logs and inspect the installed system during boot qualification.
+The final follow-up adds exact-digest/wildcard trust-policy precedence and malformed
+metadata guards; its isolated setup tests pass, but the linked ISO artifacts
+predate that follow-up. Final-HEAD native rebuild results must be checked separately.
+
+Local validation passed all 77 runtime and 65 image tests, including 33 new setup
+and installer cases, plus Actionlint 1.7.12, YAML/shell checks and `git diff --check`.
+No UEFI VM installation or destination boot is included in these results.
