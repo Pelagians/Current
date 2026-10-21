@@ -177,9 +177,17 @@ class FakeCommands:
                     entries = []
                 if self.bad == 'duplicate':
                     entries *= 2
+                if self.bad == 'descriptor':
+                    entries = ['invalid']
+                if self.bad == 'numeric-digest':
+                    entries[0]['digest'] = 42
                 return json.dumps({'manifests': entries})
             metadata = {'Architecture': 'amd64', 'Os': 'linux', 'Digest': DIGEST,
                         'Labels': {'containers.bootc': '1', 'io.current.setup-api': '1', 'org.opencontainers.image.revision': 'c' * 40}}
+            if self.bad == 'non-object':
+                return json.dumps([])
+            if self.bad == 'numeric-revision':
+                metadata['Labels']['org.opencontainers.image.revision'] = 42
             if self.bad in metadata:
                 metadata[self.bad] = None
             if self.bad == 'Labels':
@@ -244,7 +252,8 @@ class Transactions(unittest.TestCase):
         self.assertIsNotNone(self.store.load()['source'])
 
     def test_metadata_failures_never_switch(self):
-        for bad in ('missing', 'duplicate', 'Architecture', 'Os', 'Digest', 'Labels'):
+        for bad in ('missing', 'duplicate', 'descriptor', 'numeric-digest', 'non-object', 'numeric-revision',
+                    'Architecture', 'Os', 'Digest', 'Labels'):
             with self.subTest(bad=bad):
                 self.run.bad = bad
                 with self.assertRaises(ex.SetupError):
@@ -332,6 +341,15 @@ class Transactions(unittest.TestCase):
         policy.write_text(json.dumps(data))
         ex.check_policy(TARGET, policy, key)
         data['transports']['docker']['ghcr.io/pelagians/fedora-server'] = [{'type': 'insecureAcceptAnything'}]
+        policy.write_text(json.dumps(data))
+        with self.assertRaises(ex.SetupError):
+            ex.check_policy(TARGET, policy, key)
+        data['transports']['docker'] = {'ghcr.io/pelagians': [rule], TARGET: [{'type': 'insecureAcceptAnything'}]}
+        policy.write_text(json.dumps(data))
+        with self.assertRaises(ex.SetupError):
+            ex.check_policy(TARGET, policy, key)
+        data['transports']['docker'] = {'*.io': [{'type': 'insecureAcceptAnything'}]}
+        data['default'] = [rule]
         policy.write_text(json.dumps(data))
         with self.assertRaises(ex.SetupError):
             ex.check_policy(TARGET, policy, key)

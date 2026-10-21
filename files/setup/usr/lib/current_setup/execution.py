@@ -30,7 +30,9 @@ def command(args, timeout=60):
 
 def status(run=command):
     value = json.loads(run(['bootc', 'status', '--json']))
-    if not isinstance(value.get('status'), dict) or not value['status'].get('booted'):
+    if (not isinstance(value, dict) or not isinstance(value.get('status'), dict)
+            or not isinstance(value['status'].get('booted'), dict) or not value['status']['booted']
+            or not isinstance(value.get('spec', {}), dict)):
         raise SetupError('No booted bootc deployment found; refusing to stage')
     if value['status'].get('readOnly'):
         raise SetupError('Read-only bootc host cannot be configured')
@@ -133,22 +135,28 @@ def resolve(candidate, run=command):
     # Registry access is the network preflight. Do not confuse "NM connected"
     # with reachability, and do not reject a working manually configured network.
     raw = json.loads(run(['skopeo', 'inspect', '--raw', 'docker://' + reference]))
-    if 'manifests' not in raw:
+    if not isinstance(raw, dict) or not isinstance(raw.get('manifests'), list):
         raise SetupError('Destination must be a published shared multi-architecture index')
+    if any(not isinstance(entry, dict) or not isinstance(entry.get('platform'), dict) for entry in raw['manifests']):
+        raise SetupError('Invalid destination index descriptors')
     children = [entry for entry in raw['manifests']
                 if entry.get('platform', {}).get('architecture') == arch
                 and entry.get('platform', {}).get('os') == 'linux'
                 and entry.get('platform', {}).get('variant', '') in ('', 'v8')]
-    if len(children) != 1 or not DIGEST.fullmatch(children[0].get('digest', '')):
+    if (len(children) != 1 or not isinstance(children[0].get('digest'), str)
+            or not DIGEST.fullmatch(children[0]['digest'])):
         raise SetupError('Missing, duplicate or invalid native image metadata')
     digest = children[0]['digest']
     target = reference.rsplit(':', 1)[0] + '@' + digest
     metadata = json.loads(run(['skopeo', 'inspect', '--override-arch', arch, 'docker://' + target]))
-    labels = metadata.get('Labels') or {}
+    if not isinstance(metadata, dict) or not isinstance(metadata.get('Labels'), dict):
+        raise SetupError('Invalid destination configuration metadata')
+    labels = metadata['Labels']
     if (metadata.get('Architecture') != arch or metadata.get('Os') != 'linux'
             or metadata.get('Digest') != digest or labels.get('containers.bootc') != '1'
             or labels.get('io.current.setup-api') != '1'
-            or not re.fullmatch(r'[0-9a-f]{40}', labels.get('org.opencontainers.image.revision', ''))):
+            or not isinstance(labels.get('org.opencontainers.image.revision'), str)
+            or not re.fullmatch(r'[0-9a-f]{40}', labels['org.opencontainers.image.revision'])):
         raise SetupError('Destination architecture, digest, bootc, setup-api or revision metadata is invalid; use images built with the setup reconciler')
     return target, digest, labels['org.opencontainers.image.revision']
 
@@ -158,8 +166,14 @@ def check_policy(target, policy_path=Path('/etc/containers/policy.json'),
     policy = json.loads(policy_path.read_text())
     repository = target.split('@', 1)[0]
     scopes = policy.get('transports', {}).get('docker', {})
-    applicable = [key for key in scopes if repository == key or repository.startswith(key + '/') or key == '']
-    rules = scopes[max(applicable, key=len)] if applicable else policy.get('default', [])
+    # containers/image gives exact tagged/digested references precedence over
+    # repository, namespace, registry, wildcard-domain and default scopes.
+    parts = repository.split('/')
+    domain = parts[0].split('.')
+    order = [target] + ['/'.join(parts[:size]) for size in range(len(parts), 0, -1)]
+    order += ['*.' + '.'.join(domain[start:]) for start in range(1, len(domain))] + ['']
+    scope = next((key for key in order if key in scopes), None)
+    rules = scopes[scope] if scope is not None else policy.get('default', [])
     # Require the repository key and identity binding; never trust permissive
     # fallback policy. More restrictive extra rules remain in force in bootc.
     for rule in rules:
