@@ -833,3 +833,29 @@ Anaconda welcome screen and rejection summary were visually inspected. Current's
 validator reported Btrfs errors, Begin Installation remained disabled, and the
 entire 64 GiB disk remained unallocated. The receipt now states that allocation
 result precisely rather than claiming a separate history of block writes.
+
+### Alma 9 recovery-tool compatibility: atomic extent exchange
+
+The read-only [probe run 39544426326](https://github.com/Pelagians/Current/actions/runs/39544426326)
+booted Alma 9 successfully but its `xfsprogs-6.4.0-7.el9` repair tool rejected the
+clean, unmounted filesystem fixture created by Fedora with `parent=0`:
+
+```text
+Superblock has unknown compat/rocompat/incompat features (0x0/0x0/0x40).
+Found unsupported filesystem features. Exiting now.
+```
+
+The installer now disables atomic extent exchange too: `-nparent=0 -iexchange=0`
+at the XFS formatter. Fedora's mkfs reports `parent=0, exchange=0`, and a disposable
+regular-file check reduced incompatible flags from `0x6b` to `0x2b`; its current
+repair tool passed a read-only scan. The installed root and `/boot` must use this
+same profile, and the full VM flow now probes the destination's repair tool with
+`xfs_repair -n -f` on a clean disposable file. This checks feature recognition;
+it is not a corruption-recovery drill on the installed root filesystem.
+
+The first local option probe rejected `-mexchange=0`; the verified option is
+`-iexchange=0`, as shown by the packaged mkfs help and successful real formatting.
+No failing option was pushed or built. Existing filesystem feature bits are never
+rewritten. Earlier `parent=0, exchange=1` artifacts boot Alma 9 but remain unsuitable
+for qualification with its bundled recovery tools. Native ISOs are rebuilding;
+destination code is unchanged from the ongoing `2d3b0b61` publication.

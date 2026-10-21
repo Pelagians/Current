@@ -37,14 +37,15 @@ def install(path):
 
 
 def xfs_do_task(self, options=None, label=False, set_uuid=False, nodiscard=False):
-    """Create XFS without parent pointers, which Alma 9 cannot mount.
+    """Create XFS that Alma 9 can both mount and inspect with repair tools.
 
     Apply at the formatter, including manual partitions and /boot. Existing
-    filesystems are untouched. An explicit conflicting parent option makes
+    filesystems are untouched. Disable parent pointers (kernel incompatibility)
+    and atomic extent exchange (xfs_repair incompatibility). Conflicting options make
     mkfs.xfs reject the request before formatting instead of weakening this.
     """
     return super(type(self), self).do_task(
-        options=[*(options or []), '-nparent=0'], label=label,
+        options=[*(options or []), '-nparent=0', '-iexchange=0'], label=label,
         set_uuid=set_uuid, nodiscard=nodiscard)
 
 

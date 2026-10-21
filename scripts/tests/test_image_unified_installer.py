@@ -44,12 +44,12 @@ class XFSMkfs(FSBlockDevMkfs):
         formatter = namespace['XFSMkfs']()
         options = ['-mreflink=1']
         self.assertEqual(formatter.do_task(options=options, label=True, set_uuid=True, nodiscard=True),
-                         dict(options=['-mreflink=1', '-nparent=0'], label=True, set_uuid=True, nodiscard=True))
+                         dict(options=['-mreflink=1', '-nparent=0', '-iexchange=0'], label=True, set_uuid=True, nodiscard=True))
         self.assertEqual(options, ['-mreflink=1'])
-        self.assertEqual(formatter.do_task()['options'], ['-nparent=0'])
+        self.assertEqual(formatter.do_task()['options'], ['-nparent=0', '-iexchange=0'])
         self.assertEqual(namespace['FSBlockDevMkfs']().do_task(), {})
         subclass = type('Subclass', (namespace['XFSMkfs'],), {})
-        self.assertEqual(subclass().do_task()['options'], ['-nparent=0'])
+        self.assertEqual(subclass().do_task()['options'], ['-nparent=0', '-iexchange=0'])
         for changed in (source.read_text(), original + '    def do_task(self): pass\n',
                         original.replace('force = True', 'force = False')):
             source.write_text(changed)

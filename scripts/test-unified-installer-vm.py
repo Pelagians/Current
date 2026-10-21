@@ -382,7 +382,7 @@ def run(args):
         command('sudo xfs_info /sysroot; sudo xfs_info /boot')
         # Check older destination repair tools against the bootstrap formatter's
         # feature profile, on an unmounted disposable regular file only.
-        command('sudo truncate -s 512M /var/tmp/current-xfs-repair.img && sudo mkfs.xfs -f -nparent=0 /var/tmp/current-xfs-repair.img')
+        command('sudo truncate -s 512M /var/tmp/current-xfs-repair.img && sudo mkfs.xfs -f -nparent=0 -iexchange=0 /var/tmp/current-xfs-repair.img')
         command('test -d /sys/firmware/efi && id && nmcli -t -f STATE general && systemctl is-active NetworkManager')
         command("printf 'retained-user-data\\n' > ~/current-sentinel; sha256sum ~/current-sentinel")
         command('id -u > ~/current-original-uid; sudo sh -c \'sha256sum /etc/NetworkManager/system-connections/*\' > ~/current-network-hashes')
