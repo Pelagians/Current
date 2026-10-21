@@ -49,6 +49,24 @@ def inputs(artifact, revision):
 
 def kickstart(receipt, password, port, scenario='server-flow'):
     partitioning = ' --type=btrfs' if scenario == 'reject-btrfs' else ''
+    # Graphical Anaconda keeps correctable storage errors in its summary screen;
+    # %onerror is reserved for fatal errors. Observe its real validation log
+    # without modifying the storage model or invoking the checker ourselves.
+    observer = f'''%pre
+nohup sh -c '
+for attempt in $(seq 1 300); do
+  if grep -q "^DEBUG:anaconda[.]modules[.]storage[.]partitioning[.]validate:Found sanity error: Current cannot install using Btrfs" /tmp/storage.log 2>/dev/null; then
+    for f in /tmp/anaconda.log /tmp/storage.log /tmp/program.log; do
+      test ! -f "$f" || curl -fsS --max-time 10 --data-binary @"$f" http://10.0.2.2:{port}/$(basename "$f")
+    done
+    curl -fsS --max-time 10 --data-binary validation-rejected http://10.0.2.2:{port}/storage-rejected.log
+    exit
+  fi
+  sleep 2
+done
+' </dev/null >/tmp/current-validation-observer.log 2>&1 &
+%end
+''' if scenario == 'reject-btrfs' else ''
     return f'''# TEST ONLY: vda is a newly created QEMU disk. Never install this on hardware.
 graphical
 lang en_US.UTF-8
@@ -65,6 +83,7 @@ autopart{partitioning}
 bootloader --append="console=tty0 console=ttyS0,115200n8"
 bootc --source-imgref containers-storage:{receipt['embedded_source']} --target-imgref {receipt['payload']}
 reboot --eject
+{observer}
 %post --nochroot
 for f in /tmp/anaconda.log /tmp/storage.log /tmp/program.log /tmp/packaging.log /tmp/users.log; do
   test ! -f "$f" || curl -sS --max-time 10 --data-binary @"$f" http://10.0.2.2:{port}/$(basename "$f")
@@ -208,7 +227,7 @@ def run(args):
             self.wfile.write(ks)
 
         def do_POST(self):
-            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log'):
+            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log'):
                 self.send_error(404)
                 return
             length = int(self.headers.get('Content-Length', '0'))
@@ -276,17 +295,18 @@ def run(args):
             raise RuntimeError('GRUB could not start the installation kernel')
         record('Installation kernel started through original ISO UEFI GRUB with test-only Kickstart answers')
         # Keep reading serial output and preserve screenshots even on installer failure.
-        deadline = time.monotonic() + 1800
+        deadline = time.monotonic() + (600 if args.scenario == 'reject-btrfs' else 1800)
         while time.monotonic() < deadline:
             result = vm.serial.expect(['current-vm login:', pexpect.TIMEOUT, pexpect.EOF], timeout=45)
             vm.screenshot('installation-latest')
-            if (evidence / 'install-error.log').exists():
+            if (evidence / 'install-error.log').exists() or (evidence / 'storage-rejected.log').exists():
                 if args.scenario == 'reject-btrfs':
                     logs = '\n'.join(path.read_text(errors='replace') for path in evidence.glob('*.log'))
-                    if 'Current cannot install using Btrfs' not in logs or (evidence / 'install-marker.log').exists():
+                    if not re.search(r'^DEBUG:anaconda\.modules\.storage\.partitioning\.validate:Found sanity error: Current cannot install using Btrfs', logs, re.MULTILINE) or (evidence / 'install-marker.log').exists():
                         raise RuntimeError('Installer failed without proving the Btrfs policy rejection')
                     vm.stop()
                     extents = json.loads(subprocess.check_output(['qemu-img', 'map', '--output=json', str(vm.disk)], text=True))
+                    (evidence / 'disk-map.json').write_text(json.dumps(extents, indent=2) + '\n')
                     if any(extent['data'] for extent in extents):
                         raise RuntimeError('Btrfs was rejected after writes to the disposable installation disk')
                     record('Anaconda rejected Btrfs through Current storage validation before any virtual disk writes')

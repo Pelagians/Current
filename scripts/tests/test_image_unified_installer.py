@@ -97,6 +97,24 @@ class UnifiedISO(unittest.TestCase):
         self.assertIn('autopart --type=btrfs\n', rejected)
         self.assertNotIn('--fstype=xfs', rejected)
 
+    def test_vm_negative_observer_collects_actual_validation_without_storage_commands(self):
+        ks = vm.kickstart({'payload': 'pinned', 'embedded_source': 'bound'}, 'ephemeral', 8080, 'reject-btrfs')
+        observer = ks.split('%pre\n', 1)[1].split('%end', 1)[0]
+        # Run the real shell observer synchronously against isolated log fixtures.
+        observer = observer.replace('/tmp/', str(self.root) + '/').replace('nohup sh -c', 'sh -c').replace('2>&1 &', '2>&1')
+        (self.root / 'storage.log').write_text('DEBUG:anaconda.modules.storage.partitioning.validate:Found sanity error: Current cannot install using Btrfs: fixture\n')
+        (self.root / 'anaconda.log').write_text('fixture summary\n')
+        capture = self.root / 'uploads'
+        curl = self.bin / 'curl'
+        curl.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CAPTURE"\n')
+        curl.chmod(0o755)
+        subprocess.run(['sh', '-c', observer], check=True, timeout=5,
+                       env={**os.environ, 'PATH': str(self.bin) + ':' + os.environ['PATH'], 'CAPTURE': str(capture)})
+        uploads = capture.read_text().splitlines()
+        self.assertEqual(len(uploads), 3)
+        self.assertIn('/storage.log', uploads[1])
+        self.assertIn('validation-rejected http://10.0.2.2:8080/storage-rejected.log', uploads[2])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

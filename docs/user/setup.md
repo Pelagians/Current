@@ -9,12 +9,12 @@ Keep this draft ISO on disposable test disks. Earlier builds exposed missing hom
 directories with separate `/home` volumes and disabled SELinux after installation.
 The source now defaults to root-only automatic partitioning and an enabled,
 permissive installer runtime with an enforcing installed system. Those settings
-passed installed-bootstrap VM checks; rebuilt ISO and destination qualification
-must be recorded separately. Manual separate-home layouts remain unqualified.
+passed a complete Fedora server UEFI VM installation, first-boot setup, signed
+switch, destination boot with enforcing SELinux, and rollback. Manual separate-home layouts remain unqualified.
 
 **Do not select AlmaLinux 9 with these draft ISOs:** its tested kernel cannot
 mount the Fedora-created XFS filesystem. AlmaLinux 10 staged successfully but
-failed to activate in the VM test. Both transitions remain blocked on qualification;
+failed SELinux policy finalization and returned to the bootstrap in the VM test. Both transitions remain blocked on qualification;
 see the linked maintainer evidence and recovery procedure.
 
 In Anaconda choose storage, timezone, networking and an administrator account.

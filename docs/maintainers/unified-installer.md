@@ -205,18 +205,18 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-Remote disposable x86_64 UEFI testing has reached installed bootstrap login and
-automatic setup activation; see the dated results below for storage limitations.
-The Fedora server flow passed with recorded test overrides; final default-ISO
-and cross-distribution qualification remain pending. The development host is ARM64, lacks `/dev/kvm`, and had only
+The corrected x86_64 ISO passed the complete Fedora server flow in a disposable
+UEFI/KVM VM, using the shipped partitioning defaults and enforcing SELinux on
+both bootstrap and destination. Cross-distribution and hardware qualification
+remain blocked or pending as recorded below. The development host is ARM64, lacks `/dev/kvm`, and had only
 4.6 GiB free on the container-storage filesystem. A large local installer build
 was not attempted. No host installation or host bootc mutation occurred.
 
 | Transition / hardware | Status |
 | --- | --- |
-| Bootstrap Fedora 44 → Fedora server | Full UEFI VM flow passed with test-only storage/runtime overrides; replacement ISO defaults pending |
+| Bootstrap Fedora 44 → Fedora server | Corrected ISO full UEFI/KVM flow passed with shipping defaults, enforcing SELinux and rollback; physical hardware unqualified |
 | Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Server staged but failed activation; returned to bootstrap. Desktop untested |
+| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Server activation fails during SELinux policy finalization; recovery-required bootstrap login verified. Desktop untested |
 | Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Server kernel rejected XFS parent-pointer feature; do not use this transition. Desktop untested |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
@@ -600,3 +600,65 @@ The first replacement Btrfs test stopped before installation: Tesseract exceeded
 its 15-second deadline while reading an OVMF frame. It did not exercise storage
 validation. The harness now limits OCR to one thread and retries a timed-out
 frame within the existing overall GRUB deadline; it does not skip that boot gate.
+
+### Corrected ISO Fedora server flow — passed
+
+[Run 39534009481](https://github.com/Pelagians/Current/actions/runs/39534009481)
+passed on the replacement x86_64 ISO identified above. The 180-second original
+ISO screenshot was visually inspected: graphical Anaconda reached its language
+selection screen. The subsequent install supplied automated disk/account answers
+with bare `autopart`; the shipped configuration produced a root-only XFS layout,
+a writable user home and enforcing SELinux. No `--nohome` or filesystem override
+was supplied by the test.
+
+The authenticated console login automatically opened setup, which paused and
+resumed correctly. A disconnected NIC caused a real registry failure; retry kept
+the questionnaire selection. Bootc staged signed Fedora server native digest
+`776f85a171f439dcb7b2e17e2155bff382917d38b6f96116eaf8d56a58aceb93`
+and the reboot ran that exact digest. Destination SELinux was **Enforcing**;
+UID, home sentinel and NetworkManager profile hashes were retained, networking
+was active and the registry reachable. The reconciler moved from `image-staged`
+to `destination-booted`; explicit acceptance produced `complete`, and completed
+resume did not repeat setup. Real `bootc rollback` and reboot restored authenticated
+bootstrap access. The receipt remains historical after that completed rollback.
+
+This qualifies the recorded virtual server sequence, not manual storage/user UI,
+GNOME/COSMIC, physical GPUs, Secure Boot, ARM boot or the Alma transitions. The
+compatibility catalogue remains conservative; a single virtio VM is not general
+hardware qualification.
+
+### Corrected ISO Alma 10 activation — SELinux finalization blocked
+
+[Run 39534014947](https://github.com/Pelagians/Current/actions/runs/39534014947)
+reproduced the activation failure on the corrected ISO with shipping defaults.
+The enforcing bootstrap installed and staged the same signed Alma 10 digest.
+After reboot it returned to the bootstrap, retained authenticated access and
+recorded `recovery-required`; the previous selection remained available to resume.
+The failure receipt in `ostree-boot-complete.service` reports:
+
+```text
+ostree-finalize-staged.service failed on previous boot:
+Finalizing deployment: Finalizing SELinux policy:
+failed to run semodule: Child process exited with code 1
+```
+
+Only the bootstrap boot entry remained; no Alma kernel ran. The previous boot's
+journal was not persistent, so the underlying `semodule` stderr is unavailable.
+The next diagnostic should enable persistent journaling only in the disposable
+VM before staging, then capture the finalizer's complete error and compare the
+Fedora/Alma SELinux policy stores and tool versions. Resolve that incompatibility
+with a supported policy migration or reconsider the bootstrap base; do not
+remove policy stores, disable SELinux or call a staged image boot-qualified.
+This result does verify the recovery receipt and authenticated bootstrap path.
+
+The next negative run, [39534995634](https://github.com/Pelagians/Current/actions/runs/39534995634),
+reached graphical Anaconda but waited at its summary with Installation Destination
+in error and Begin Installation disabled. It was interrupted to inspect that
+screen. Correctable GUI validation errors do not execute Kickstart `%onerror`.
+The test-only negative Kickstart now starts a read-only log observer in `%pre`:
+it forwards the real storage validator's anchored error record and logs to the
+runner. It neither calls the validator nor changes storage. The harness still
+requires that exact backend error, no post-install marker and an entirely
+unwritten virtual disk; it archives `disk-map.json` for review. The observer is
+covered by an isolated shell test with mocked HTTP uploads. No shipping ISO or
+payload changes were needed.
