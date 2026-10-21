@@ -325,7 +325,12 @@ def run(args):
             with (evidence / 'guest-commands.log').open('a') as commands:
                 commands.write(text + '\n')
             vm.serial.sendline(text + "; printf '\\nVM_RC=%s\\n' \"$?\"")
-            vm.serial.expect(r'\r?\nVM_RC=([0-9]+)\r?\n', timeout=timeout)
+            # A long pull can outlive sudo's credential cache. Reauthenticate
+            # normally instead of adding a passwordless rule to the test image.
+            result = vm.serial.expect([r'\r?\nVM_RC=([0-9]+)\r?\n', r'\[sudo\] password for currenttest:'], timeout=timeout)
+            if result:
+                vm.serial.sendline(password)
+                vm.serial.expect(r'\r?\nVM_RC=([0-9]+)\r?\n', timeout=timeout)
             output = vm.serial.before
             if vm.serial.match.group(1) != '0':
                 raise RuntimeError('Guest command failed: ' + text + '\n' + output)

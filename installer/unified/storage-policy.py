@@ -5,8 +5,8 @@ Anaconda 44 provides a root-device allowlist, but no filesystem denylist.
 Register one check in its existing pre-install storage validator; fail the image
 build if that integration point changes. Do not replace upstream checks.
 """
-import ast
 import inspect
+import importlib.util
 from pathlib import Path
 
 
@@ -28,10 +28,13 @@ def install(path):
         raise ValueError('Anaconda storage checker contract changed; review integration')
     source = source.replace(declaration, inspect.getsource(verify_current_filesystems) + '\n\n' + declaration)
     source = source.replace(anchor, anchor + '        self.add_check(verify_current_filesystems)\n')
-    ast.parse(source)
+    compile(source, str(path), 'exec')
     path.write_text(source)
 
 
 if __name__ == '__main__':
-    from pyanaconda.modules.storage.checker import utils
-    install(Path(utils.__file__))
+    # Importing the storage package probes live firmware. A native ARM container
+    # build has no EFI runtime, so locate and compile the packaged source without
+    # initializing Anaconda's hardware detection. Real VM tests exercise it.
+    package = importlib.util.find_spec('pyanaconda')
+    install(Path(package.origin).parent / 'modules/storage/checker/utils.py')

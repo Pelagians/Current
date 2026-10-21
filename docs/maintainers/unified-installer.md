@@ -478,8 +478,8 @@ by the default. Anaconda's native root-device allowlist excludes Btrfs. Because
 Anaconda 44 has no filesystem denylist, `storage-policy.py` registers one check in
 its existing storage validator: Btrfs assigned to a mount point or newly created
 by the installer is an error; existing unused Btrfs volumes are left alone. The
-build fails if the registration anchor changes and verifies the callback against
-the actual installed Anaconda package. It preserves every upstream check. Unit
+build fails if the registration anchor changes and validates the registration anchor and compiles
+the actual installed Anaconda source. It preserves every upstream check. Unit
 tests cover root/home/data mounts, new formats, unused volumes and source drift.
 The VM `reject-btrfs` scenario requests Btrfs and requires the policy error plus
 an entirely unwritten virtual disk (`qemu-img map`) before calling it passed.
@@ -487,3 +487,12 @@ an entirely unwritten virtual disk (`qemu-img map`) before calling it passed.
 These source changes require new native ISO receipts and boot validation. Previous
 ISO artifacts remain evidence for their recorded revision only. The bootstrap and
 destination backend code are unchanged; no publishing or trust gate was relaxed.
+
+The first policy rebuild, [39531502843](https://github.com/Pelagians/Current/actions/runs/39531502843),
+failed on ARM because importing Anaconda's storage package probes live EFI
+firmware, absent in the native build container. The build now locates the installed
+package without importing its storage module, applies guarded source registration
+and compiles it without execution. This does not pretend the build host is UEFI.
+Runtime registration and pre-write rejection remain VM qualification gates.
+Both repository validators passed after the policy changes: 77 runtime and 70
+image tests (147 total); Actionlint and diff checks also passed.

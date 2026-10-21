@@ -217,7 +217,7 @@ fi''',
         self.assertIn('file_system_type = xfs', runtime)
         self.assertIn('default_scheme = LVM', runtime)
         self.assertIn('root_device_types = LVM MD PARTITION DISK LVM_THINP', runtime)
-        self.assertIn('verify_current_filesystems in storage_checker.checks', runtime)
+        self.assertIn('python3 /tmp/storage-policy.py', runtime)
         self.assertIn('default_partitioning =\n    / (min 10 GiB)', runtime)
         self.assertNotIn('/home (', runtime)
         iso_config = (ROOT / 'installer/unified/iso.yaml').read_text()
