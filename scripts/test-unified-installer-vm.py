@@ -308,8 +308,8 @@ def run(args):
                     extents = json.loads(subprocess.check_output(['qemu-img', 'map', '--output=json', str(vm.disk)], text=True))
                     (evidence / 'disk-map.json').write_text(json.dumps(extents, indent=2) + '\n')
                     if any(extent['data'] for extent in extents):
-                        raise RuntimeError('Btrfs was rejected after writes to the disposable installation disk')
-                    record('Anaconda rejected Btrfs through Current storage validation before any virtual disk writes')
+                        raise RuntimeError('Btrfs was rejected but the disposable installation disk has allocated data')
+                    record('Anaconda rejected Btrfs through Current storage validation with the virtual disk entirely unallocated')
                     report['status'] = 'passed-btrfs-rejection'
                     return
                 raise RuntimeError('Anaconda reported an installation error; inspect uploaded logs')

@@ -12,10 +12,13 @@ permissive installer runtime with an enforcing installed system. Those settings
 passed a complete Fedora server UEFI VM installation, first-boot setup, signed
 switch, destination boot with enforcing SELinux, and rollback. Manual separate-home layouts remain unqualified.
 
-**Do not select AlmaLinux 9 with these draft ISOs:** its tested kernel cannot
-mount the Fedora-created XFS filesystem. AlmaLinux 10 staged successfully but
-failed SELinux policy finalization and returned to the bootstrap in the VM test. Both transitions remain blocked on qualification;
-see the linked maintainer evidence and recovery procedure.
+The corrected XFS profile and bootstrap finalizer PATH allowed both AlmaLinux 9
+and 10 servers to boot with enforcing SELinux and retained networking in UEFI
+VMs. Those runs then exposed a `sudo current` command-lookup failure during setup
+completion. The shared command-path fix is rebuilding; full completion and
+rollback remain under qualification. Earlier ISOs with XFS parent pointers remain
+unsuitable for Alma 9. Use only disposable test disks and consult the linked
+maintainer evidence for exact artifact revisions.
 
 In Anaconda choose storage, timezone, networking and an administrator account.
 The default root filesystem is XFS; Btrfs is excluded because the selected system

@@ -216,8 +216,8 @@ was not attempted. No host installation or host bootc mutation occurred.
 | --- | --- |
 | Bootstrap Fedora 44 → Fedora server | Corrected ISO full UEFI/KVM flow passed with shipping defaults, enforcing SELinux and rollback; physical hardware unqualified |
 | Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Server activation fails during SELinux policy finalization; recovery-required bootstrap login verified. Desktop untested |
-| Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Server kernel rejected XFS parent-pointer feature; do not use this transition. Desktop untested |
+| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Server boot, SELinux enforcement and data/network retention passed with the finalizer PATH fix; completion command fix awaits rebuilt candidates. Desktop untested |
+| Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Server boot and data/network retention passed with parent=0 XFS; completion command fix awaits rebuilt candidates. Desktop untested |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |
@@ -782,3 +782,18 @@ or mutable `/usr/local` population without changing sudo permissions. Destinatio
 images and bootstrap must be rebuilt, and the full flows rerun before claiming
 completion/rollback qualification for Alma 9. Additional VM diagnostics record
 both command locations and sudo's actual PATH.
+
+[Alma 10 run 39539800249](https://github.com/Pelagians/Current/actions/runs/39539800249)
+also booted its signed destination. Its previous-boot journal records SELinux
+policy refresh in 1337 ms and successful finalization. Destination enforcement,
+XFS inspection with `xfsprogs-6.16.0-1.el10`, retained account/data/network and
+registry access passed. Both bootstrap drop-in absence checks passed. It then
+hit the same `sudo current` command-lookup failure; completion/rollback were not
+reached. The standard-path command fix is shared across both Alma versions.
+
+The command-path rebuild's [existing publication workflow 39541158494](https://github.com/Pelagians/Current/actions/runs/39541158494)
+subsequently passed the live Alma 9 NVIDIA transaction prerequisite on its native
+x86_64 runner, as well as all runtime and image tests. This resolves the local
+container-runtime verification limitation for package transactions; it does not
+qualify physical NVIDIA hardware. The existing complete native matrix and signed
+multi-architecture publisher are retained for the command-path image update.
