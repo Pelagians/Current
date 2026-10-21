@@ -18,6 +18,10 @@ on:
       channel:
         description: Published destination channel with setup API
         default: pr-29
+      scenario:
+        type: choice
+        options: [server-flow, reject-btrfs]
+        default: server-flow
   push:
     paths:
       - .github/workflows/test-unified-installer-vm.yml
@@ -28,7 +32,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}
+  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}
   cancel-in-progress: true
 
 jobs:
@@ -59,10 +63,11 @@ jobs:
           ISO_REVISION: ${{ inputs.iso_revision || 'd00468df19b3dca60d51d4ba1a65b0a54602dd60' }}
           DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
           CHANNEL: ${{ inputs.channel || 'pr-29' }}
+          SCENARIO: ${{ inputs.scenario || 'server-flow' }}
         run: |
           exec /usr/bin/python3 scripts/test-unified-installer-vm.py \
             --artifact iso --revision "$ISO_REVISION" --output vm-evidence \
-            --distribution "$DISTRIBUTION" --channel "$CHANNEL"
+            --distribution "$DISTRIBUTION" --channel "$CHANNEL" --scenario "$SCENARIO"
       - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:

@@ -5,14 +5,18 @@ bootstrap through graphical Anaconda; it does not install a full desktop at that
 stage. Existing image-specific installers remain available. See the
 [build architecture and test limits](../maintainers/unified-installer.md).
 
-Current VM testing found two installation blockers: automatic partitioning with
-a separate `/home` can leave the new account without its home directory, and the
-installer's disabled SELinux mode can reach the installed system. Keep this draft
-ISO on disposable test disks. Root-only storage and an explicit installed SELinux
-policy are being evaluated; neither is a qualified workaround yet.
+Keep this draft ISO on disposable test disks. Earlier builds exposed missing home
+directories with separate `/home` volumes and disabled SELinux after installation.
+The source now defaults to root-only automatic partitioning and an enabled,
+permissive installer runtime with an enforcing installed system. Those settings
+passed installed-bootstrap VM checks; rebuilt ISO and destination qualification
+must be recorded separately. Manual separate-home layouts remain unqualified.
 
 In Anaconda choose storage, timezone, networking and an administrator account.
-The default root filesystem is XFS; root login is locked. After reboot, log in
+The default root filesystem is XFS; Btrfs is excluded because the selected system
+may be AlmaLinux. The installer rejects Btrfs assigned to the installation, including
+separate home/data mount points. Unused existing volumes are not installation targets.
+Root login is locked. After reboot, log in
 on the local console with the account you created. Setup opens after normal
 administrator authentication. It never uses root autologin. SSH remains usable.
 

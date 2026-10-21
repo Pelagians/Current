@@ -47,7 +47,8 @@ def inputs(artifact, revision):
     return iso.resolve(), digest, receipt
 
 
-def kickstart(receipt, password, port):
+def kickstart(receipt, password, port, scenario='server-flow'):
+    partitioning = '--type=btrfs' if scenario == 'reject-btrfs' else '--type=lvm --fstype=xfs --nohome'
     return f'''# TEST ONLY: vda is a newly created QEMU disk. Never install this on hardware.
 graphical
 lang en_US.UTF-8
@@ -60,7 +61,7 @@ user --name=currenttest --groups=wheel --password={password} --plaintext
 ignoredisk --only-use=vda
 zerombr
 clearpart --all --initlabel --drives=vda
-autopart --type=lvm --fstype=xfs --nohome
+autopart {partitioning}
 bootloader --append="console=tty0 console=ttyS0,115200n8"
 bootc --source-imgref containers-storage:{receipt['embedded_source']} --target-imgref {receipt['payload']}
 reboot --eject
@@ -93,8 +94,8 @@ class QMP:
         json.loads(self.stream.readline())
         self.call('qmp_capabilities')
 
-    def call(self, name, **arguments):
-        self.stream.write((json.dumps({'execute': name, 'arguments': arguments}) + '\n').encode())
+    def call(self, execute, **arguments):
+        self.stream.write((json.dumps({'execute': execute, 'arguments': arguments}) + '\n').encode())
         while True:
             answer = json.loads(self.stream.readline())
             if 'error' in answer:
@@ -185,7 +186,7 @@ def run(args):
     evidence.mkdir()
     report = {'iso_sha256': digest, 'inputs': receipt, 'harness_revision': subprocess.check_output(
         ['git', 'rev-parse', 'HEAD'], text=True).strip(), 'distribution': args.distribution,
-        'channel': args.channel, 'milestones': [], 'status': 'running'}
+        'channel': args.channel, 'scenario': args.scenario, 'milestones': [], 'status': 'running'}
     def record(message):
         report['milestones'].append(message)
         (evidence / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
@@ -221,7 +222,7 @@ def run(args):
         def log_message(self, *unused):
             pass
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
-    ks = kickstart(receipt, password, server.server_port).encode()
+    ks = kickstart(receipt, password, server.server_port, args.scenario).encode()
     threading.Thread(target=server.serve_forever, daemon=True).start()
     vm = VM(root, evidence, iso, accel)
     try:
@@ -273,8 +274,21 @@ def run(args):
             result = vm.serial.expect(['current-vm login:', pexpect.TIMEOUT, pexpect.EOF], timeout=45)
             vm.screenshot('installation-latest')
             if (evidence / 'install-error.log').exists():
+                if args.scenario == 'reject-btrfs':
+                    logs = '\n'.join(path.read_text(errors='replace') for path in evidence.glob('*.log'))
+                    if 'Current cannot install using Btrfs' not in logs or (evidence / 'install-marker.log').exists():
+                        raise RuntimeError('Installer failed without proving the Btrfs policy rejection')
+                    vm.stop()
+                    extents = json.loads(subprocess.check_output(['qemu-img', 'map', '--output=json', str(vm.disk)], text=True))
+                    if any(extent['data'] for extent in extents):
+                        raise RuntimeError('Btrfs was rejected after writes to the disposable installation disk')
+                    record('Anaconda rejected Btrfs through Current storage validation before any virtual disk writes')
+                    report['status'] = 'passed-btrfs-rejection'
+                    return
                 raise RuntimeError('Anaconda reported an installation error; inspect uploaded logs')
             if result == 0:
+                if args.scenario == 'reject-btrfs':
+                    raise RuntimeError('Btrfs rejection test unexpectedly reached installed login')
                 break
             if result == 2:
                 raise RuntimeError('VM serial disconnected during installation')
@@ -412,6 +426,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True, help='New directory; existing paths refused')
     parser.add_argument('--distribution', choices=('fedora', 'alma10', 'alma9'), default='fedora')
     parser.add_argument('--channel', default='pr-29')
+    parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs'), default='server-flow')
     args = parser.parse_args()
     if not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.channel):
         parser.error('Invalid destination channel')

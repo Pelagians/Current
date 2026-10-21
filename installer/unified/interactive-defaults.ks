@@ -4,6 +4,7 @@ lang en_US.UTF-8
 keyboard us
 network --bootproto=dhcp --device=link --activate --onboot=on
 rootpw --lock
+selinux --enforcing
 reboot
 # The build replaces this with the exact verified bootstrap digest.
 bootc --source-imgref containers-storage:@PAYLOAD_SOURCE@ --target-imgref @PAYLOAD@

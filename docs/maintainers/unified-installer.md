@@ -421,3 +421,69 @@ adds explicit `selinux --enforcing` to test-only Kickstart answers and requires
 [security module](https://github.com/rhinstaller/anaconda/blob/anaconda-44.30/pyanaconda/modules/security/security.py)
 honors this installed-system setting; runtime SELinux mode alone is not the
 intended installed policy. This is a test, not yet a qualification result.
+
+### Registry publication and enforcing-mode gate
+
+[Destination run 39521369181](https://github.com/Pelagians/Current/actions/runs/39521369181)
+passed all 45 native builds and the existing all-record/signature/index publisher.
+Its `pr-29` indexes identify synthetic merge source
+`52cd589cbde99f2c9bae7f010235eec98c3b84e5`. The real read-only setup resolver
+successfully validated these x86_64 children against the live registry:
+
+| Destination | Native digest |
+| --- | --- |
+| Fedora server | `sha256:776f85a171f439dcb7b2e17e2155bff382917d38b6f96116eaf8d56a58aceb93` |
+| Alma 10 server | `sha256:a8096a6c9771a5738ec4d21861881c893c0296b24c65f91ea0dbb4ea7d7c8b7f` |
+| Alma 9 server | `sha256:6a0b95ef642ae1505fe2353caabf28ad4ccb52122878368c474bbdd9d13a0cc3` |
+
+Registry metadata and publisher signature verification do not prove a booted
+transition. The ISO still names its own exact bootstrap digest and branch source.
+
+[Run 39529174507](https://github.com/Pelagians/Current/actions/runs/39529174507)
+passed authenticated first-boot launch, safe exit, shell synchronization and the
+writable-home assertion with root-only storage. Installed `/sysroot` was XFS and
+`systemd-remount-fs.service` reported `Result=success`. It failed the new security
+gate: despite `selinux --enforcing`, Anaconda passed `--karg=selinux=0` to bootc,
+and installed `getenforce` returned `Disabled`. The
+[Alma 10 attempt](https://github.com/Pelagians/Current/actions/runs/39529627410)
+reproduced that bootstrap failure **before any destination selection or staging**.
+These runs do not qualify either transition.
+
+The next diagnostic [run 39530314066](https://github.com/Pelagians/Current/actions/runs/39530314066)
+uses `selinux=1 enforcing=0` only for the installer runtime and retains the explicit
+enforcing payload policy/assertion. Upstream's
+[bootc integration source](https://github.com/rhinstaller/anaconda/blob/anaconda-44.30/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py)
+describes an enabled-but-permissive installer mode. This bounded test must pass
+before changing the shipped ISO arguments; do not remove the enforcing assertion
+or call the disabled installation qualified.
+
+### Corrected installer policy and rebuild
+
+[SELinux-enabled runtime run 39530314066](https://github.com/Pelagians/Current/actions/runs/39530314066)
+passed authenticated bootstrap login/automatic setup, writable home, XFS `/sysroot`,
+NetworkManager connectivity and `getenforce=Enforcing`. The installed kernel used
+`selinux=1` without runtime `enforcing=0`. Hardware discovery identified x86-64-v3,
+UEFI and virtio graphics, and selection reached the Fedora server review screen.
+The network-disconnection test then hit a harness-only QMP keyword collision;
+renaming its command argument fixes that, with a regression covering link down/up.
+No staging happened in this run.
+
+The installer source now uses the tested SELinux settings and a root-only automatic
+layout. XFS remains the default; manual storage remains interactive. Separate-home
+layouts still require the upstream Anaconda mount-preservation fix and qualification.
+The default root grows without a fixed cap, with a 10 GiB minimum.
+
+Btrfs is explicitly excluded for Alma destination compatibility, not merely avoided
+by the default. Anaconda's native root-device allowlist excludes Btrfs. Because
+Anaconda 44 has no filesystem denylist, `storage-policy.py` registers one check in
+its existing storage validator: Btrfs assigned to a mount point or newly created
+by the installer is an error; existing unused Btrfs volumes are left alone. The
+build fails if the registration anchor changes and verifies the callback against
+the actual installed Anaconda package. It preserves every upstream check. Unit
+tests cover root/home/data mounts, new formats, unused volumes and source drift.
+The VM `reject-btrfs` scenario requests Btrfs and requires the policy error plus
+an entirely unwritten virtual disk (`qemu-img map`) before calling it passed.
+
+These source changes require new native ISO receipts and boot validation. Previous
+ISO artifacts remain evidence for their recorded revision only. The bootstrap and
+destination backend code are unchanged; no publishing or trust gate was relaxed.

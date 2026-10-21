@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,9 +17,56 @@ spec.loader.exec_module(build)
 vm_spec = importlib.util.spec_from_file_location('installer_vm', ROOT / 'scripts/test-unified-installer-vm.py')
 vm = importlib.util.module_from_spec(vm_spec)
 vm_spec.loader.exec_module(vm)
+policy_spec = importlib.util.spec_from_file_location('storage_policy', ROOT / 'installer/unified/storage-policy.py')
+policy = importlib.util.module_from_spec(policy_spec)
+policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_vm_qmp_named_device_arguments(self):
+        writes = []
+        qmp = vm.QMP.__new__(vm.QMP)
+        qmp.stream = SimpleNamespace(write=writes.append, readline=lambda: b'{"return": {}}\n')
+        for up in (False, True):
+            qmp.call('set_link', name='nic0', up=up)
+            self.assertEqual(json.loads(writes[-1]), {'execute': 'set_link', 'arguments': {'name': 'nic0', 'up': up}})
+
+    def test_installer_rejects_btrfs_mounts_and_new_formats(self):
+        def device(fstype, mountpoint, exists=True, formatted=True):
+            return SimpleNamespace(name='fixture', exists=exists,
+                                   format=SimpleNamespace(type=fstype, mountpoint=mountpoint, exists=formatted))
+        for mountpoint in ('/', '/home', '/var', '/boot', '/srv'):
+            errors = []
+            policy.verify_current_filesystems(SimpleNamespace(devices=[device('btrfs', mountpoint)]), {}, errors.append, None)
+            self.assertEqual(len(errors), 1)
+            self.assertIn('AlmaLinux', errors[0])
+        for exists, formatted in ((False, False), (True, False)):
+            errors = []
+            policy.verify_current_filesystems(SimpleNamespace(devices=[device('btrfs', None, exists, formatted)]), {}, errors.append, None)
+            self.assertEqual(len(errors), 1)
+        errors = []
+        policy.verify_current_filesystems(SimpleNamespace(devices=[device('xfs', '/'), device('efi', '/boot/efi'),
+                                          device('btrfs', None)]), {}, errors.append, None)
+        self.assertEqual(errors, [])
+
+    def test_installer_storage_check_registration_and_upstream_drift(self):
+        source = self.root / 'checker.py'
+        source.write_text('def verify_root(*args): pass\nclass StorageChecker:\n'
+                          '    def __init__(self):\n        self.checks = []\n'
+                          '    def add_check(self, check): self.checks.append(check)\n'
+                          '    def set_default_checks(self):\n        self.add_check(verify_root)\n')
+        policy.install(source)
+        namespace = {}
+        exec(compile(source.read_text(), str(source), 'exec'), namespace)
+        checker = namespace['StorageChecker']()
+        checker.set_default_checks()
+        self.assertEqual([check.__name__ for check in checker.checks], ['verify_root', 'verify_current_filesystems'])
+        with self.assertRaisesRegex(ValueError, 'contract changed'):
+            policy.install(source)
+        source.write_text('class DifferentChecker: pass\n')
+        with self.assertRaisesRegex(ValueError, 'contract changed'):
+            policy.install(source)
+
     def test_vm_receipt_binding_and_checksum(self):
         iso = self.root / 'current-installer-x86_64.iso'
         iso.write_bytes(b'fixture ISO')
@@ -43,6 +91,9 @@ class UnifiedISO(unittest.TestCase):
         self.assertIn('--fstype=xfs', ks)
         self.assertNotIn('NOPASSWD', ks)
         self.assertNotIn('autologin', ks)
+        rejected = vm.kickstart({'payload': 'pinned', 'embedded_source': 'bound'}, 'ephemeral', 8080, 'reject-btrfs')
+        self.assertIn('autopart --type=btrfs\n', rejected)
+        self.assertNotIn('--fstype=xfs', rejected)
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -161,9 +212,17 @@ fi''',
         for forbidden in ('clearpart', 'autopart', 'zerombr', 'user --', 'rootpw --plaintext'):
             self.assertNotIn(forbidden, kickstart)
         self.assertIn('rootpw --lock', kickstart)
+        self.assertIn('selinux --enforcing', kickstart)
         runtime = (ROOT / 'installer/unified/prepare-runtime.sh').read_text()
         self.assertIn('file_system_type = xfs', runtime)
         self.assertIn('default_scheme = LVM', runtime)
+        self.assertIn('root_device_types = LVM MD PARTITION DISK LVM_THINP', runtime)
+        self.assertIn('verify_current_filesystems in storage_checker.checks', runtime)
+        self.assertIn('default_partitioning =\n    / (min 10 GiB)', runtime)
+        self.assertNotIn('/home (', runtime)
+        iso_config = (ROOT / 'installer/unified/iso.yaml').read_text()
+        self.assertIn('selinux=1 enforcing=0', iso_config)
+        self.assertNotIn('selinux=0', iso_config)
 
 
 class NativeEFI(unittest.TestCase):
