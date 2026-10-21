@@ -42,7 +42,7 @@ jobs:
           # These SDKs belong only to this disposable GitHub runner.
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf python3-pexpect python3-pil
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf python3-pexpect python3-pil tesseract-ocr
           uname -a
           free -h
           df -h .

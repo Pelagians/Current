@@ -232,19 +232,31 @@ def run(args):
         # Fresh firmware variables prevent the preceding boot changing selection.
         shutil.copyfile('/usr/share/OVMF/OVMF_VARS_4M.fd', root / 'vars.fd')
         vm.start('installation')
-        time.sleep(8)
+        # Firmware/GRUB timing varies across runners. Wait for the rendered menu
+        # rather than sending keys while OVMF is still selecting the boot device.
+        deadline = time.monotonic() + 120
+        while time.monotonic() < deadline:
+            vm.screenshot('grub-wait')
+            screen = subprocess.check_output(['tesseract', str(evidence / 'grub-wait.png'), 'stdout'],
+                                             text=True, stderr=subprocess.DEVNULL, timeout=15)
+            (evidence / 'grub-text.log').write_text(screen)
+            if 'install current' in screen.lower():
+                break
+            time.sleep(2)
+        else:
+            raise RuntimeError('UEFI did not reach the Current GRUB menu within 120 seconds')
         vm.qmp.keys('c')
         time.sleep(1)
         vm.screenshot('grub-command-line')
         vm.qmp.keys('serial --unit=0 --speed=115200\nterminal_output console serial\nterminal_input console serial\n')
-        vm.serial.expect('grub>')
-        vm.serial.sendline('linux (cd0)/images/pxeboot/vmlinuz inst.stage2=hd:LABEL=Current-Installer '
+        vm.serial.expect('grub>', timeout=30)
+        vm.serial.send('linux (cd0)/images/pxeboot/vmlinuz inst.stage2=hd:LABEL=Current-Installer '
                            f'inst.ks=http://10.0.2.2:{server.server_port}/test.ks inst.graphical '
-                           'ip=dhcp console=tty0 console=ttyS0,115200n8 selinux=0')
-        vm.serial.expect('grub>')
-        vm.serial.sendline('initrd (cd0)/images/pxeboot/initrd.img')
-        vm.serial.expect('grub>')
-        vm.serial.sendline('boot')
+                           'ip=dhcp console=tty0 console=ttyS0,115200n8 selinux=0\r')
+        vm.serial.expect('grub>', timeout=30)
+        vm.serial.send('initrd (cd0)/images/pxeboot/initrd.img\r')
+        vm.serial.expect('grub>', timeout=60)
+        vm.serial.send('boot\r')
         record('Booting original ISO through its UEFI GRUB with test-only Kickstart answers')
         # Keep reading serial output and preserve screenshots even on installer failure.
         deadline = time.monotonic() + 1800
