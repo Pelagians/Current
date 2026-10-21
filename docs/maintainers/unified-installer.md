@@ -805,13 +805,13 @@ confirmed the cause: `/usr/local/bin/current` existed and was executable, but
 setup backend. The correction supplies the command on that standard path and
 leaves sudo's permissions and search policy unchanged.
 
-### Final command-path correction: native ISO receipts
+### Superseded command-path correction: native ISO receipts
 
 Both native jobs in [run 39541161544](https://github.com/Pelagians/Current/actions/runs/39541161544)
 passed at product source `2d3b0b61c0a723e5a4121dca2075d63a57e5c17a`.
 Both archived receipts were independently read and their architecture, immutable
-bootstrap digest and embedded-source binding verified. Later changes only record
-qualification evidence or adjust the test harness/default inputs.
+bootstrap digest and embedded-source binding verified. These artifacts were later
+superseded by the recovery-tool compatibility correction below.
 
 | Architecture | ISO SHA256 | Artifact |
 | --- | --- | --- |
@@ -827,7 +827,7 @@ The Fedora base and image-builder pins are unchanged. ISO digests differ from
 GitHub archive digests. Artifact retention is seven days. ARM boot qualification
 is still required independently of these successful native builds.
 
-The final ISO also passed [Btrfs rejection run 39542388652](https://github.com/Pelagians/Current/actions/runs/39542388652),
+That ISO also passed [Btrfs rejection run 39542388652](https://github.com/Pelagians/Current/actions/runs/39542388652),
 harness `ad4303b7`, with its exact `f99beee8...` ISO checksum. The original
 Anaconda welcome screen and rejection summary were visually inspected. Current's
 validator reported Btrfs errors, Begin Installation remained disabled, and the
@@ -853,9 +853,37 @@ same profile, and the full VM flow now probes the destination's repair tool with
 `xfs_repair -n -f` on a clean disposable file. This checks feature recognition;
 it is not a corruption-recovery drill on the installed root filesystem.
 
-The first local option probe rejected `-mexchange=0`; the verified option is
-`-iexchange=0`, as shown by the packaged mkfs help and successful real formatting.
-No failing option was pushed or built. Existing filesystem feature bits are never
-rewritten. Earlier `parent=0, exchange=1` artifacts boot Alma 9 but remain unsuitable
+Existing filesystem feature bits are never rewritten. Earlier `parent=0, exchange=1` artifacts boot Alma 9 but remain unsuitable
 for qualification with its bundled recovery tools. Native ISOs are rebuilding;
 destination code is unchanged from the ongoing `2d3b0b61` publication.
+
+
+### Final XFS recovery-compatible native ISO receipts
+
+Both native jobs in [run 39545861516](https://github.com/Pelagians/Current/actions/runs/39545861516)
+passed at installer source `ef173594cfddf5a68a5cb9f12ef829672476262c`.
+Both archived receipts were independently checked for revision, architecture,
+immutable bootstrap payload and embedded-source binding. Subsequent changes are
+qualification assertions, workflow inputs and documentation, not product code.
+
+| Architecture | ISO SHA256 | Artifact |
+| --- | --- | --- |
+| x86_64 | `0003f27fb65832308ea3632528abfd01f9332db70e804bce2ef7cb5d029b053f` | [12321783886](https://github.com/Pelagians/Current/actions/runs/39545861516/artifacts/12321783886) |
+| aarch64 | `fb2efe82e5e35e2f641d8f16467c4e4965968b82dfcaad7c9cc68b7098a0d2c4` | [12321941605](https://github.com/Pelagians/Current/actions/runs/39545861516/artifacts/12321941605) |
+
+Signed native bootstrap payloads:
+
+- x86_64: `ghcr.io/pelagians/current-bootstrap-x86_64@sha256:49d15b4fa05856592b0d67197be86350558b74bf6a87679394f32ed1afeb4cbd`
+- aarch64: `ghcr.io/pelagians/current-bootstrap-aarch64@sha256:9d3e723dd946f4280c166be62651f710ce5c9d1a1445ac363dd23a1712d006ad`
+
+The Fedora base and image-builder pins are unchanged. These are ISO hashes, not
+GitHub ZIP hashes. Artifacts expire after seven days. Native ARM assembly does not
+establish ARM boot qualification.
+
+The final ISO passed [Btrfs rejection run 39547374723](https://github.com/Pelagians/Current/actions/runs/39547374723),
+using harness `7eaf9e1f0e2be96c4c07974b136a1e25f6a4c00d` and the exact
+`0003f27f...` checksum above. The original graphical welcome screen and rejection
+summary were visually inspected. Anaconda logged Current's explicit Btrfs
+validation errors, Begin Installation remained disabled, and the entire
+68,719,476,736-byte virtual disk remained unallocated. This is allocation evidence,
+not a separate block-I/O trace. No destination switch occurs in this scenario.

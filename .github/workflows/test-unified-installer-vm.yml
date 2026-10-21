@@ -6,18 +6,18 @@ on:
       iso_run:
         description: Successful unified ISO workflow run ID
         required: true
-        default: '39541161544'
+        default: '39545861516'
       iso_revision:
         description: Exact source revision in the ISO build receipt
         required: true
-        default: 2d3b0b61c0a723e5a4121dca2075d63a57e5c17a
+        default: ef173594cfddf5a68a5cb9f12ef829672476262c
       distribution:
         type: choice
         options: [fedora, alma10, alma9]
         default: fedora
       channel:
         description: Published destination channel with setup API
-        default: pr-29
+        default: br-codex_unified-installer
       scenario:
         type: choice
         options: [server-flow, reject-btrfs]
@@ -56,13 +56,13 @@ jobs:
         with:
           name: current-installer-x86_64-experimental
           path: iso
-          run-id: ${{ inputs.iso_run || '39541161544' }}
+          run-id: ${{ inputs.iso_run || '39545861516' }}
           github-token: ${{ github.token }}
       - name: Exercise original ISO and first boot on a new virtual disk
         env:
-          ISO_REVISION: ${{ inputs.iso_revision || '2d3b0b61c0a723e5a4121dca2075d63a57e5c17a' }}
+          ISO_REVISION: ${{ inputs.iso_revision || 'ef173594cfddf5a68a5cb9f12ef829672476262c' }}
           DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
-          CHANNEL: ${{ inputs.channel || 'pr-29' }}
+          CHANNEL: ${{ inputs.channel || 'br-codex_unified-installer' }}
           SCENARIO: ${{ inputs.scenario || 'server-flow' }}
         run: |
           exec /usr/bin/python3 scripts/test-unified-installer-vm.py \
