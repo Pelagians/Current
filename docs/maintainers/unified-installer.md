@@ -484,7 +484,7 @@ build fails if the registration anchor changes and validates the registration an
 the actual installed Anaconda source. It preserves every upstream check. Unit
 tests cover root/home/data mounts, new formats, unused volumes and source drift.
 The VM `reject-btrfs` scenario requests Btrfs and requires the policy error plus
-an entirely unwritten virtual disk (`qemu-img map`) before calling it passed.
+no allocated virtual-disk data (`qemu-img map`) before calling it passed.
 
 These source changes require new native ISO receipts and boot validation. Previous
 ISO artifacts remain evidence for their recorded revision only. The bootstrap and
@@ -594,7 +594,7 @@ shipping defaults and explicit destination SELinux assertions:
 [Fedora](https://github.com/Pelagians/Current/actions/runs/39534009481),
 [Btrfs rejection](https://github.com/Pelagians/Current/actions/runs/39534012141), and
 [Alma 10 diagnosis](https://github.com/Pelagians/Current/actions/runs/39534014947).
-Results are recorded below when complete.
+Completed results are recorded below.
 
 The first replacement Btrfs test stopped before installation: Tesseract exceeded
 its 15-second deadline while reading an OVMF frame. It did not exercise storage
@@ -662,3 +662,22 @@ requires that exact backend error, no post-install marker and an entirely
 unwritten virtual disk; it archives `disk-map.json` for review. The observer is
 covered by an isolated shell test with mocked HTTP uploads. No shipping ISO or
 payload changes were needed.
+
+### Corrected ISO Btrfs rejection — passed
+
+[Run 39536166058](https://github.com/Pelagians/Current/actions/runs/39536166058),
+harness `001b6a0c`, passed against the same corrected x86_64 ISO. Anaconda's real
+storage validator reported Current's explicit Btrfs error for the planned volume,
+root mount and partition, then reported validation failure. The inspected GUI
+screenshot shows Installation Destination in error and Begin Installation disabled.
+No post-install marker was produced. After stopping the VM, `qemu-img map` reported
+one extent covering all 68,719,476,736 bytes, with `present=false`, `zero=true` and
+`data=false`: the entire installation disk remained unallocated. This is disk
+allocation evidence, not a separate block-I/O trace. The archive includes the
+validation logs, screenshot, result receipt and `disk-map.json`.
+
+Final checks after the observer change passed: 77 runtime tests (runtime sources
+unchanged), 71 image tests, Actionlint for both new workflows and diff checks.
+The shipping installer/bootstrap inputs remain identical to build `dbdb3cab`.
+PR #29 stays draft because Alma transitions and the remaining hardware/UI gates
+are not qualified. No development-host installation or bootc switch occurred.

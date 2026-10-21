@@ -20,7 +20,9 @@ see the linked maintainer evidence and recovery procedure.
 In Anaconda choose storage, timezone, networking and an administrator account.
 The default root filesystem is XFS; Btrfs is excluded because the selected system
 may be AlmaLinux. The installer rejects Btrfs assigned to the installation, including
-separate home/data mount points. Unused existing volumes are not installation targets.
+separate home/data mount points. A disposable VM test verified the explicit
+rejection with Begin Installation disabled and an entirely unallocated disk.
+Unused existing volumes are not installation targets.
 Root login is locked. After reboot, log in
 on the local console with the account you created. Setup opens after normal
 administrator authentication. It never uses root autologin. SSH remains usable.
@@ -38,7 +40,7 @@ returns to your shell. Use `nmtui` to configure networking if needed.
 
 The review shows hardware, distribution, role, desktop, driver, exact image tag,
 compatibility reasons and warnings. You can select another eligible image. Known
-incompatibilities cannot be overridden. Unknown graphics hardware gets an
+architecture, CPU and driver incompatibilities cannot be overridden. Unknown graphics hardware gets an
 explicit manual fallback; NVIDIA driver choices are based on recorded PCI IDs,
 not just its vendor. Apple Silicon/Asahi is unsupported.
 
