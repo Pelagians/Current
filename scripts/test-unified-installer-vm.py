@@ -240,8 +240,15 @@ def run(args):
         deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
             vm.screenshot('grub-wait')
-            screen = subprocess.check_output(['tesseract', str(evidence / 'grub-wait.png'), 'stdout'],
-                                             text=True, stderr=subprocess.DEVNULL, timeout=15)
+            try:
+                screen = subprocess.check_output(
+                    ['tesseract', str(evidence / 'grub-wait.png'), 'stdout'],
+                    text=True, stderr=subprocess.DEVNULL, timeout=30,
+                    env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+            except subprocess.TimeoutExpired:
+                # A busy runner can delay OCR. Keep the overall boot deadline;
+                # do not mistake one slow screenshot for a firmware failure.
+                continue
             (evidence / 'grub-text.log').write_text(screen)
             if 'install current' in screen.lower():
                 break

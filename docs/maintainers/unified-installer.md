@@ -564,3 +564,39 @@ compatibility. Validate all enabled features, actual Alma boot, SELinux, network
 rollback and repair tooling before adopting a shipping profile. Do not rewrite
 existing filesystem superblocks or switch to Btrfs. Current artifacts retain
 Fedora's XFS feature defaults and therefore retain this Alma 9 blocker.
+
+### Corrected native ISO receipts
+
+Both native jobs in [run 39532339329](https://github.com/Pelagians/Current/actions/runs/39532339329)
+passed at source `dbdb3cab56b612752fd339af1711848ed53659d9`. This is the shipping
+installer/bootstrap revision; subsequent commits change tests and documentation
+only. Both archived receipts were independently read and checked, including the
+native bootstrap digest and digest-derived embedded source binding.
+
+| Architecture | ISO SHA256 | Artifact |
+| --- | --- | --- |
+| x86_64 | `3b6b2cf4240cb0bd5061b64ce7e566fc06ec0708a854abdaeaed621fce49a44f` | [12317320241](https://github.com/Pelagians/Current/actions/runs/39532339329/artifacts/12317320241) |
+| aarch64 | `08cbb734f7775f673a38ac5316273ed2f5180e56485f941843496ce71744895d` | [12315654996](https://github.com/Pelagians/Current/actions/runs/39532339329/artifacts/12315654996) |
+
+The x86 bootstrap digest is
+`65fc1717ea57d8d7b9f5c611d1eead4932edb07ab96ca9129d28a02070308bb8`;
+the ARM bootstrap digest is
+`7e73aaffa73ec077467a70bdfd5ee6b32a8c2ba11041b0c47df8142879f00747`.
+Both receipts pin builder
+`b35d715cd67099355b9e2ee022e1f73333b917d5a1a594f01b6a82c366dc10d1`
+and Fedora base
+`e6fffeed9e9a13ca4d351c1ce4ae2b4a5119fe121268479e247a63a3ba2bfda2`.
+ISO SHA256 values differ from GitHub ZIP archive digests. Artifacts expire after
+seven days. Native ARM assembly success does not qualify ARM installation.
+
+Replacement-ISO VM runs use harness source `e070faba`, bare `autopart` to exercise
+shipping defaults and explicit destination SELinux assertions:
+[Fedora](https://github.com/Pelagians/Current/actions/runs/39534009481),
+[Btrfs rejection](https://github.com/Pelagians/Current/actions/runs/39534012141), and
+[Alma 10 diagnosis](https://github.com/Pelagians/Current/actions/runs/39534014947).
+Results are recorded below when complete.
+
+The first replacement Btrfs test stopped before installation: Tesseract exceeded
+its 15-second deadline while reading an OVMF frame. It did not exercise storage
+validation. The harness now limits OCR to one thread and retries a timed-out
+frame within the existing overall GRUB deadline; it does not skip that boot gate.
