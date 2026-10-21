@@ -382,7 +382,9 @@ def run(args):
         command('test -d /sys/firmware/efi && id && nmcli -t -f STATE general && systemctl is-active NetworkManager')
         command("printf 'retained-user-data\\n' > ~/current-sentinel; sha256sum ~/current-sentinel")
         command('id -u > ~/current-original-uid; sudo sh -c \'sha256sum /etc/NetworkManager/system-connections/*\' > ~/current-network-hashes')
-        command('sudo bootc status --json')
+        # Test-only persistent journal retains shutdown-time finalization errors.
+        command('sudo mkdir -p /var/log/journal && sudo systemd-tmpfiles --create --prefix /var/log/journal && sudo journalctl --flush')
+        command('rpm -q ostree bootc selinux-policy-targeted policycoreutils libsemanage; sudo semodule -lfull; sudo ls -ldZ /etc/selinux /var/lib/selinux; sudo bootc status --json')
         vm.serial.sendline('sudo current setup --channel ' + args.channel)
         vm.serial.expect('Choose a distribution')
         vm.serial.sendline({'alma10': '1', 'fedora': '2', 'alma9': '3'}[args.distribution])
