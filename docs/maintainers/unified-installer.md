@@ -20,7 +20,8 @@ development tools. Neither is a minimal bootstrap. `recipes/bootstrap.yml` uses
 the Fedora bootc base, a small package set, the existing signing module and
 repository public key. Fedora is provisional for hardware enablement; Alma's
 older kernel and EL10 CPU baseline constrain the initial bootstrap. No distro
-transition is boot-qualified yet. Keep firmware/kernel/shim from the base.
+transition was boot-qualified at the initial audit; current results are recorded
+below. Keep firmware/kernel/shim from the base.
 
 The new `installer/unified` runtime follows the existing Anaconda model using
 the unified image-builder CLI and `bootc-generic-iso`. Installer-only credentials,
@@ -205,20 +206,25 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-The final x86_64 ISO passed complete Fedora, Alma 10 and Alma 9 server flows in
+The baseline x86_64 ISO (`ef173594`, checksum `0003f27f...`) passed complete
+Fedora, Alma 10 and Alma 9 server flows in
 disposable UEFI/KVM VMs, using the shipped partitioning defaults and enforcing
-SELinux on both bootstrap and destination. Broader hardware and recovery
+SELinux on both bootstrap and destination. Subsequent diagnostics found a
+shutdown initramfs lookup defect. The replacement ISO (`6f48c731`, checksum
+`f37441b3...`) includes its correction and a refreshed Fedora base; its full
+shutdown-qualified flows are tracked in the follow-up below. Baseline results
+do not qualify the replacement artifacts. Broader hardware and recovery
 qualification remains pending as recorded below. The development host is ARM64, lacks `/dev/kvm`, and had only
 4.6 GiB free on the container-storage filesystem. A large local installer build
 was not attempted. No host installation or host bootc mutation occurred.
 
 | Transition / hardware | Status |
 | --- | --- |
-| Bootstrap Fedora 44 → Fedora server | Final ISO full UEFI/KVM flow passed, including XFS repair-tool recognition, enforcing SELinux, completion and rollback; physical hardware unqualified |
+| Bootstrap Fedora 44 → Fedora server | Baseline ISO full UEFI/KVM flow passed, including XFS repair-tool recognition, enforcing SELinux, completion and rollback; physical hardware unqualified |
 | Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 10 server | Final ISO full UEFI/KVM flow passed, including SELinux finalization, XFS repair-tool recognition, enforcing SELinux, completion and rollback |
+| Bootstrap Fedora 44 → Alma 10 server | Baseline ISO full UEFI/KVM flow passed, including SELinux finalization, XFS repair-tool recognition, enforcing SELinux, completion and rollback |
 | Bootstrap Fedora 44 → Alma 10 GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 9 server | Final UEFI/KVM flow passed with parent=0/exchange=0 XFS, Alma 9 repair-tool recognition, enforcing SELinux, completion and rollback; journal/shutdown warnings recorded below |
+| Bootstrap Fedora 44 → Alma 9 server | Baseline UEFI/KVM flow passed with parent=0/exchange=0 XFS, Alma 9 repair-tool recognition, enforcing SELinux, completion and rollback; journal/shutdown warnings recorded below |
 | Bootstrap Fedora 44 → Alma 9 GNOME/COSMIC | Experimental; desktop login and rendering tests required |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
@@ -1148,3 +1154,33 @@ for the recorded baseline images. They do not establish graphical desktop
 session health. The bootstrap PAM credential audit warning is retained, with
 no authentication-policy bypass introduced. The rebuilt destinations and stricter
 shutdown assertions are still a separate qualification requirement.
+
+Native publication run `39839224205` attempt 1 was cancelled after its NVIDIA
+package preflight stayed in the same step for about 40 minutes without package
+diagnostics. No destination publication had started. Attempt 2, at the same
+`01abb3d85a097c8357de4625f10fbb01e9239445` source, passed the unmodified preflight
+and started the full native build matrix. The cancellation log does not establish
+the underlying delay's cause; no package/signature gate was bypassed.
+
+[Bootstrap reboot run 39844392674](https://github.com/Pelagians/Current/actions/runs/39844392674)
+uses harness `e0b92b3aa424832b0066740b5066e40bbe2b984d` and the replacement ISO.
+This isolated scenario installs through Anaconda, authenticates and pauses the
+wizard, then checks an ordinary bootstrap reboot, journal verification, user
+services, retained networking/data and shutdown teardown. Its separate
+`passed-bootstrap-reboot` result never counts as destination-flow qualification.
+It allows investigation of the bootstrap fix while destination publication is
+pending. Full server flows still require the signed native publication to pass.
+
+[Rebuilt-ISO Btrfs rejection 39842155680](https://github.com/Pelagians/Current/actions/runs/39842155680)
+passed on checksum `f37441b3...` with harness `71d41a81`. The original ISO booted
+graphical Anaconda, the actual storage validator rejected Btrfs, Begin
+Installation stayed disabled and the 64 GiB virtual disk remained entirely
+unallocated. Both the original welcome screen and disabled-installation screen
+were visually inspected. This requalifies storage rejection for the refreshed
+installer base; it does not replace an installed shutdown test.
+
+That runner downloaded 53.1 MB of test-tool packages in 24 minutes 8 seconds.
+Subsequent headless QMP runs install only required dependencies, with firmware,
+NIC ROMs and English OCR data explicit, rather than optional GUI/audio and extra
+storage backends. This changes only disposable runner preparation, not the ISO
+or installed systems. The full reruns validate this smaller tool set.
