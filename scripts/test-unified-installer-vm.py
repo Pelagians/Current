@@ -22,6 +22,12 @@ import threading
 import time
 
 
+def terminal_text(output):
+    """Remove terminal framing, retaining the actual guest output for assertions."""
+    output = re.sub(r'\x1b\].*?(?:\x07|\x1b\\)', '', output, flags=re.DOTALL)
+    return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', output)
+
+
 def inputs(artifact, revision):
     if not re.fullmatch(r'[0-9a-f]{40}', revision):
         raise ValueError('Expected a full source revision')
@@ -387,7 +393,9 @@ def run(args):
                 'findmnt -R /; sudo losetup -l; sudo dmsetup info -c; lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINTS',
                 'sudo ls -la /run/initramfs; sudo test -x /run/initramfs/shutdown',
                 'systemctl cat dracut-shutdown.service; sudo cat /usr/lib/dracut/dracut-initramfs-restore',
-                'sudo journalctl -b -u dracut-shutdown.service -u systemd-journald.service -u user@$(id -u).service --no-pager',
+                # Include prior boots: restore runs in ExecStop, after the
+                # preceding checkpoint, and its errors may not reach serial.
+                'sudo journalctl -u dracut-shutdown.service -u systemd-journald.service -u user@$(id -u).service --no-pager',
                 'sudo journalctl --sync && sudo journalctl --verify',
                 'sudo journalctl --header --no-pager',
                 'sudo journalctl -b -p warning --no-pager',
@@ -401,7 +409,7 @@ def run(args):
             checkpoints.append(stage)
             markers = command('sudo journalctl -q -t current-vm-checkpoint -o cat --no-pager')
             (evidence / (stage + '-markers.log')).write_text(markers)
-            if not set(checkpoints).issubset(set(markers.splitlines())):
+            if not set(checkpoints).issubset(set(terminal_text(markers).splitlines())):
                 raise RuntimeError('Persistent journal lost checkpoint markers at ' + stage)
             record(stage + ': user manager, transient user service and persistent journal markers passed; diagnostics captured')
 

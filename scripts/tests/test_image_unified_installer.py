@@ -23,6 +23,15 @@ policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_vm_marker_comparison_ignores_terminal_framing(self):
+        # Captured Fedora shell framing preceded a real journal entry and made
+        # the first diagnostic run misreport a lost bootstrap marker.
+        for terminator in ('\x07', '\x1b\\'):
+            output = '\x1b]3008;start=fixture;type=command' + terminator + 'bootstrap\r\n'
+            output += '\x1b[32mdestination\x1b[0m\r\n'
+            self.assertEqual(vm.terminal_text(output).splitlines(), ['bootstrap', 'destination'])
+        self.assertNotIn('bootstrap', vm.terminal_text('\x1b]0;bootstrap\x07destination\n').splitlines())
+
     def test_xfs_formatter_applies_profile_without_changing_other_formats(self):
         source = self.root / 'fsmkfs.py'
         original = '''from types import SimpleNamespace
