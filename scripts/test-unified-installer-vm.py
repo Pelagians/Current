@@ -358,7 +358,7 @@ def run(args):
             self.wfile.write(ks)
 
         def do_POST(self):
-            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log'):
+            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log') and not re.fullmatch(r'/(?:bootstrap|destination|rollback|reboot|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification)\.log', self.path):
                 self.send_error(404)
                 return
             length = int(self.headers.get('Content-Length', '0'))
@@ -555,15 +555,21 @@ def run(args):
                 output.write('$ sudo journalctl --header ' + archives + '\n')
                 output.write(command('sudo journalctl --header --no-pager ' + archives))
                 output.write('$ sudo journalctl --verify ' + archives + '\n')
-                verification = command('sudo journalctl --verify ' + archives + '; rc=$?; printf \'\\nVERIFY_RC=%s\\n\' "$rc"; true', timeout=180)
+                # Kernel audit messages can split serial output mid-word. Send
+                # closed-file verification through the existing evidence HTTP
+                # collector so machine assertions see the unchanged bytes.
+                verification_path = evidence / (stage + '-archive-verification.log')
+                command('(sudo journalctl --verify ' + archives + '; rc=$?; printf \'\\nVERIFY_RC=%s\\n\' "$rc") > ~/current-vm-archive-verification.log 2>&1; curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-archive-verification.log" http://10.0.2.2:' + str(server.server_port) + '/' + verification_path.name, timeout=180)
+                verification = verification_path.read_text()
                 output.write(verification)
                 result = journal_verification(verification, (distribution or args.distribution) == 'alma9' and stage != 'bootstrap')
                 report['journal_verification'][stage] = result
                 deferred_journals.update(result['deferred'])
                 if (verify_deferred or (stage == 'rollback' and args.scenario not in ('workstation-flow', 'rebase-flow'))) and not deferred_journals.issubset(result['passed']):
                     raise RuntimeError('Rollback did not verify every deferred journal archive')
-            markers = command('sudo journalctl -q -t current-vm-checkpoint -o cat --no-pager ' + archives)
-            (evidence / (stage + '-markers.log')).write_text(markers)
+            marker_path = evidence / (stage + '-markers.log')
+            command('sudo journalctl -q -t current-vm-checkpoint -o cat --no-pager ' + archives + ' > ~/current-vm-markers.log && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-markers.log" http://10.0.2.2:' + str(server.server_port) + '/' + marker_path.name)
+            markers = marker_path.read_text()
             if not set(checkpoints).issubset(set(terminal_text(markers).splitlines())):
                 raise RuntimeError('Persistent journal lost checkpoint markers at ' + stage)
             record(stage + ': user manager, transient user service and persistent journal markers passed; diagnostics captured')
