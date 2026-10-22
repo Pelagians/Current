@@ -709,7 +709,7 @@ def run(args):
         command('test ! -e /usr/share/current/bootstrap && cat /usr/lib/os-release && sudo bootc status --json')
         command('sudo journalctl -b -1 -u ostree-finalize-staged.service --no-pager')
         diagnostics('destination')
-        command('test ! -e /usr/lib/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf && test ! -e /etc/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf')
+        command('test -e /usr/lib/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf && test ! -e /etc/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf')
         command('getenforce; test "$(getenforce)" = Enforcing')
         command('rpm -q xfsprogs; sudo xfs_info /sysroot; sudo xfs_info /boot')
         command('sudo xfs_repair -n -f /var/tmp/current-xfs-repair.img && sudo rm /var/tmp/current-xfs-repair.img')

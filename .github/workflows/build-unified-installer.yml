@@ -10,6 +10,7 @@ on:
       - files/base/runtime/usr/share/current/image-matrix.tsv
       - recipes/bootstrap.yml
       - recipes/layers/shared/initramfs.yml
+      - recipes/layers/shared/signing.yml
       - files/scripts/dracut-initrd-link.sh
       - recipes/layers/shared/setup.yml
       - installer/alma10-server/prepare-efi.sh
@@ -23,6 +24,7 @@ on:
       - files/bootstrap/**
       - recipes/bootstrap.yml
       - recipes/layers/shared/initramfs.yml
+      - recipes/layers/shared/signing.yml
       - files/scripts/dracut-initrd-link.sh
       - installer/alma10-server/prepare-efi.sh
       - installer/unified/**

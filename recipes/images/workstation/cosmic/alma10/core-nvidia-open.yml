@@ -22,4 +22,4 @@ modules:
   - from-file: layers/shared/workstation-cosmic.yml
   - from-file: layers/shared/nvidia-workstation.yml
   - from-file: layers/shared/initramfs.yml
-  - type: signing
+  - from-file: layers/shared/signing.yml

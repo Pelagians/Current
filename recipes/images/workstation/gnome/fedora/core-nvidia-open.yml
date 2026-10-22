@@ -19,4 +19,4 @@ modules:
   - from-file: layers/shared/workstation-gnome-modern.yml
   - from-file: layers/fedora/nvidia-workstation.yml
   - from-file: layers/shared/initramfs.yml
-  - type: signing
+  - from-file: layers/shared/signing.yml

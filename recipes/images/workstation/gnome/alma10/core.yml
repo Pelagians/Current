@@ -20,4 +20,4 @@ modules:
   - from-file: layers/shared/workstation-gnome-modern.yml
   - from-file: layers/alma10/gnome.yml
   - from-file: layers/shared/initramfs.yml
-  - type: signing
+  - from-file: layers/shared/signing.yml

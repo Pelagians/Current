@@ -195,7 +195,10 @@ select_destination() {
   fi
   if persistent_systemctl unmask "$selected" display-manager.service &&
      retire_selected_link &&
-     persistent_systemctl enable --force "$selected" && normalize_selected_alias && verify_alias; then
+     # The early generator intentionally links the selected name. Enabling by
+     # name finds that generated link and systemctl refuses it. Read the already
+     # validated vendor file directly, leaving the generator's boot gating intact.
+     persistent_systemctl enable --force "/usr/lib/systemd/system/$selected" && normalize_selected_alias && verify_alias; then
     rm -rf "$saved"
     return 0
   fi

@@ -235,3 +235,43 @@ Initial harness `9126c891` runs (results pending):
 | alma9-to-alma10 | [39864500928](https://github.com/Pelagians/Current/actions/runs/39864500928) |
 | alma10-to-fedora | [39864504802](https://github.com/Pelagians/Current/actions/runs/39864504802) |
 | alma10-to-alma9 | [39864517682](https://github.com/Pelagians/Current/actions/runs/39864517682) |
+
+
+### First runtime blockers and corrections
+
+All six initial directed server cases reached their source image and completed
+setup, then stopped before the second switch at the effective-policy check:
+`Effective container policy does not require the Current repository signing key`.
+The `setup-trust-policy.sh` namespace rule was applied only to the bootstrap;
+destination recipes ended at BlueBuild's image-specific signing module. The
+correction shares signing plus the same namespace rule across every native
+recipe. It preserves BlueBuild's more-specific rules, unrelated transports and
+registry configuration. No insecure policy or alternate key is introduced.
+Regression fixtures check rule preservation and every matrix recipe's inclusion.
+
+[Fedora GNOME 39864465146](https://github.com/Pelagians/Current/actions/runs/39864465146)
+and [Fedora COSMIC 39864473827](https://github.com/Pelagians/Current/actions/runs/39864473827)
+booted their correct signed workstation images but failed before graphical
+login: the reconciliation service's `systemctl enable <name>` resolved the early
+generator's selected-unit symlink and refused to operate on a linked unit.
+An isolated real-systemctl fixture reproduces this exact rejection with the
+same generated links. Passing the validated `/usr/lib/systemd/system/<name>`
+path enables the vendor file directly; the fixture then passes for both desktops
+without altering the generated links. Existing administrator guards, failure
+restoration, competitor handling, opt-out and transaction tests also pass.
+See the documented [absolute-path enable interface](https://www.freedesktop.org/software/systemd/man/latest/systemctl).
+These failed runs do not establish a working greeter or graphical session.
+
+The previously tested finalizer PATH correction is also moved from the bootstrap
+file tree into the shared setup vendor tree. Every Current source can therefore
+find an Alma destination's `/usr/sbin/semodule` during finalization. This extends
+the already reproduced Fedora-bootstrap issue to other Fedora sources; its
+applicability to the new rebase pairs still requires their full reruns. It is an
+immutable vendor drop-in, with no retained `/etc` override or SELinux bypass.
+
+These corrections require rebuilt native images and repeated VM flows. The
+recorded `6f48c731` ISO remains the installation control: its bootstrap already
+contains the same namespace trust and finalizer PATH behavior. Source and target
+digests are recorded separately from the ISO source. Local checks after the
+corrections pass 78 runtime and 84 image tests. None of the initial failed cases
+is promoted to a qualified result by those tests.
