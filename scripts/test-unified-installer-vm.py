@@ -28,6 +28,14 @@ def terminal_text(output):
     return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', output)
 
 
+def shutdown_summary(output, expected_reboots):
+    output = terminal_text(output)
+    failures = re.findall(r'systemd-shutdown\[1\]: (?:Failed|Unable) to finalize[^\r\n]*', output)
+    pivots = output.count('Returning to initrd...')
+    return {'expected_reboots': expected_reboots, 'initrd_pivots': pivots,
+            'finalization_failures': failures, 'passed': not failures and pivots >= expected_reboots}
+
+
 def inputs(artifact, revision):
     if not re.fullmatch(r'[0-9a-f]{40}', revision):
         raise ValueError('Expected a full source revision')
@@ -396,7 +404,6 @@ def run(args):
                 # Include prior boots: restore runs in ExecStop, after the
                 # preceding checkpoint, and its errors may not reach serial.
                 'sudo journalctl -u dracut-shutdown.service -u systemd-journald.service -u user@$(id -u).service --no-pager',
-                'sudo journalctl --sync && sudo journalctl --verify',
                 'sudo journalctl --header --no-pager',
                 'sudo journalctl -b -p warning --no-pager',
             ]
@@ -404,6 +411,8 @@ def run(args):
                 for probe in probes:
                     output.write('$ ' + probe + '\n')
                     output.write(command('(' + probe + "); rc=$?; printf '\\nPROBE_RC=%s\\n' \"$rc\"; true", timeout=180))
+                output.write('$ sudo journalctl --sync && sudo journalctl --verify\n')
+                output.write(command('sudo journalctl --sync && sudo journalctl --verify', timeout=180))
             command('systemctl is-active user@$(id -u).service && systemctl --user is-active default.target && systemd-run --user --wait --pipe /usr/bin/true')
             command('logger -t current-vm-checkpoint ' + stage + ' && sudo journalctl --sync')
             checkpoints.append(stage)
@@ -414,6 +423,10 @@ def run(args):
             record(stage + ': user manager, transient user service and persistent journal markers passed; diagnostics captured')
 
         login(True)
+        vm.serial.logfile_read.flush()
+        # Exclude the installer environment's own shutdown from installed-OS
+        # qualification. Retain the complete original log as evidence.
+        shutdown_start = (evidence / 'installation-serial.log').stat().st_size
         record('Authenticated wheel login automatically launched setup; q safely paused it')
         command('findmnt; getent passwd currenttest; cat /etc/fstab; ls -ld /home /var/home "$HOME"; test -d "$HOME" && test -w "$HOME"')
         command('systemctl show systemd-remount-fs.service -p Result; cat /proc/cmdline; getenforce')
@@ -504,6 +517,12 @@ def run(args):
         command('sudo bootc status --json; sudo current setup status')
         vm.screenshot('rollback')
         record('Bootc rollback returned to bootstrap and preserved authenticated login; inspect completed-state semantics')
+        vm.serial.logfile_read.flush()
+        serial = (evidence / 'installation-serial.log').read_bytes()[shutdown_start:].decode('utf-8', errors='replace')
+        report['shutdown'] = shutdown_summary(serial, 3 if args.distribution == 'alma9' else 2)
+        if not report['shutdown']['passed']:
+            raise RuntimeError('Server flow completed, but installed-OS shutdown teardown failed qualification; inspect serial and dracut history')
+        record('Every installed-OS reboot returned to the shutdown initramfs without final device teardown failure')
         report['status'] = 'passed-server-flow'
     except BaseException as error:
         report['status'] = 'interrupted' if isinstance(error, KeyboardInterrupt) else 'failed'
