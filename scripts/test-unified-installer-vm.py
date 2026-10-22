@@ -52,9 +52,14 @@ def shutdown_summary(output, expected_reboots):
     # this stable preceding sentence after successfully changing the root.
     # The pivot hands teardown to dracut; failures there must also fail the run.
     failures += re.findall(r'(?:dracut(?: Warning)?: (?:Cannot umount /oldroot|Unmounting [^\r\n]* (?:timed out|failed)|(?:reboot|poweroff|halt) failed!)|device-mapper: remove ioctl on [^\r\n]* failed:)[^\r\n]*', output)
-    pivots = output.count('Successfully changed into root pivot.')
+    shutdowns = output.split('Successfully changed into root pivot.')[1:]
+    pivots = len(shutdowns)
+    # EL9 logs successful unmounts with a Warning prefix, sometimes twice.
+    # Require one confirmation per pivot, rather than counting duplicate lines.
+    unmounted = sum(bool(re.search(r'dracut(?: Warning)?: Unmounted /oldroot\.', part)) for part in shutdowns)
     return {'expected_reboots': expected_reboots, 'initrd_pivots': pivots,
-            'finalization_failures': failures, 'passed': not failures and pivots >= expected_reboots}
+            'oldroot_unmounts': unmounted, 'finalization_failures': failures,
+            'passed': not failures and pivots >= expected_reboots and unmounted == pivots}
 
 
 def inputs(artifact, revision):

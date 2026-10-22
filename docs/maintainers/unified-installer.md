@@ -1194,3 +1194,52 @@ setup resume passed. The initial systemd DM-busy messages still occur while the
 old root is in use; they are followed by successful shutdown-initramfs teardown,
 not the previous final give-up. This establishes the lookup correction on the
 recorded bootstrap UEFI/KVM reboot, not on destination images or ARM hardware.
+
+The rebuilt bootstrap log is not warning-free. The nonfatal executor
+`PAM:setcred` audit still appears, while the same login's user manager and
+transient service pass. Both boot checkpoints report zero failed system and
+user units. Other retained base/VM messages concern NFS state directories in
+the initramfs, read-only `/usr/local/sbin` tmpfiles creation, missing mDNS NSS
+support, no-swap oomd behavior, virtual optical/thermal devices and host-exposed
+CPU mitigation capabilities. Their separate functionality is not qualified by
+this local-root server test. No service, security policy or journal filter was
+changed merely to silence them; this result is not a claim of a warning-free
+base image or host microcode qualification.
+
+The rebuilt x86_64 server receipts from native run `39839224205`, attempt 2,
+record source `01abb3d85a097c8357de4625f10fbb01e9239445` and these immutable
+digests. Full-flow boot evidence must match these receipts after publication.
+
+| Destination | Native digest |
+| --- | --- |
+| fedora-server | `sha256:1b89278ed5ecfba424528e4015bbceff2ed9814bca1be1ab807a8cc1ec0da4d5` |
+| alma10-server | `sha256:617184c17308521ff680ef6255e811736f95d9cbebd45a75e0d7598117eaf906` |
+| alma9-server | `sha256:c2d55be81b9a857d643f867f5fc273e0cebeaa3b9e10091f52f23cb6382e6243` |
+
+[Alma 9 candidate flow 39854335051](https://github.com/Pelagians/Current/actions/runs/39854335051)
+passed with harness `3c0020a12ba22e43108307f5bda3abb953841313` and the replacement
+ISO. While shared-index publication continued, this additional diagnostic used
+the existing native candidate tag
+`br-codex_unified-installer-run-39839224205-2-amd64-9`; signature enforcement and
+all backend checks remained enabled. Its staged/booted digest matched `c2d55be8...`
+from the receipt above. It did not advance or bypass the shared publication
+channel; the normal shared-reference runs remain separate gates.
+
+All three installed-OS reboots pivoted into the shutdown initramfs, unmounted
+`/oldroot` and disassembled the device mappings, with no final teardown failure.
+Alma 9's vendor dracut prints successful unmounts with a `Warning` prefix, sometimes
+through both kernel and console output. That text is a success confirmation, not
+an unmount error. The acceptance helper now requires an old-root unmount in each
+pivot segment, so duplicate lines cannot hide a missing unmount in another
+reboot. Its regression test and the captured bootstrap/Alma 9 logs pass this
+stronger assertion.
+
+Journal format rotation still occurred across distribution versions despite
+clean shutdown. Alma's two unsupported Fedora archives were deferred explicitly;
+Fedora verified all six retained persistent journals after rollback. All
+checkpoint messages and user services passed, including the ordinary Alma 9
+reboot. The complete flow also passed XFS repair-tool recognition, enforcing
+SELinux, retained account/data/network, real registry failure/retry, explicit
+completion and completed resume. This confirms the shutdown correction for the
+recorded Alma 9 candidate; it is not physical hardware or shared-reference
+publication qualification.
