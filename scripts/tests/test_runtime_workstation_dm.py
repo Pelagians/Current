@@ -115,6 +115,16 @@ fi
                     shutil.rmtree(early)
                 self.run_helper("--generate", self.root / "run/systemd/generator",
                                 early, self.root / "run/systemd/generator.late")
+                # The fixture injects root_dir to find its files; production
+                # runs with root_dir="" and emits targets under /usr. Absolute
+                # fixture paths would be wrongly rooted a second time by
+                # systemctl --root, breaking generated default.target.
+                for name in (unit, "display-manager.service", "default.target"):
+                    link = early / name
+                    target = os.readlink(link)
+                    self.assertTrue(target.startswith(str(self.root) + "/"), target)
+                    link.unlink()
+                    link.symlink_to(target[len(str(self.root)):])
                 self.run_helper()
                 self.assert_owner(unit)
                 calls = (self.root / "systemctl-calls").read_text()
