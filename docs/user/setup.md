@@ -5,24 +5,28 @@ bootstrap through graphical Anaconda; it does not install a full desktop at that
 stage. Existing image-specific installers remain available. See the
 [build architecture and test limits](../maintainers/unified-installer.md).
 
-Keep this draft ISO on disposable test disks. The final x86_64 ISO passed complete
-Fedora, AlmaLinux 10 and AlmaLinux 9 server UEFI/KVM flows: installation with root-only automatic
-partitioning, authenticated first-boot setup, network-failure retry, signed switch,
-destination boot with enforcing SELinux, explicit completion and rollback. Manual
-separate-home layouts remain unqualified.
+Keep this draft ISO on disposable test disks. The current x86_64 ISO passed
+complete Fedora, AlmaLinux 10 and AlmaLinux 9 server UEFI/KVM flows: root-only
+automatic partitioning, authenticated first-boot setup, network-failure retry,
+signed switch, enforcing destination boot, explicit completion and rollback.
+Manual separate-home and encrypted layouts remain unqualified.
 
-The SELinux finalizer and command-path corrections passed the Alma 10 flow.
-Earlier ISOs with XFS parent pointers or atomic extent exchange remain unsuitable
-for Alma 9; the final profile disables
-both, and its bundled repair tool passed a read-only clean-file scan. This does
-not qualify recovery from filesystem corruption. Alma 9 rotates journals when crossing systemd format versions. Its older verifier
-cannot verify the newer Fedora archives; the captured files passed verification
-after rollback to Fedora, and checkpoint messages survived. Authenticated server
-user services passed on all three distributions; desktop sessions remain
-unqualified. A missing initramfs filename caused the shutdown device-detach
-warnings. The build correction is implemented, with rebuilt shutdown qualification
-tracked in the maintainer evidence. Consult the
-linked maintainer evidence for exact artifacts, results and limitations.
+The Alma 10 SELinux finalizer correction passed. The XFS profile disables parent
+pointers and atomic extent exchange so Alma 9 can mount it and its bundled repair
+tool can inspect it. A read-only clean-file repair scan passed; filesystem
+corruption recovery remains unqualified. Earlier ISOs enabling these features
+remain unsuitable for Alma 9.
+
+The shutdown initramfs lookup correction passed all recorded server reboots,
+including an ordinary Alma 9 reboot. Initial device-busy messages can still
+appear before the shutdown initramfs unmounts the old root. Alma 9 also rotates
+newer Fedora journals and cannot verify their format; all retained archives in
+the final rerun passed verification after rollback to Fedora. Structural checks
+use closed archives because upstream verification can race active journal writes.
+Authenticated user services passed on all three distributions despite nonfatal
+bootstrap PAM credential audit messages. Desktop sessions remain unqualified.
+See the linked maintainer evidence for exact artifacts, the failed diagnostic
+attempt, remaining warnings and test limits.
 
 In Anaconda choose storage, timezone, networking and an administrator account.
 The default root filesystem is XFS; Btrfs is excluded because the selected system

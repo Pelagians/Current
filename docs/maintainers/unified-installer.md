@@ -206,25 +206,28 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-The baseline x86_64 ISO (`ef173594`, checksum `0003f27f...`) passed complete
-Fedora, Alma 10 and Alma 9 server flows in
-disposable UEFI/KVM VMs, using the shipped partitioning defaults and enforcing
-SELinux on both bootstrap and destination. Subsequent diagnostics found a
-shutdown initramfs lookup defect. The replacement ISO (`6f48c731`, checksum
-`f37441b3...`) includes its correction and a refreshed Fedora base; its full
-shutdown-qualified flows are tracked in the follow-up below. Baseline results
-do not qualify the replacement artifacts. Broader hardware and recovery
-qualification remains pending as recorded below. The development host is ARM64, lacks `/dev/kvm`, and had only
-4.6 GiB free on the container-storage filesystem. A large local installer build
-was not attempted. No host installation or host bootc mutation occurred.
+The current x86_64 ISO (`6f48c731`, checksum `f37441b3...`) passed complete
+Fedora, Alma 10 and Alma 9 server flows in disposable UEFI/KVM VMs, using the
+shipped XFS defaults and enforcing SELinux on bootstrap and destination. The
+rebuilt images restore the shutdown initramfs and unmount the old root on every
+recorded reboot. User-service checks and journal checks pass; Alma 9's unsupported
+Fedora archives are verified after rollback. Its final run verifies closed
+archives to avoid upstream online-verifier races. Exact runs and the failed
+attempt remain in the final shared-reference qualification history below.
+
+These results cover the recorded server VM configuration, not universal hardware
+or storage support. The development host is ARM64, lacks `/dev/kvm`, and had only
+4.6 GiB free on the container-storage filesystem at the initial audit. Builds and
+installation tests used native CI runners. No host installation or host bootc
+mutation occurred.
 
 | Transition / hardware | Status |
 | --- | --- |
-| Bootstrap Fedora 44 → Fedora server | Baseline ISO full UEFI/KVM flow passed, including XFS repair-tool recognition, enforcing SELinux, completion and rollback; physical hardware unqualified |
+| Bootstrap Fedora 44 → Fedora server | Rebuilt ISO full UEFI/KVM flow passed, including two clean reboot teardowns, journals/user services, XFS repair-tool recognition, enforcing SELinux, completion and rollback; physical hardware unqualified |
 | Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 10 server | Baseline ISO full UEFI/KVM flow passed, including SELinux finalization, XFS repair-tool recognition, enforcing SELinux, completion and rollback |
+| Bootstrap Fedora 44 → Alma 10 server | Rebuilt ISO full UEFI/KVM flow passed, including SELinux finalization, two clean reboot teardowns, journals/user services, XFS repair-tool recognition, enforcing SELinux, completion and rollback |
 | Bootstrap Fedora 44 → Alma 10 GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 9 server | Baseline UEFI/KVM flow passed with parent=0/exchange=0 XFS, Alma 9 repair-tool recognition, enforcing SELinux, completion and rollback; journal/shutdown warnings recorded below |
+| Bootstrap Fedora 44 → Alma 9 server | Rebuilt ISO full UEFI/KVM flow passed with parent=0/exchange=0 XFS, three clean reboot teardowns, closed-archive verification after rollback, user services, Alma 9 repair-tool recognition, enforcing SELinux and completion |
 | Bootstrap Fedora 44 → Alma 9 GNOME/COSMIC | Experimental; desktop login and rendering tests required |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
@@ -1287,5 +1290,76 @@ supported` on an Alma 9 persistent archive can be deferred, and every exact
 path must pass after rollback. Normal `.journal` archives and abnormal
 `.journal~` archives are both retained and checked. Newly opened files still
 being written are excluded from the structural assertion; their records enter
-the next checkpoint's closed archives. Full reruns are required with this
+the next checkpoint's closed archives. The affected Alma 9 full flow is rerun with this
 corrected measurement procedure.
+
+
+[Fedora 39859729342](https://github.com/Pelagians/Current/actions/runs/39859729342)
+and [Alma 10 39859733771](https://github.com/Pelagians/Current/actions/runs/39859733771)
+completed successfully with harness `3cac452c`. Each recorded two required
+shutdowns, two initramfs pivots, two old-root unmounts and no finalization errors.
+Both persistent journals verified at bootstrap, destination and rollback, with
+no deferred files. At every checkpoint, system/user failed-unit lists were empty,
+user managers were active with successful exit status and real transient user
+services passed. Both booted native digests matched the published receipts with
+`containerPolicy` signatures.
+
+Their complete flows also passed original graphical Anaconda startup, XFS
+installation, authenticated setup launch/pause/resume, real disconnected-network
+failure/retry, signed staging, enforcing destination boot, retained account/data/
+network, clean-file XFS repair-tool recognition, completion/resume and rollback.
+The original graphical installer screenshots and rollback screen were visually
+inspected. Alma 10's finalizer PATH correction remained bootstrap-only and SELinux
+policy finalization succeeded. These are completed replacement-artifact results;
+the separate Alma 9 measurement correction does not change their product content.
+
+
+[Alma 9 rerun 39861600155](https://github.com/Pelagians/Current/actions/runs/39861600155)
+passed the full shared-reference flow with harness
+`b648ff8ca00ffcf70974ed55ffb75850105c914c`, the same replacement ISO and the same
+signed native destination `c2d55be8...`. It recorded three required reboots,
+three shutdown-initramfs pivots, three old-root unmounts and no final teardown
+errors. Its ordinary Alma 9 reboot, enforcing SELinux, XFS repair-tool recognition,
+retained account/data/network, completion/resume and authenticated rollback passed.
+All four checkpoints had zero failed system/user units, active successful user
+managers and passing transient user services. The original graphical Anaconda
+screenshot was visually inspected.
+
+Closed persistent archive verification produced these exact counts:
+
+| Checkpoint | Passed archives | Deferred Fedora archives |
+| --- | --- | --- |
+| Bootstrap | 2 | 0 |
+| Alma 9 destination | 2 | 4 |
+| Ordinary Alma 9 reboot | 4 | 4 |
+| Fedora bootstrap rollback | 12 | 0 |
+
+The four unsupported paths were included among the twelve successful rollback
+verifications. At each checkpoint the post-rotation header inventory exactly
+matched the passed/deferred file set, contained no ONLINE files, and retained
+every pre-rotation persistent journal file ID. Thus rotation did not substitute
+empty files or drop earlier records from the check. All checkpoint messages were
+read from the verified archive set. This establishes integrity of the recorded
+rerun's retained archives, not the discarded first attempt's active files.
+
+Current completed full flows, all using ISO run `39839642466` and the normal
+`br-codex_unified-installer` shared channel:
+
+| Distribution | Run | Harness | Installed-OS reboot teardowns |
+| --- | --- | --- | --- |
+| Fedora | [39859729342](https://github.com/Pelagians/Current/actions/runs/39859729342) | `3cac452c` | 2/2 |
+| Alma 10 | [39859733771](https://github.com/Pelagians/Current/actions/runs/39859733771) | `3cac452c` | 2/2 |
+| Alma 9 | [39861600155](https://github.com/Pelagians/Current/actions/runs/39861600155) | `b648ff8c` | 3/3 |
+
+Local validation remains 156 passing tests (77 runtime, 79 image); the 79 image
+tests were rerun after the journal measurement change, including rejection of
+corruption in both archive naming forms. Actionlint passed both installer/VM
+workflows, and `git diff --check` passed. Later documentation-only commits do
+not change these product artifacts or test harnesses.
+
+XFS remains the default and the PR remains draft. Initial pre-pivot device-busy
+messages, cross-version journal rotation and nonfatal bootstrap credential audit
+messages remain visible and explained. This is not a warning-free image claim.
+Manual Anaconda storage/user interaction, separate-home/encrypted layouts,
+Secure Boot enabled, desktop sessions, physical GPUs, ARM UEFI hardware and
+crash/corruption recovery remain unqualified. Apple Silicon/Asahi is unsupported.
