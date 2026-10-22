@@ -358,7 +358,7 @@ def run(args):
             self.wfile.write(ks)
 
         def do_POST(self):
-            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log') and not re.fullmatch(r'/(?:bootstrap|destination|rollback|reboot|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification)\.log', self.path):
+            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log') and not re.fullmatch(r'/(?:bootstrap|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification)\.log', self.path):
                 self.send_error(404)
                 return
             length = int(self.headers.get('Content-Length', '0'))
