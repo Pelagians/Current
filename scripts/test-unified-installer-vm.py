@@ -472,6 +472,20 @@ def run(args):
         # Test-only persistent journal retains shutdown-time finalization errors.
         command('sudo mkdir -p /var/log/journal && sudo systemd-tmpfiles --create --prefix /var/log/journal && sudo journalctl --flush')
         diagnostics('bootstrap')
+        if args.scenario == 'bootstrap-reboot':
+            vm.serial.sendline('sudo systemctl reboot')
+            vm.serial.expect('current-vm login:', timeout=600)
+            login(True)
+            diagnostics('bootstrap-reboot')
+            command('test -e /usr/share/current/bootstrap && test "$(getenforce)" = Enforcing && test "$(cat ~/current-sentinel)" = retained-user-data && sudo sha256sum -c ~/current-network-hashes')
+            vm.serial.logfile_read.flush()
+            serial = (evidence / 'installation-serial.log').read_bytes()[shutdown_start:].decode('utf-8', errors='replace')
+            report['shutdown'] = shutdown_summary(serial, 1)
+            if not report['shutdown']['passed']:
+                raise RuntimeError('Bootstrap shutdown teardown failed qualification')
+            record('Bootstrap reboot passed shutdown, journal, authenticated setup resume and retained network checks; no destination was staged')
+            report['status'] = 'passed-bootstrap-reboot'
+            return
         command('rpm -q ostree bootc selinux-policy-targeted policycoreutils libsemanage; sudo semodule -lfull; sudo ls -ldZ /etc/selinux /var/lib/selinux; sudo bootc status --json')
         command('systemctl cat ostree-finalize-staged.service; systemctl show ostree-finalize-staged.service -p Environment')
         vm.serial.sendline('sudo current setup --channel ' + args.channel)
@@ -578,7 +592,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True, help='New directory; existing paths refused')
     parser.add_argument('--distribution', choices=('fedora', 'alma10', 'alma9'), default='fedora')
     parser.add_argument('--channel', default='pr-29')
-    parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs'), default='server-flow')
+    parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs', 'bootstrap-reboot'), default='server-flow')
     args = parser.parse_args()
     if not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.channel):
         parser.error('Invalid destination channel')

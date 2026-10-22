@@ -20,7 +20,7 @@ on:
         default: br-codex_unified-installer
       scenario:
         type: choice
-        options: [server-flow, reject-btrfs]
+        options: [server-flow, reject-btrfs, bootstrap-reboot]
         default: server-flow
   push:
     paths:
