@@ -30,9 +30,12 @@ class UnifiedISO(unittest.TestCase):
         unsupported = 'FAIL: ' + archive + ' (Operation not supported)\r\n'
         result = vm.journal_verification(good + unsupported + 'VERIFY_RC=1\r\n', True)
         self.assertEqual(result['deferred'], [archive])
+        rotated = unsupported.replace('.journal~', '.journal')
+        self.assertEqual(vm.journal_verification(good + rotated + 'VERIFY_RC=1\n', True)['deferred'], [archive[:-1]])
         with self.assertRaises(RuntimeError):
             vm.journal_verification(good + unsupported + 'VERIFY_RC=1\n')
         for bad in (unsupported.replace('Operation not supported', 'Bad message'),
+                    rotated.replace('Operation not supported', 'Bad message'),
                     unsupported.replace('@000123-abcdef.journal~', '.journal'),
                     unsupported.replace('/var/log/journal/', '/tmp/')):
             with self.assertRaises(RuntimeError):

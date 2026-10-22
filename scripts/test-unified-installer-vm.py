@@ -36,7 +36,7 @@ def journal_verification(output, allow_older_reader=False):
     failed = re.findall(r'^FAIL: (.+)$', output, re.MULTILINE)
     deferred = []
     for failure in failed:
-        match = re.fullmatch(r'(/var/log/journal/[0-9a-f]{32}/(?:system|user-[0-9]+)@[^/ ]+\.journal~) \(Operation not supported\)', failure)
+        match = re.fullmatch(r'(/var/log/journal/[0-9a-f]{32}/(?:system|user-[0-9]+)@[^/ ]+\.journal~?) \(Operation not supported\)', failure)
         if not allow_older_reader or not match:
             raise RuntimeError('Journal verification failed: ' + failure)
         deferred.append(match[1])
@@ -434,24 +434,34 @@ def run(args):
                 'sudo journalctl -u dracut-shutdown.service -u systemd-journald.service -u user@$(id -u).service --no-pager',
                 'sudo journalctl --header --no-pager',
                 'sudo journalctl -b -p warning --no-pager',
+                # Online verification is diagnostic only: concurrent journald
+                # writes can yield false corruption (systemd issue #27532).
+                'sudo journalctl --verify',
             ]
             with (evidence / (stage + '-diagnostics.log')).open('w') as output:
                 for probe in probes:
                     output.write('$ ' + probe + '\n')
                     output.write(command('(' + probe + "); rc=$?; printf '\\nPROBE_RC=%s\\n' \"$rc\"; true", timeout=180))
-                output.write('$ sudo journalctl --sync && sudo journalctl --verify\n')
+                command('systemctl is-active user@$(id -u).service && systemctl --user is-active default.target && systemd-run --user --wait --pipe /usr/bin/true')
+                command('logger -t current-vm-checkpoint ' + stage)
+                checkpoints.append(stage)
+                # Rotate, never vacuum or rewrite. All records up to this
+                # checkpoint are now in closed persistent archives. Exclude
+                # newly opened active files from structural verification.
                 command('sudo journalctl --sync')
-                verification = command('sudo journalctl --verify; rc=$?; printf \'\\nVERIFY_RC=%s\\n\' "$rc"; true', timeout=180)
+                command('sudo journalctl --rotate')
+                archives = "--file='/var/log/journal/*/*@*.journal*'"
+                output.write('$ sudo journalctl --header ' + archives + '\n')
+                output.write(command('sudo journalctl --header --no-pager ' + archives))
+                output.write('$ sudo journalctl --verify ' + archives + '\n')
+                verification = command('sudo journalctl --verify ' + archives + '; rc=$?; printf \'\\nVERIFY_RC=%s\\n\' "$rc"; true', timeout=180)
                 output.write(verification)
                 result = journal_verification(verification, args.distribution == 'alma9' and stage in ('destination', 'destination-reboot'))
                 report['journal_verification'][stage] = result
                 deferred_journals.update(result['deferred'])
                 if stage == 'rollback' and not deferred_journals.issubset(result['passed']):
                     raise RuntimeError('Rollback did not verify every deferred journal archive')
-            command('systemctl is-active user@$(id -u).service && systemctl --user is-active default.target && systemd-run --user --wait --pipe /usr/bin/true')
-            command('logger -t current-vm-checkpoint ' + stage + ' && sudo journalctl --sync')
-            checkpoints.append(stage)
-            markers = command('sudo journalctl -q -t current-vm-checkpoint -o cat --no-pager')
+            markers = command('sudo journalctl -q -t current-vm-checkpoint -o cat --no-pager ' + archives)
             (evidence / (stage + '-markers.log')).write_text(markers)
             if not set(checkpoints).issubset(set(terminal_text(markers).splitlines())):
                 raise RuntimeError('Persistent journal lost checkpoint markers at ' + stage)

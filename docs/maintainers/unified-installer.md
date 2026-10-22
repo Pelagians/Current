@@ -1243,3 +1243,49 @@ SELinux, retained account/data/network, real registry failure/retry, explicit
 completion and completed resume. This confirms the shutdown correction for the
 recorded Alma 9 candidate; it is not physical hardware or shared-reference
 publication qualification.
+
+### Final shared-reference shutdown qualification — 2026-10-22
+
+[Native publication 39839224205](https://github.com/Pelagians/Current/actions/runs/39839224205)
+at `01abb3d85a097c8357de4625f10fbb01e9239445`, attempt 2, completed successfully:
+all 51 jobs passed, including 45 native image builds and the publisher. The
+publisher logged all 24 shared indexes, preserving native ARM compatibility
+aliases and the existing signature checks. The three server digests above are
+therefore available through the normal `br-codex_unified-installer` channel.
+
+The final three flows use harness
+`3cac452cda50f4ab9ffed46dff30424943f80806`, replacement ISO run `39839642466`,
+ISO source `6f48c73103cb8b6174cd82f7681b52338ad1589e` and x86_64 checksum
+`f37441b3c596187841a79024cb7ca857f23878c8e1c9c5d3ecfef3c7e81eb1e7`.
+Changes after the image/ISO source revisions affect documentation and the VM
+workflow, harness and tests; they do not change the installed product content.
+
+The first final shared-reference Alma 9 run
+[39859737533](https://github.com/Pelagians/Current/actions/runs/39859737533)
+booted the correct signed destination, but failed at destination journal
+verification. In addition to the known unsupported Fedora archives, the live
+Alma system/user journals reported `Bad message`, including an unused data
+object and invalid entry reference. The bootstrap shutdown had already pivoted
+and unmounted `/oldroot` successfully. This failed run does not qualify the full
+flow and must not be treated as another unsupported-format exception.
+
+The upstream [online verification race #27532](https://github.com/systemd/systemd/issues/27532)
+describes this invalid-entry failure while data objects and entries are being
+appended. [Report #35916](https://github.com/systemd/systemd/issues/35916) includes
+systemd 252 and similar invalid hash-entry failures. Our captured journals were
+ONLINE at verification, so this is a plausible explanation, not proof that the
+discarded VM's files were intact. The previous native-candidate Alma 9 run had
+passed against the same immutable image.
+
+The test now records online verification as a diagnostic, writes its checkpoint,
+synchronizes and normally rotates the journal, then verifies **all closed
+persistent archives** and reads checkpoint markers from those archives. This
+uses the documented [journalctl rotation and file-selection interface](https://www.freedesktop.org/software/systemd/man/255/journalctl.html).
+There is no vacuuming, journal deletion, repair, logging disablement or installed
+configuration change. A corrupt archive still fails; only `Operation not
+supported` on an Alma 9 persistent archive can be deferred, and every exact
+path must pass after rollback. Normal `.journal` archives and abnormal
+`.journal~` archives are both retained and checked. Newly opened files still
+being written are excluded from the structural assertion; their records enter
+the next checkpoint's closed archives. Full reruns are required with this
+corrected measurement procedure.
