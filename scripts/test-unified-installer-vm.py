@@ -505,6 +505,12 @@ def run(args):
             vm.serial.expect('CURRENT_VM> ')
             return output
 
+        def request_reboot():
+            # Large image pulls can expire sudo's timestamp. Authenticate through
+            # the normal prompt before waiting for a reboot that never started.
+            command('sudo -v')
+            vm.serial.sendline('sudo systemctl reboot')
+
         checkpoints = []
         deferred_journals = set()
         report['journal_verification'] = {}
@@ -654,7 +660,7 @@ def run(args):
             command('code=$(curl -sS --max-time 30 -o /dev/null -w "%{http_code}" https://ghcr.io/v2/) && { test "$code" = 401 || test "$code" = 200; }')
 
         def reboot_to(stage, distribution, expected, desktop=None):
-            vm.serial.sendline('sudo systemctl reboot')
+            request_reboot()
             vm.serial.expect('current-vm login:', timeout=600)
             login(False)
             command('sudo -v')
@@ -688,7 +694,7 @@ def run(args):
         command('sudo mkdir -p /var/log/journal && sudo systemd-tmpfiles --create --prefix /var/log/journal && sudo journalctl --flush')
         diagnostics('bootstrap')
         if args.scenario == 'bootstrap-reboot':
-            vm.serial.sendline('sudo systemctl reboot')
+            request_reboot()
             vm.serial.expect('current-vm login:', timeout=600)
             login(True)
             diagnostics('bootstrap-reboot')
@@ -738,7 +744,7 @@ def run(args):
         vm.serial.expect('CURRENT_VM> ')
         command('sudo current setup status; sudo bootc status --json')
         record('Real wizard staged a signature-enforced destination; completion still pending')
-        vm.serial.sendline('sudo systemctl reboot')
+        request_reboot()
         vm.serial.expect('current-vm login:', timeout=600)
         returned_to_bootstrap = login(False)
         if returned_to_bootstrap:
@@ -803,7 +809,7 @@ def run(args):
             return
         if args.distribution == 'alma9':
             # Separate ordinary Alma 9 shutdown from a cross-version rebase.
-            vm.serial.sendline('sudo systemctl reboot')
+            request_reboot()
             vm.serial.expect('current-vm login:', timeout=600)
             if login(False):
                 raise RuntimeError('Ordinary destination reboot unexpectedly returned to bootstrap')
@@ -811,7 +817,7 @@ def run(args):
             diagnostics('destination-reboot')
             command('sudo current setup; test ! -e /usr/share/current/bootstrap && test "$(getenforce)" = Enforcing')
         command('sudo bootc rollback')
-        vm.serial.sendline('sudo systemctl reboot')
+        request_reboot()
         vm.serial.expect('current-vm login:', timeout=600)
         login(True)
         diagnostics('rollback')
