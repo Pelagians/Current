@@ -182,8 +182,8 @@ fixtures using real offline `systemctl`. Native systemd transaction verification
 finds no ordering cycle for either destination. Tests preserve home and greeter
 preference fixtures and exercise invalid/missing contracts and failed selection.
 
-Booted results: **pending**. No disposable bootc workstation was available during
-implementation. The native Fedora ARM COSMIC full build passed its greeter
+Before the PR #29 VM expansion, booted results were **pending**: no disposable
+bootc workstation was available during the original reconciler implementation. The native Fedora ARM COSMIC full build passed its greeter
 contract checks. A disposable container from that image also repaired all three
 contaminations together, passed idempotence and verified the installed unit graph
 without an ordering cycle. Its Wayland session directory contains only
@@ -223,7 +223,7 @@ contaminated greeter state, per-desktop preferences and administrator opt-outs
 remain separate gates. Build success and these new harness tests alone do not
 establish graphical-login success; completed run evidence is recorded below.
 
-Initial harness `9126c891` runs (results pending):
+Initial harness `9126c891` runs (failed at the blockers described below):
 
 | Case | Run |
 | --- | --- |
@@ -295,3 +295,100 @@ complete 45-image matrix, native ARM runners, NVIDIA preflight and verified/sign
 24-index publisher. Rebuilt VM qualification must use that revision and recorded
 native digests. Any early tests against existing run-specific native tags are
 candidate diagnostics; the shared publication gates are not advanced by them.
+
+
+### Rebuilt ISO and signed native candidates
+
+[ISO run 39867706688](https://github.com/Pelagians/Current/actions/runs/39867706688)
+passed on both native architectures at source
+`7eae0d4b856adf5672d9da233264d1115c2350f3`. Both receipts pin image-builder
+`sha256:b35d715cd67099355b9e2ee022e1f73333b917d5a1a594f01b6a82c366dc10d1`
+and Fedora bootc 44 installer base
+`sha256:dc1055df531e11ea6753af22414cb7ff217023e93d68cca3f92198df6214f9ee`.
+Receipt validation checked revision, native architecture, embedded payload binding
+and checksum filename. The ARM ISO build does not qualify ARM boot or installation.
+Package/module snapshots remain a reproducibility gate.
+
+| ISO | SHA-256 | Bootstrap payload digest | Artifact |
+| --- | --- | --- | --- |
+| x86_64 | `b301fe8829e7e13347d7588d632b09aa81132f9acab1d312ebd26deead4b638a` | `sha256:9cbafe8269906d5a812bae23d41b5386031b27f3fa05b902a4fa2b9ec2f8538e` | [12465048629](https://github.com/Pelagians/Current/actions/runs/39867706688/artifacts/12465048629) |
+| aarch64 | `db9a511bd3986cf382101a01bf02d545507275ec0c6949b21b2ef2c1f38912b6` | `sha256:04845cf7280ed9b0533cfbb4cdc4500ce45bdc03b25a273390142c3c7e711a53` | [12465528191](https://github.com/Pelagians/Current/actions/runs/39867706688/artifacts/12465528191) |
+
+The rebuilt x86_64 ISO's [Btrfs rejection run 39871600458](https://github.com/Pelagians/Current/actions/runs/39871600458)
+passed: the original ISO showed graphical Anaconda, explicit Btrfs partitioning
+was rejected by the real storage validator, Begin Installation was disabled, and
+all 64 GiB of the disposable qcow2 remained unallocated. The screenshots were
+visually inspected. This allocation check is not an independent block-I/O trace.
+Positive installs use the shipped XFS profile, with parent pointers and atomic
+extent exchange disabled for Alma 9 compatibility.
+
+Native candidate receipts from run `39866965417`, attempt 1, all name product
+source `e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7`. Before shared publication
+finishes, tests use the signed run-specific native tags:
+`br-codex_unified-installer-run-39866965417-1-amd64-<version>`, where version is
+`44`, `9`, or `10`. Independent source/target channel inputs select the proper
+distro versions without modifying matrix inventory or publication gates. Every
+resolution requires the exact source revision and Current's signature policy.
+
+| x86_64 image | Native digest |
+| --- | --- |
+| fedora-server | `sha256:10400dabda5ac910394674b96f7bfd64cc0abf2e8196e3e59811dc6317175dc0` |
+| fedora-gnome | `sha256:a97e8be49647cdcadd40d87d4b3e32f0b4d8e58b07b3ca45f5d5677dadee424c` |
+| fedora-cosmic | `sha256:541445dad0bb468615f7a93412a3dbff1c6c5aec57ed9b49648930ef41e91013` |
+| alma9-server | `sha256:2d84a7f498f4d529ef8503d9d3db90c142385f1a830861b2f4caa0033adffbbd` |
+| alma9-gnome | `sha256:f4af617b09538b835dee8b10e072a3f1730a2152a91854f8e2568bbaa500c7c6` |
+| alma9-cosmic | `sha256:afc70637337aad0c9d28e151860cd2de956f085f3331a13f7dcd0534fbc1f70d` |
+| alma10-server | `sha256:9e32331e1a8d3e8acea199fa95070dbd629ea657bafbc8c9a5fe0ebe5c81ac4c` |
+| alma10-gnome | `sha256:d3f981006fa96af1808d3018e91f84e792b17542457898689a1d4368debb48d0` |
+| alma10-cosmic | `sha256:9bd9b27c7d0c43b4deeaebdc71fc2093eb13dc50072a1287cfadbb1bd038bd5f` |
+
+### Measurement corrections
+
+The rebuilt Fedora COSMIC [pilot 39870392695](https://github.com/Pelagians/Current/actions/runs/39870392695)
+reached its native greeter, authenticated the normal account and rendered COSMIC
+on unaccelerated virtio graphics. Screenshots were visually inspected. Its
+session checker then failed because the systemd-managed XDG autostart application
+had no inherited `XDG_SESSION_ID`. The read-only checker now resolves logind's
+primary graphical session through `User.Display` when that variable is absent,
+and still requires matching UID, active state, actual graphical session type,
+real display variables and the expected desktop. Isolated fixtures reject missing,
+foreign, inactive and nongraphical sessions. No environment values, PAM rules or
+automatic-login configuration are fabricated. See the primary
+[logind User.Display contract](https://www.freedesktop.org/software/systemd/man/254/org.freedesktop.login1.html).
+This observed source login is not a completed switch/rollback qualification.
+
+The Alma 9 GNOME [attempt 39871064159](https://github.com/Pelagians/Current/actions/runs/39871064159)
+started the correct GDM greeter but the automated pointer event only focused the
+user tile; an echoed serial command was then mistaken for completed autostart.
+The harness now confirms a visible password field before entering the password,
+separates pointer press/release, and requires an anchored numeric session receipt.
+
+The Alma 9 → Fedora [attempt 39871051240](https://github.com/Pelagians/Current/actions/runs/39871051240)
+booted the target, rebooted it and returned to its exact source digest. It failed
+its final marker assertion because asynchronous kernel audit output split
+`rebase-target` in the serial stream. All checkpoint text and closed-archive
+verification were present in the raw evidence, but this attempt is not counted
+as a complete pass. Journal assertions now transfer unchanged file bytes through
+the existing bounded HTTP evidence collector; raw serial diagnostics remain.
+These checker changes require VM reruns, not new product images.
+
+### Completed rebuilt-image flows
+
+[Fedora → Alma 10 run 39871048295](https://github.com/Pelagians/Current/actions/runs/39871048295)
+passed `rebase-flow` using the new ISO above and harness `d0fd8bec`. It verified
+initial setup, a real disconnected-NIC retry, signed source/target staging,
+Alma 10 boot and ordinary reboot, exact Fedora source rollback, enforcing SELinux,
+XFS, stable account UID, retained home sentinel and NetworkManager configuration,
+actual registry access, working user services and persistent checkpoint markers.
+All closed journal archives passed final verification; all five shutdown pivots
+unmounted the old root with no finalization failure. Its recorded native source
+and target digests match the receipts above. [Alma 10 → Alma 9 run 39871060957](https://github.com/Pelagians/Current/actions/runs/39871060957)
+also passed the full sequence using the same ISO and harness, with all five
+shutdown pivots and all 18 retained archives verified. The older kernel mounted
+the installer-created XFS and its repair tool accepted the clean test filesystem.
+Other directed pairs and all full workstation switch/rollback cases remain
+pending their completed reruns.
+
+Current local validation passes **166 tests (80 runtime, 86 image)**, Bash syntax,
+Actionlint for both installer workflows and `git diff --check`. These checks do
+not promote any failed or incomplete VM attempt.
