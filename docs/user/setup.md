@@ -5,22 +5,20 @@ bootstrap through graphical Anaconda; it does not install a full desktop at that
 stage. Existing image-specific installers remain available. See the
 [build architecture and test limits](../maintainers/unified-installer.md).
 
-Keep this draft ISO on disposable test disks. Earlier builds exposed missing home
-directories with separate `/home` volumes and disabled SELinux after installation.
-The source now defaults to root-only automatic partitioning and an enabled,
-permissive installer runtime with an enforcing installed system. Those settings
-passed a complete Fedora server UEFI VM installation, first-boot setup, signed
-switch, destination boot with enforcing SELinux, and rollback. Manual separate-home layouts remain unqualified.
+Keep this draft ISO on disposable test disks. The final x86_64 ISO passed complete
+Fedora and AlmaLinux 9 server UEFI/KVM flows: installation with root-only automatic
+partitioning, authenticated first-boot setup, network-failure retry, signed switch,
+destination boot with enforcing SELinux, explicit completion and rollback. Manual
+separate-home layouts remain unqualified.
 
-The corrected XFS profile and bootstrap finalizer PATH allowed both AlmaLinux 9
-and 10 servers to boot with enforcing SELinux and retained networking in UEFI
-VMs. Those runs then exposed a `sudo current` command-lookup failure during setup
-completion. The shared command-path fix is rebuilding; full completion and
-rollback remain under qualification. Earlier ISOs with XFS parent pointers remain
-unsuitable for Alma 9. A subsequent read-only test also found that its bundled
-repair tool rejects atomic extent exchange; the installer now disables both
-features, and that final profile is rebuilding for qualification. Use only disposable test disks and consult the linked
-maintainer evidence for exact artifact revisions.
+AlmaLinux 10 booted with the SELinux finalizer PATH correction in an earlier VM;
+its final completion/rollback flow is running against rebuilt candidates. The
+shared command-path fix is published. Earlier ISOs with XFS parent pointers or
+atomic extent exchange remain unsuitable for Alma 9; the final profile disables
+both, and its bundled repair tool passed a read-only clean-file scan. This does
+not qualify recovery from filesystem corruption. Alma 9 journal rotation and
+shutdown device-detach warnings remain recorded for investigation. Consult the
+linked maintainer evidence for exact artifacts, results and limitations.
 
 In Anaconda choose storage, timezone, networking and an administrator account.
 The default root filesystem is XFS; Btrfs is excluded because the selected system
@@ -67,7 +65,7 @@ alone does not complete setup. Completed setup will not repeat the questionnaire
 During PR qualification, use images containing the new reconciler:
 
 ```bash
-sudo current setup --channel pr-29
+sudo current setup --channel br-codex_unified-installer
 ```
 
 This requires successful candidate builds and publication. Pre-feature `latest`

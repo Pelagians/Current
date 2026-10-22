@@ -205,19 +205,19 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-The corrected x86_64 ISO passed the complete Fedora server flow in a disposable
-UEFI/KVM VM, using the shipped partitioning defaults and enforcing SELinux on
-both bootstrap and destination. Cross-distribution and hardware qualification
-remain blocked or pending as recorded below. The development host is ARM64, lacks `/dev/kvm`, and had only
+The final x86_64 ISO passed complete Fedora and Alma 9 server flows in disposable
+UEFI/KVM VMs, using the shipped partitioning defaults and enforcing SELinux on
+both bootstrap and destination. Alma 10 final qualification is running; broader
+hardware qualification remains pending as recorded below. The development host is ARM64, lacks `/dev/kvm`, and had only
 4.6 GiB free on the container-storage filesystem. A large local installer build
 was not attempted. No host installation or host bootc mutation occurred.
 
 | Transition / hardware | Status |
 | --- | --- |
-| Bootstrap Fedora 44 → Fedora server | Corrected ISO full UEFI/KVM flow passed with shipping defaults, enforcing SELinux and rollback; physical hardware unqualified |
+| Bootstrap Fedora 44 → Fedora server | Final ISO full UEFI/KVM flow passed, including XFS repair-tool recognition, enforcing SELinux, completion and rollback; physical hardware unqualified |
 | Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Server boot, SELinux enforcement and data/network retention passed with the finalizer PATH fix; completion command fix awaits rebuilt candidates. Desktop untested |
-| Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Server boot and data/network retention passed with parent=0 XFS; completion command fix awaits rebuilt candidates. Desktop untested |
+| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Earlier server boot passed with the finalizer PATH fix; final full flow is running against rebuilt candidates. Desktop untested |
+| Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Final server UEFI/KVM flow passed with parent=0/exchange=0 XFS, Alma 9 repair-tool recognition, enforcing SELinux, completion and rollback. Desktop untested; journal/shutdown warnings recorded below |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |
@@ -225,7 +225,7 @@ was not attempted. No host installation or host bootc mutation occurred.
 Use disposable UEFI VMs with a new virtual disk and snapshot. Never attach the
 development host's block devices. For each distro, install the ISO interactively,
 confirm XFS, networking, timezone and an administrator, then reboot and record
-the authenticated setup launch. Use `--channel pr-29` for matching candidate
+the authenticated setup launch. Use `--channel br-codex_unified-installer` for matching candidate
 destination images after all native builds and the existing index publisher pass.
 Older `latest` images without the reconciler intentionally fail validation.
 
@@ -887,3 +887,61 @@ summary were visually inspected. Anaconda logged Current's explicit Btrfs
 validation errors, Begin Installation remained disabled, and the entire
 68,719,476,736-byte virtual disk remained unallocated. This is allocation evidence,
 not a separate block-I/O trace. No destination switch occurs in this scenario.
+
+
+### Final destination publication and server qualification
+
+[Run 39541158494](https://github.com/Pelagians/Current/actions/runs/39541158494)
+completed successfully: all 45 native image builds, repository/prerequisite
+checks and the signed index publisher passed (51 jobs total). The publisher
+verified and published all 24 image indexes, preserving ARM compatibility aliases.
+The final destination source is `2d3b0b61c0a723e5a4121dca2075d63a57e5c17a`,
+with the shared `/usr/bin/current` command correction. Subsequent product changes
+only affect installer XFS formatting; use the final `ef173594` ISO above.
+
+The qualification channel is `br-codex_unified-installer`. The earlier `pr-29`
+candidates lack the command-path correction and are superseded for these tests.
+The publisher's actual native server digests match the build receipts:
+
+| Destination | x86_64 native digest |
+| --- | --- |
+| `alma10-server` | `sha256:b4245ea1bc7b3526b64972b8dda7f92eb8bd43c3e40ab64dd35b54cf35724f7f` |
+| `alma9-server` | `sha256:ebeaf297f4a26877d7ba646b010997663f11d14f172443256a446234e45f38ae` |
+| `fedora-server` | `sha256:08fbf66d2e348a41c789dc1d126a4fcf5efc7ea9e02ac12169a977f560d8446e` |
+
+[Alma 9 final run 39824369788](https://github.com/Pelagians/Current/actions/runs/39824369788)
+passed the entire server flow with harness
+`d0be48e4a9a6e4a260a5f4de86716644578b23c6` and the exact final ISO checksum.
+The serial log confirms `parent=0, exchange=0` on both installed XFS filesystems
+before switching. Alma 9 booted the expected native digest, kept SELinux enforcing,
+and `xfsprogs-6.4.0-7.el9` completed all read-only fixture scan phases with exit 0.
+The previous-boot journal records successful SELinux refresh (1374 ms), finalization
+and bootloader update. Root remount completed successfully. The bootstrap-only
+PATH drop-in was absent on the destination, `/usr/bin/current` was present, and
+sudo resolved the command using Alma's unchanged search policy. Retained account,
+data and NetworkManager profile checks, registry access, explicit completion,
+completed resume and authenticated rollback all passed. The original graphical
+Anaconda and bootstrap rollback screenshots were visually inspected.
+
+The same serial log includes journald's “corrupted or uncleanly shut down,
+renaming and replacing” messages across the Alma 9 transition and rollback, and
+Alma 9 shutdown reported busy loop/DM devices before continuing the reboot. The
+previous-boot finalizer journal remained readable and the asserted flow passed.
+These messages are retained as diagnostic limits: journal integrity across
+versions and clean device teardown need separate investigation. The clean-file
+`xfs_repair -n` check does not establish crash or corruption recovery of the
+installed root filesystem.
+
+[Fedora final run 39824414128](https://github.com/Pelagians/Current/actions/runs/39824414128)
+passed the same complete server flow with the final ISO and harness. The booted
+native digest matched the publication receipt, SELinux remained enforcing,
+`xfsprogs-7.1.1-1.fc44` passed the read-only fixture scan, and account/data/network
+retention, explicit completion, completed resume and authenticated rollback passed.
+The finalizer journal records successful policy refresh (2297 ms) and bootloader
+update. Original graphical Anaconda and rollback screenshots were visually checked.
+
+[Alma 10 attempt 39824394236](https://github.com/Pelagians/Current/actions/runs/39824394236)
+was cancelled during runner setup after prolonged Ubuntu package downloads.
+Its completed log shows slow transfers from `azure.archive.ubuntu.com`, not a
+Current install failure; QEMU was still downloading and no VM had started.
+A fresh run uses identical ISO, destination channel and harness inputs.
