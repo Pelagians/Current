@@ -373,6 +373,38 @@ def run(args):
             vm.serial.expect('CURRENT_VM> ')
             return output
 
+        checkpoints = []
+
+        def diagnostics(stage):
+            # Keep optional/version-dependent probes nonfatal, but retain each
+            # status. Session execution and cross-boot marker retention below
+            # are assertions, not an interpretation of warning text.
+            probes = [
+                'rpm -q systemd systemd-pam pam dracut ostree bootc; uname -r',
+                'systemctl --failed --no-pager; systemctl --user --failed --no-pager',
+                'loginctl session-status --no-pager; systemctl show user@$(id -u).service -p ActiveState -p SubState -p Result -p ExecMainStatus',
+                'sudo cat /etc/pam.d/systemd-user /usr/lib/pam.d/systemd-user; authselect current',
+                'findmnt -R /; sudo losetup -l; sudo dmsetup info -c; lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINTS',
+                'sudo ls -la /run/initramfs; sudo test -x /run/initramfs/shutdown',
+                'systemctl cat dracut-shutdown.service; sudo cat /usr/lib/dracut/dracut-initramfs-restore',
+                'sudo journalctl -b -u dracut-shutdown.service -u systemd-journald.service -u user@$(id -u).service --no-pager',
+                'sudo journalctl --sync && sudo journalctl --verify',
+                'sudo journalctl --header --no-pager',
+                'sudo journalctl -b -p warning --no-pager',
+            ]
+            with (evidence / (stage + '-diagnostics.log')).open('w') as output:
+                for probe in probes:
+                    output.write('$ ' + probe + '\n')
+                    output.write(command('(' + probe + "); rc=$?; printf '\\nPROBE_RC=%s\\n' \"$rc\"; true", timeout=180))
+            command('systemctl is-active user@$(id -u).service && systemctl --user is-active default.target && systemd-run --user --wait --pipe /usr/bin/true')
+            command('logger -t current-vm-checkpoint ' + stage + ' && sudo journalctl --sync')
+            checkpoints.append(stage)
+            markers = command('sudo journalctl -q -t current-vm-checkpoint -o cat --no-pager')
+            (evidence / (stage + '-markers.log')).write_text(markers)
+            if not set(checkpoints).issubset(set(markers.splitlines())):
+                raise RuntimeError('Persistent journal lost checkpoint markers at ' + stage)
+            record(stage + ': user manager, transient user service and persistent journal markers passed; diagnostics captured')
+
         login(True)
         record('Authenticated wheel login automatically launched setup; q safely paused it')
         command('findmnt; getent passwd currenttest; cat /etc/fstab; ls -ld /home /var/home "$HOME"; test -d "$HOME" && test -w "$HOME"')
@@ -388,6 +420,7 @@ def run(args):
         command('id -u > ~/current-original-uid; sudo sh -c \'sha256sum /etc/NetworkManager/system-connections/*\' > ~/current-network-hashes')
         # Test-only persistent journal retains shutdown-time finalization errors.
         command('sudo mkdir -p /var/log/journal && sudo systemd-tmpfiles --create --prefix /var/log/journal && sudo journalctl --flush')
+        diagnostics('bootstrap')
         command('rpm -q ostree bootc selinux-policy-targeted policycoreutils libsemanage; sudo semodule -lfull; sudo ls -ldZ /etc/selinux /var/lib/selinux; sudo bootc status --json')
         command('systemctl cat ostree-finalize-staged.service; systemctl show ostree-finalize-staged.service -p Environment')
         vm.serial.sendline('sudo current setup --channel ' + args.channel)
@@ -429,6 +462,7 @@ def run(args):
         vm.serial.expect('CURRENT_VM> ')
         command('test ! -e /usr/share/current/bootstrap && cat /usr/lib/os-release && sudo bootc status --json')
         command('sudo journalctl -b -1 -u ostree-finalize-staged.service --no-pager')
+        diagnostics('destination')
         command('test ! -e /usr/lib/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf && test ! -e /etc/systemd/system/ostree-finalize-staged.service.d/10-current-target-path.conf')
         command('getenforce; test "$(getenforce)" = Enforcing')
         command('rpm -q xfsprogs; sudo xfs_info /sysroot; sudo xfs_info /boot')
@@ -445,17 +479,21 @@ def run(args):
         vm.serial.expect('CURRENT_VM> ')
         command('sudo current setup status; sudo current setup')
         record('Destination boot, retained login/user data/network, explicit completion and completed resume passed')
+        if args.distribution == 'alma9':
+            # Separate ordinary Alma 9 shutdown from a cross-version rebase.
+            vm.serial.sendline('sudo systemctl reboot')
+            vm.serial.expect('current-vm login:', timeout=600)
+            if login(False):
+                raise RuntimeError('Ordinary destination reboot unexpectedly returned to bootstrap')
+            command('sudo -v')
+            diagnostics('destination-reboot')
+            command('sudo current setup; test ! -e /usr/share/current/bootstrap && test "$(getenforce)" = Enforcing')
         command('sudo bootc rollback')
         vm.serial.sendline('sudo systemctl reboot')
         vm.serial.expect('current-vm login:', timeout=600)
-        vm.serial.sendline('currenttest')
-        vm.serial.expect('Password:')
-        vm.serial.sendline(password)
-        vm.serial.expect('Current initial setup')
-        vm.serial.expect(r'\[sudo\] password for currenttest:')
-        vm.serial.sendline(password)
-        # Capture current behavior; rollback after completion must be reviewed.
-        vm.serial.expect(['Current setup is complete.', 'Previous attempt:'], timeout=120)
+        login(True)
+        diagnostics('rollback')
+        command('sudo bootc status --json; sudo current setup status')
         vm.screenshot('rollback')
         record('Bootc rollback returned to bootstrap and preserved authenticated login; inspect completed-state semantics')
         report['status'] = 'passed-server-flow'
