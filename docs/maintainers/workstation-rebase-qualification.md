@@ -275,3 +275,23 @@ contains the same namespace trust and finalizer PATH behavior. Source and target
 digests are recorded separately from the ISO source. Local checks after the
 corrections pass 78 runtime and 84 image tests. None of the initial failed cases
 is promoted to a qualified result by those tests.
+
+The remaining initial workstation runs use harness `0ce5cf6a`:
+
+| Case | Run |
+| --- | --- |
+| Alma 9 GNOME → COSMIC | [39865560476](https://github.com/Pelagians/Current/actions/runs/39865560476) |
+| Alma 9 COSMIC → GNOME | [39865563599](https://github.com/Pelagians/Current/actions/runs/39865563599) |
+| Alma 10 GNOME → COSMIC | [39865566614](https://github.com/Pelagians/Current/actions/runs/39865566614) |
+| Alma 10 COSMIC → GNOME | [39865569987](https://github.com/Pelagians/Current/actions/runs/39865569987) |
+
+Alma 9 COSMIC also reproduced the generated-link refusal before its greeter
+could start. This supports the shared helper correction across systemd versions;
+it does not establish that COSMIC rendering works in this VM.
+
+[Native rebuild 39866965417](https://github.com/Pelagians/Current/actions/runs/39866965417)
+uses product source `e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7`. It retains the
+complete 45-image matrix, native ARM runners, NVIDIA preflight and verified/signed
+24-index publisher. Rebuilt VM qualification must use that revision and recorded
+native digests. Any early tests against existing run-specific native tags are
+candidate diagnostics; the shared publication gates are not advanced by them.

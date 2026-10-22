@@ -512,7 +512,16 @@ def run(args):
                 # Online verification is diagnostic only: concurrent journald
                 # writes can yield false corruption (systemd issue #27532).
                 'sudo journalctl --verify',
+                'sudo cat /etc/containers/policy.json /etc/containers/registries.d/current-setup.yaml; sha256sum /usr/share/current/cosign.pub',
             ]
+            if args.scenario == 'workstation-flow':
+                probes += [
+                    'rpm -q gdm gnome-shell gnome-session cosmic-greeter cosmic-session cosmic-comp greetd',
+                    'cat /usr/share/current/workstation/desktop.env /usr/share/wayland-sessions/*.desktop',
+                    'systemctl show current-workstation-dm-apply.service display-manager.service gdm.service cosmic-greeter.service greetd.service graphical.target -p Wants -p Requires -p After -p Before -p Conflicts -p FragmentPath -p DropInPaths',
+                    'sudo ls -lR /run/systemd/generator.early; readlink -f /etc/systemd/system/display-manager.service',
+                    'sudo journalctl -b -u current-workstation-dm-apply.service -u gdm.service -u cosmic-greeter.service -u cosmic-greeter-daemon.service --no-pager',
+                ]
             with (evidence / (stage + '-diagnostics.log')).open('w') as output:
                 for probe in probes:
                     output.write('$ ' + probe + '\n')
