@@ -6,11 +6,11 @@ on:
       iso_run:
         description: Successful unified ISO workflow run ID
         required: true
-        default: '39545861516'
+        default: '39839642466'
       iso_revision:
         description: Exact source revision in the ISO build receipt
         required: true
-        default: ef173594cfddf5a68a5cb9f12ef829672476262c
+        default: 6f48c73103cb8b6174cd82f7681b52338ad1589e
       distribution:
         type: choice
         options: [fedora, alma10, alma9]
@@ -58,11 +58,11 @@ jobs:
         with:
           name: current-installer-x86_64-experimental
           path: iso
-          run-id: ${{ inputs.iso_run || '39545861516' }}
+          run-id: ${{ inputs.iso_run || '39839642466' }}
           github-token: ${{ github.token }}
       - name: Exercise original ISO and first boot on a new virtual disk
         env:
-          ISO_REVISION: ${{ inputs.iso_revision || 'ef173594cfddf5a68a5cb9f12ef829672476262c' }}
+          ISO_REVISION: ${{ inputs.iso_revision || '6f48c73103cb8b6174cd82f7681b52338ad1589e' }}
           DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
           CHANNEL: ${{ inputs.channel || 'br-codex_unified-installer' }}
           SCENARIO: ${{ inputs.scenario || 'server-flow' }}

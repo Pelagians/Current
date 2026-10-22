@@ -1184,3 +1184,13 @@ Subsequent headless QMP runs install only required dependencies, with firmware,
 NIC ROMs and English OCR data explicit, rather than optional GUI/audio and extra
 storage backends. This changes only disposable runner preparation, not the ISO
 or installed systems. The full reruns validate this smaller tool set.
+
+The isolated bootstrap run `39844392674` passed. Its receipt records one required
+shutdown and one successful pivot, with no finalization failures. The raw serial
+log then records `Unmounted /oldroot.` and device-mapper/MD teardown before the
+next boot. Both system and user journals verified at both checkpoints; user
+services, retained network hashes/data, enforcing SELinux and authenticated
+setup resume passed. The initial systemd DM-busy messages still occur while the
+old root is in use; they are followed by successful shutdown-initramfs teardown,
+not the previous final give-up. This establishes the lookup correction on the
+recorded bootstrap UEFI/KVM reboot, not on destination images or ARM hardware.
