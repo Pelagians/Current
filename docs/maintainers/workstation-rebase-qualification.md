@@ -192,3 +192,33 @@ without an ordering cycle. Its Wayland session directory contains only
 Successful image build/publication results are linked in the ARM build results.
 Booted visual greeter/login/session checks must be attached before claiming the
 requested rebase convergence is qualified.
+
+## PR #29 disposable UEFI expansion — 2026-10-22
+
+The unified-installer VM harness now has `workstation-flow` and `rebase-flow`
+scenarios. They install the recorded unified ISO on a new XFS disk, complete
+first-boot setup on a source image, retain the same account/home/network and
+perform a signed, digest-resolved switch. The target is rebooted again before
+`bootc rollback` returns to the exact source digest. A final signed switch back
+to the original Fedora bootstrap verifies all cross-version journal archives
+with the newer reader. That final verification hop follows the actual source
+rollback and is recorded separately.
+
+Workstation scenarios start with either GNOME or COSMIC, then select the other
+desktop on the same distro. QMP sends the normal account password to the real
+greeter; no automatic login or PAM override is installed. A test-only user XDG
+autostart entry executes the existing read-only workstation qualifier from the
+actual graphical session. The probe records inherited display/desktop/session
+variables, logind state and processes. Greeter and logged-in screenshots are
+retained. A missing greeter, failed authentication, absent autostart proof or
+failed qualifier is a failure, not a system-only graphical qualification.
+
+The planned workstation matrix is both directions on Fedora, Alma 9 and Alma 10.
+The initial cross-distro matrix is all six directed server pairs among these
+three distributions. These start from systems installed through the unified
+bootstrap and first-boot wizard; they do not establish compatibility with every
+older image-specific installer layout. Initial VM graphics are unaccelerated
+`virtio-vga`, with Secure Boot disabled. Physical GPU/NVIDIA qualification,
+contaminated greeter state, per-desktop preferences and administrator opt-outs
+remain separate gates. Build success and these new harness tests alone do not
+establish graphical-login success; completed run evidence is recorded below.

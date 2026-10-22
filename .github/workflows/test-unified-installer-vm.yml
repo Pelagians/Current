@@ -20,8 +20,20 @@ on:
         default: br-codex_unified-installer
       scenario:
         type: choice
-        options: [server-flow, reject-btrfs, bootstrap-reboot]
+        options: [server-flow, reject-btrfs, bootstrap-reboot, workstation-flow, rebase-flow]
         default: server-flow
+      desktop:
+        type: choice
+        options: [gnome, cosmic]
+        default: gnome
+      target_distribution:
+        description: Destination distro for rebase-flow
+        type: choice
+        options: [none, fedora, alma10, alma9]
+        default: none
+      image_revision:
+        description: Exact source revision required from published destinations
+        default: 01abb3d85a097c8357de4625f10fbb01e9239445
   push:
     paths:
       - .github/workflows/test-unified-installer-vm.yml
@@ -32,7 +44,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}-${{ inputs.channel || 'br-codex_unified-installer' }}
+  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}-${{ inputs.channel || 'br-codex_unified-installer' }}-${{ inputs.desktop || 'gnome' }}-${{ inputs.target_distribution || 'none' }}
   cancel-in-progress: true
 
 jobs:
@@ -66,10 +78,16 @@ jobs:
           DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
           CHANNEL: ${{ inputs.channel || 'br-codex_unified-installer' }}
           SCENARIO: ${{ inputs.scenario || 'server-flow' }}
+          DESKTOP: ${{ inputs.desktop || 'gnome' }}
+          TARGET_DISTRIBUTION: ${{ inputs.target_distribution || 'none' }}
+          IMAGE_REVISION: ${{ inputs.image_revision || '01abb3d85a097c8357de4625f10fbb01e9239445' }}
         run: |
+          extra=()
+          if [[ "$TARGET_DISTRIBUTION" != none ]]; then extra+=(--target-distribution "$TARGET_DISTRIBUTION"); fi
           exec /usr/bin/python3 scripts/test-unified-installer-vm.py \
             --artifact iso --revision "$ISO_REVISION" --output vm-evidence \
-            --distribution "$DISTRIBUTION" --channel "$CHANNEL" --scenario "$SCENARIO"
+            --distribution "$DISTRIBUTION" --channel "$CHANNEL" --scenario "$SCENARIO" \
+            --desktop "$DESKTOP" --image-revision "$IMAGE_REVISION" "${extra[@]}"
       - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:

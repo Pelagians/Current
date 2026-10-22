@@ -23,6 +23,37 @@ policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_vm_bootc_response_requires_a_real_native_digest(self):
+        document = {'apiVersion': 'org.containers.bootc/v1', 'status': {'booted': {
+            'image': {'imageDigest': 'sha256:' + 'a' * 64}}}}
+        self.assertEqual(vm.bootc_document('\x1b]0;terminal\x07noise\n' + json.dumps(document)), document)
+        for output in ('unrelated output', '{"apiVersion":"org.containers.bootc/v1","status":{}}'):
+            with self.assertRaises(RuntimeError):
+                vm.bootc_document(output)
+
+    def test_vm_absolute_pointer_stays_inside_screenshot(self):
+        calls = []
+        qmp = vm.QMP.__new__(vm.QMP)
+        qmp.call = lambda *args, **kwargs: calls.append((args, kwargs))
+        qmp.click(640, 400, 1280, 800)
+        self.assertEqual(calls[0][1]['events'][0]['data'], {'axis': 'x', 'value': 16384})
+        self.assertEqual(calls[0][1]['events'][1]['data'], {'axis': 'y', 'value': 16384})
+        for point in ((-1, 0), (1280, 0), (0, 800)):
+            with self.assertRaises(ValueError):
+                qmp.click(*point, 1280, 800)
+
+    def test_vm_graphical_probe_preserves_qualifier_failure(self):
+        home = self.root / 'home'
+        (home / '.local/bin').mkdir(parents=True)
+        (home / 'current-vm-stage').write_text('source')
+        (home / '.local/bin/current-vm-qualify-workstation').write_text('exit 42\n')
+        result = subprocess.run(['bash'], input=vm.session_probe(), text=True,
+                                env=dict(os.environ, HOME=str(home), XDG_SESSION_TYPE='wayland',
+                                         WAYLAND_DISPLAY='fixture', XDG_CURRENT_DESKTOP='fixture'))
+        self.assertEqual(result.returncode, 42)
+        self.assertEqual((home / 'current-vm-session-source.rc').read_text().strip(), '42')
+        self.assertIn('DESKTOP=fixture', (home / 'current-vm-session-source.log').read_text())
+
     def test_journal_verifier_defers_only_unsupported_archives(self):
         root = '/var/log/journal/' + 'a' * 32 + '/'
         archive = root + 'system@000123-abcdef.journal~'
