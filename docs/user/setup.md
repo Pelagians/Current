@@ -6,18 +6,18 @@ stage. Existing image-specific installers remain available. See the
 [build architecture and test limits](../maintainers/unified-installer.md).
 
 Keep this draft ISO on disposable test disks. The final x86_64 ISO passed complete
-Fedora and AlmaLinux 9 server UEFI/KVM flows: installation with root-only automatic
+Fedora, AlmaLinux 10 and AlmaLinux 9 server UEFI/KVM flows: installation with root-only automatic
 partitioning, authenticated first-boot setup, network-failure retry, signed switch,
 destination boot with enforcing SELinux, explicit completion and rollback. Manual
 separate-home layouts remain unqualified.
 
-AlmaLinux 10 booted with the SELinux finalizer PATH correction in an earlier VM;
-its final completion/rollback flow is running against rebuilt candidates. The
-shared command-path fix is published. Earlier ISOs with XFS parent pointers or
-atomic extent exchange remain unsuitable for Alma 9; the final profile disables
+The SELinux finalizer and command-path corrections passed the Alma 10 flow.
+Earlier ISOs with XFS parent pointers or atomic extent exchange remain unsuitable
+for Alma 9; the final profile disables
 both, and its bundled repair tool passed a read-only clean-file scan. This does
 not qualify recovery from filesystem corruption. Alma 9 journal rotation and
-shutdown device-detach warnings remain recorded for investigation. Consult the
+shutdown device-detach warnings remain recorded for investigation; user-session
+health also needs separate qualification. Consult the
 linked maintainer evidence for exact artifacts, results and limitations.
 
 In Anaconda choose storage, timezone, networking and an administrator account.

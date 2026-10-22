@@ -205,10 +205,10 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-The final x86_64 ISO passed complete Fedora and Alma 9 server flows in disposable
-UEFI/KVM VMs, using the shipped partitioning defaults and enforcing SELinux on
-both bootstrap and destination. Alma 10 final qualification is running; broader
-hardware qualification remains pending as recorded below. The development host is ARM64, lacks `/dev/kvm`, and had only
+The final x86_64 ISO passed complete Fedora, Alma 10 and Alma 9 server flows in
+disposable UEFI/KVM VMs, using the shipped partitioning defaults and enforcing
+SELinux on both bootstrap and destination. Broader hardware and recovery
+qualification remains pending as recorded below. The development host is ARM64, lacks `/dev/kvm`, and had only
 4.6 GiB free on the container-storage filesystem. A large local installer build
 was not attempted. No host installation or host bootc mutation occurred.
 
@@ -216,8 +216,10 @@ was not attempted. No host installation or host bootc mutation occurred.
 | --- | --- |
 | Bootstrap Fedora 44 → Fedora server | Final ISO full UEFI/KVM flow passed, including XFS repair-tool recognition, enforcing SELinux, completion and rollback; physical hardware unqualified |
 | Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 10 server/GNOME/COSMIC | Earlier server boot passed with the finalizer PATH fix; final full flow is running against rebuilt candidates. Desktop untested |
-| Bootstrap Fedora 44 → Alma 9 server/GNOME/COSMIC | Final server UEFI/KVM flow passed with parent=0/exchange=0 XFS, Alma 9 repair-tool recognition, enforcing SELinux, completion and rollback. Desktop untested; journal/shutdown warnings recorded below |
+| Bootstrap Fedora 44 → Alma 10 server | Final ISO full UEFI/KVM flow passed, including SELinux finalization, XFS repair-tool recognition, enforcing SELinux, completion and rollback |
+| Bootstrap Fedora 44 → Alma 10 GNOME/COSMIC | Experimental; desktop login and rendering tests required |
+| Bootstrap Fedora 44 → Alma 9 server | Final UEFI/KVM flow passed with parent=0/exchange=0 XFS, Alma 9 repair-tool recognition, enforcing SELinux, completion and rollback; journal/shutdown warnings recorded below |
+| Bootstrap Fedora 44 → Alma 9 GNOME/COSMIC | Experimental; desktop login and rendering tests required |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |
@@ -945,3 +947,33 @@ was cancelled during runner setup after prolonged Ubuntu package downloads.
 Its completed log shows slow transfers from `azure.archive.ubuntu.com`, not a
 Current install failure; QEMU was still downloading and no VM had started.
 A fresh run uses identical ISO, destination channel and harness inputs.
+
+
+[Alma 10 final run 39826727232](https://github.com/Pelagians/Current/actions/runs/39826727232)
+passed the complete flow after runner preparation finished. It used the same
+`ef173594` ISO and `d0be48e4` harness as the other final server runs. The booted
+native digest matched `b4245ea1...` with `containerPolicy` verification. The journal
+records SELinux policy refresh in 1441 ms, successful finalization and bootloader
+update. Bootstrap and destination enforcement checks passed; the bootstrap-only
+PATH drop-in was absent from the destination. Both installed XFS filesystems had
+`parent=0, exchange=0`; `xfsprogs-6.16.0-1.el10` passed the read-only fixture scan.
+The standard-path command, retained account/data/network, registry access,
+explicit completion, completed resume and authenticated rollback all passed.
+Original graphical Anaconda and bootstrap rollback screenshots were visually
+inspected. Root remount also completed successfully.
+
+The Alma 10 run's bootstrap audit includes a `PAM:setcred` failure for
+`systemd-executor` both before the initial switch and after rollback; normal
+console login and sudo authentication succeeded. This predates the transition
+and is not evidence of the fixed SELinux finalizer failure. User-manager/session
+health is not asserted by this server harness and needs separate qualification,
+alongside the Alma 9 journal/device-detach diagnostics above. No speculative PAM,
+SELinux-policy or shutdown override was introduced to suppress these messages.
+
+These results qualify the recorded server flows and pinned digests on disposable
+x86_64 UEFI/KVM machines with Secure Boot disabled. They do not promote the
+compatibility catalogue to universal hardware or driver qualification. Test-only
+Kickstart answers automate storage/user input; manual Anaconda interaction,
+separate-home layouts, graphical sessions, physical GPUs, Secure Boot, ARM UEFI
+boot and crash/corruption recovery remain open. A completed receipt is historical
+after rollback, as documented in the recovery section. PR #29 remains draft.
