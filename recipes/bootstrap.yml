@@ -52,7 +52,7 @@ modules:
     snippets:
       # Vendor default only: do not persist a bootstrap default.target in /etc.
       - RUN rm -f /etc/systemd/system/default.target && ln -sfn multi-user.target /usr/lib/systemd/system/default.target
-  - type: initramfs
+  - from-file: layers/shared/initramfs.yml
   - type: signing
   - type: script
     scripts:

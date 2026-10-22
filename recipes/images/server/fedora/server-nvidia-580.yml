@@ -14,5 +14,5 @@ modules:
   - from-file: layers/fedora/rocm.yml
   - from-file: layers/features/ceph-host.yml
   - from-file: layers/fedora/nvidia-580.yml
-  - type: initramfs
+  - from-file: layers/shared/initramfs.yml
   - type: signing

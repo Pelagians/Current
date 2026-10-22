@@ -16,5 +16,5 @@ modules:
   - from-file: layers/fedora/workstation.yml
   - from-file: layers/shared/workstation-gnome.yml
   - from-file: layers/shared/workstation-gnome-modern.yml
-  - type: initramfs
+  - from-file: layers/shared/initramfs.yml
   - type: signing

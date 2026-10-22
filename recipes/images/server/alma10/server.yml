@@ -13,5 +13,5 @@ modules:
   - from-file: layers/alma10/core.yml
   - from-file: layers/alma10/rocm.yml
   - from-file: layers/features/ceph-host.yml
-  - type: initramfs
+  - from-file: layers/shared/initramfs.yml
   - type: signing

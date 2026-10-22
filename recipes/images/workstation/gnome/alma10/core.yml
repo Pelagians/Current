@@ -19,5 +19,5 @@ modules:
   - from-file: layers/alma10/arm-gnome.yml
   - from-file: layers/shared/workstation-gnome-modern.yml
   - from-file: layers/alma10/gnome.yml
-  - type: initramfs
+  - from-file: layers/shared/initramfs.yml
   - type: signing

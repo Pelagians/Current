@@ -17,5 +17,5 @@ modules:
   - from-file: layers/alma9/workstation.yml
   - from-file: layers/shared/workstation-gnome.yml
   - from-file: layers/alma9/gnome.yml
-  - type: initramfs
+  - from-file: layers/shared/initramfs.yml
   - type: signing

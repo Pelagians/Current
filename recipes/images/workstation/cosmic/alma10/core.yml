@@ -19,5 +19,5 @@ modules:
   - from-file: layers/alma10/arm-cosmic.yml
   - from-file: layers/alma/cosmic.yml
   - from-file: layers/shared/workstation-cosmic.yml
-  - type: initramfs
+  - from-file: layers/shared/initramfs.yml
   - type: signing
