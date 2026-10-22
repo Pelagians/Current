@@ -76,7 +76,7 @@ jobs:
         run: |
           printf '%s' "$REGISTRY_TOKEN" | skopeo login ghcr.io -u '${{ github.actor }}' --password-stdin
           python3 scripts/publish-image-index.py record --image '${{ matrix.name }}' --architecture '${{ inputs.architecture }}'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-${{ inputs.architecture }}-${{ matrix.name }}
           path: native-digests/*.json
@@ -126,7 +126,7 @@ jobs:
         run: |
           printf '%s' "$REGISTRY_TOKEN" | skopeo login ghcr.io -u '${{ github.actor }}' --password-stdin
           python3 scripts/publish-image-index.py record --image '${{ matrix.name }}' --architecture '${{ inputs.architecture }}'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-${{ inputs.architecture }}-${{ matrix.name }}
           path: native-digests/*.json
