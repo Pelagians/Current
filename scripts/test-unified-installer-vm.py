@@ -30,8 +30,10 @@ def terminal_text(output):
 
 def shutdown_summary(output, expected_reboots):
     output = terminal_text(output)
-    failures = re.findall(r'systemd-shutdown\[1\]: (?:Failed|Unable) to finalize[^\r\n]*', output)
-    pivots = output.count('Returning to initrd...')
+    failures = re.findall(r'systemd-shutdown\[1\]: (?:(?:Failed|Unable) to finalize|Failed to execute shutdown binary|Failed to switch root to)[^\r\n]*', output)
+    # 252 says "Returning to initrd"; 259 says "Entering exitrd". Both report
+    # this stable preceding sentence after successfully changing the root.
+    pivots = output.count('Successfully changed into root pivot.')
     return {'expected_reboots': expected_reboots, 'initrd_pivots': pivots,
             'finalization_failures': failures, 'passed': not failures and pivots >= expected_reboots}
 

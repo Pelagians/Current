@@ -26,9 +26,11 @@ class UnifiedISO(unittest.TestCase):
     def test_vm_shutdown_acceptance_requires_pivots_and_no_final_failure(self):
         # A busy device on an initial unmount pass is allowed when the shutdown
         # initramfs subsequently takes over. Giving up before reboot is not.
-        clean = 'systemd-shutdown[1]: Could not detach DM /dev/dm-0: Device or resource busy\nReturning to initrd...\n'
+        clean = 'systemd-shutdown[1]: Could not detach DM /dev/dm-0: Device or resource busy\nSuccessfully changed into root pivot.\nReturning to initrd...\n'
         self.assertTrue(vm.shutdown_summary(clean * 2, 2)['passed'])
+        self.assertTrue(vm.shutdown_summary(clean + clean.replace('Returning to initrd', 'Entering exitrd'), 2)['passed'])
         self.assertFalse(vm.shutdown_summary(clean, 2)['passed'])
+        self.assertFalse(vm.shutdown_summary(clean + 'systemd-shutdown[1]: Failed to execute shutdown binary: Permission denied\n', 1)['passed'])
         for verb in ('Failed', 'Unable'):
             bad = clean * 2 + 'systemd-shutdown[1]: ' + verb + ' to finalize loop devices, DM devices, ignoring.\n'
             result = vm.shutdown_summary(bad, 2)
