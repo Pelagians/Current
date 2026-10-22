@@ -358,6 +358,7 @@ def run(args):
     ks = kickstart(receipt, password, server.server_port, args.scenario).encode()
     threading.Thread(target=server.serve_forever, daemon=True).start()
     vm = VM(root, evidence, iso, accel)
+    graphical_password_pending = False
     try:
         vm.start('original-iso')
         for seconds in range(1, 5):
@@ -548,6 +549,7 @@ def run(args):
                 command('chmod 700 ' + path)
 
         def graphical_login(stage, desktop):
+            nonlocal graphical_password_pending
             from PIL import Image
             command('printf %s ' + shlex.quote(stage) + ' > ~/current-vm-stage')
             ownership = command('bash ~/.local/bin/current-vm-qualify-workstation --system-only')
@@ -574,6 +576,7 @@ def run(args):
                     vm.qmp.keys('\n')
                 time.sleep(3)
                 vm.screenshot(stage + '-password-prompt')
+            graphical_password_pending = True
             vm.qmp.keys(password + '\n')
             deadline = time.monotonic() + 240
             while time.monotonic() < deadline:
@@ -581,6 +584,8 @@ def run(args):
                 if output:
                     proof = command('cat ~/current-vm-session-' + stage + '.log')
                     (evidence / (stage + '-graphical-session.log')).write_text(proof)
+                    graphical_password_pending = False
+                    time.sleep(10)
                     vm.screenshot(stage + '-session')
                     if output != '0':
                         raise RuntimeError('Graphical session qualification failed: ' + proof)
@@ -603,6 +608,7 @@ def run(args):
 
         def retained():
             command('test "$(getenforce)" = Enforcing && test "$(findmnt -n -o FSTYPE /sysroot)" = xfs && test "$(cat ~/current-sentinel)" = retained-user-data && test "$(id -u)" = "$(cat ~/current-original-uid)" && sudo sha256sum -c ~/current-network-hashes && systemctl is-active NetworkManager')
+            command('code=$(curl -sS --max-time 30 -o /dev/null -w "%{http_code}" https://ghcr.io/v2/) && { test "$code" = 401 || test "$code" = 200; }')
 
         def reboot_to(stage, distribution, expected, desktop=None):
             vm.serial.sendline('sudo systemctl reboot')
@@ -778,7 +784,10 @@ def run(args):
         report['status'] = 'interrupted' if isinstance(error, KeyboardInterrupt) else 'failed'
         report['error'] = str(error).replace(password, '[REDACTED]')
         try:
-            vm.screenshot('failure')
+            # A misfocused greeter could echo the ephemeral password. Keep the
+            # pre-password screenshot and logs instead of uploading that frame.
+            if not graphical_password_pending:
+                vm.screenshot('failure')
         except Exception:
             pass
         raise

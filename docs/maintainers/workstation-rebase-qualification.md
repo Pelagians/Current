@@ -222,3 +222,16 @@ older image-specific installer layout. Initial VM graphics are unaccelerated
 contaminated greeter state, per-desktop preferences and administrator opt-outs
 remain separate gates. Build success and these new harness tests alone do not
 establish graphical-login success; completed run evidence is recorded below.
+
+Initial harness `9126c891` runs (results pending):
+
+| Case | Run |
+| --- | --- |
+| fedora-gnome | [39864465146](https://github.com/Pelagians/Current/actions/runs/39864465146) |
+| fedora-cosmic | [39864473827](https://github.com/Pelagians/Current/actions/runs/39864473827) |
+| fedora-to-alma9 | [39864478197](https://github.com/Pelagians/Current/actions/runs/39864478197) |
+| fedora-to-alma10 | [39864485383](https://github.com/Pelagians/Current/actions/runs/39864485383) |
+| alma9-to-fedora | [39864493083](https://github.com/Pelagians/Current/actions/runs/39864493083) |
+| alma9-to-alma10 | [39864500928](https://github.com/Pelagians/Current/actions/runs/39864500928) |
+| alma10-to-fedora | [39864504802](https://github.com/Pelagians/Current/actions/runs/39864504802) |
+| alma10-to-alma9 | [39864517682](https://github.com/Pelagians/Current/actions/runs/39864517682) |
