@@ -32,7 +32,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}
+  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}-${{ inputs.channel || 'br-codex_unified-installer' }}
   cancel-in-progress: true
 
 jobs:
