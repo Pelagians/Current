@@ -15,9 +15,13 @@ The SELinux finalizer and command-path corrections passed the Alma 10 flow.
 Earlier ISOs with XFS parent pointers or atomic extent exchange remain unsuitable
 for Alma 9; the final profile disables
 both, and its bundled repair tool passed a read-only clean-file scan. This does
-not qualify recovery from filesystem corruption. Alma 9 journal rotation and
-shutdown device-detach warnings remain recorded for investigation; user-session
-health also needs separate qualification. Consult the
+not qualify recovery from filesystem corruption. Alma 9 rotates journals when crossing systemd format versions. Its older verifier
+cannot verify the newer Fedora archives; the captured files passed verification
+after rollback to Fedora, and checkpoint messages survived. Authenticated server
+user services passed on all three distributions; desktop sessions remain
+unqualified. A missing initramfs filename caused the shutdown device-detach
+warnings. The build correction is implemented, with rebuilt shutdown qualification
+tracked in the maintainer evidence. Consult the
 linked maintainer evidence for exact artifacts, results and limitations.
 
 In Anaconda choose storage, timezone, networking and an administrator account.

@@ -1133,3 +1133,18 @@ path and tried multiple decompressors on that missing file. These are not
 independent evidence of compressed-image corruption. The shared filename fix
 puts the generated initramfs before that fallback; its rebuilt boot test remains
 required.
+
+[Alma 10 diagnostic run 39836513189](https://github.com/Pelagians/Current/actions/runs/39836513189)
+passed the baseline flow against native digest `b4245ea1...`. Its systemd
+`257-23.el10_2.2.alma.1` shares the 272-byte journal header and
+`TAIL_ENTRY_BOOT_ID` flag with this bootstrap. All persistent journals verified
+at bootstrap, destination and rollback, and no format rotation was required.
+User-manager/default-target and transient user-service checks passed at each
+checkpoint. Both recorded shutdowns nevertheless failed dracut restoration with
+`No initramfs image found to restore!`, matching the Fedora lookup defect.
+
+Together the three diagnostic runs qualify authenticated server user services
+for the recorded baseline images. They do not establish graphical desktop
+session health. The bootstrap PAM credential audit warning is retained, with
+no authentication-policy bypass introduced. The rebuilt destinations and stricter
+shutdown assertions are still a separate qualification requirement.
