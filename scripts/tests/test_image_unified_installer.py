@@ -31,6 +31,11 @@ class UnifiedISO(unittest.TestCase):
         self.assertTrue(vm.shutdown_summary(clean + clean.replace('Returning to initrd', 'Entering exitrd'), 2)['passed'])
         self.assertFalse(vm.shutdown_summary(clean, 2)['passed'])
         self.assertFalse(vm.shutdown_summary(clean + 'systemd-shutdown[1]: Failed to execute shutdown binary: Permission denied\n', 1)['passed'])
+        for failure in ('dracut Warning: Cannot umount /oldroot',
+                        'dracut Warning: Unmounting /oldroot/sysroot timed out.',
+                        'dracut Warning: reboot failed!',
+                        'device-mapper: remove ioctl on current-root failed: Device or resource busy'):
+            self.assertFalse(vm.shutdown_summary(clean + failure + '\n', 1)['passed'])
         for verb in ('Failed', 'Unable'):
             bad = clean * 2 + 'systemd-shutdown[1]: ' + verb + ' to finalize loop devices, DM devices, ignoring.\n'
             result = vm.shutdown_summary(bad, 2)

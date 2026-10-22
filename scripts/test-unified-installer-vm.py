@@ -33,6 +33,8 @@ def shutdown_summary(output, expected_reboots):
     failures = re.findall(r'systemd-shutdown\[1\]: (?:(?:Failed|Unable) to finalize|Failed to execute shutdown binary|Failed to switch root to)[^\r\n]*', output)
     # 252 says "Returning to initrd"; 259 says "Entering exitrd". Both report
     # this stable preceding sentence after successfully changing the root.
+    # The pivot hands teardown to dracut; failures there must also fail the run.
+    failures += re.findall(r'(?:dracut(?: Warning)?: (?:Cannot umount /oldroot|Unmounting [^\r\n]* (?:timed out|failed)|(?:reboot|poweroff|halt) failed!)|device-mapper: remove ioctl on [^\r\n]* failed:)[^\r\n]*', output)
     pivots = output.count('Successfully changed into root pivot.')
     return {'expected_reboots': expected_reboots, 'initrd_pivots': pivots,
             'finalization_failures': failures, 'passed': not failures and pivots >= expected_reboots}
