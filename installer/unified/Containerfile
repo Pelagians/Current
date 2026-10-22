@@ -1,6 +1,6 @@
 # This image boots Anaconda; none of its installer services or credentials are
 # installed on disk. The separate signed bootstrap is embedded by image-builder.
-ARG CURRENT_INSTALLER_BASE=quay.io/fedora/fedora-bootc:44@sha256:e6fffeed9e9a13ca4d351c1ce4ae2b4a5119fe121268479e247a63a3ba2bfda2
+ARG CURRENT_INSTALLER_BASE=quay.io/fedora/fedora-bootc:44@sha256:dc1055df531e11ea6753af22414cb7ff217023e93d68cca3f92198df6214f9ee
 FROM ${CURRENT_INSTALLER_BASE}
 ARG CURRENT_PAYLOAD_REF
 ARG CURRENT_PAYLOAD_SOURCE
