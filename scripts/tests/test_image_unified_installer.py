@@ -52,13 +52,28 @@ class UnifiedISO(unittest.TestCase):
             with self.assertRaises(ValueError):
                 qmp.click(*point, 1280, 800)
 
+    def test_vm_graphical_status_ignores_serial_echo(self):
+        echo = "printf 'SESSION_RESULT=%s\\n' ...\r\n"
+        self.assertIsNone(vm.graphical_result(echo + 'SESSION_RESULT=pending\r\n'))
+        self.assertEqual(vm.graphical_result(echo + 'SESSION_RESULT=0\r\n'), 0)
+        self.assertEqual(vm.graphical_result('SESSION_RESULT=42\n'), 42)
+        for output in (echo, 'SESSION_RESULT=0\nSESSION_RESULT=1\n'):
+            with self.assertRaises(RuntimeError):
+                vm.graphical_result(output)
+
     def test_vm_graphical_probe_preserves_qualifier_failure(self):
         home = self.root / 'home'
         (home / '.local/bin').mkdir(parents=True)
         (home / 'current-vm-stage').write_text('source')
+        mock = home / 'mock-bin'
+        mock.mkdir()
+        for name in ('loginctl', 'systemctl', 'ps'):
+            tool = mock / name
+            tool.write_text('#!/bin/sh\nexit 0\n')
+            tool.chmod(0o755)
         (home / '.local/bin/current-vm-qualify-workstation').write_text('exit 42\n')
         result = subprocess.run(['bash'], input=vm.session_probe(), text=True,
-                                env=dict(os.environ, HOME=str(home), XDG_SESSION_TYPE='wayland',
+                                env=dict(os.environ, PATH=str(mock) + ':' + os.environ['PATH'], HOME=str(home), XDG_SESSION_TYPE='wayland',
                                          WAYLAND_DISPLAY='fixture', XDG_CURRENT_DESKTOP='fixture'))
         self.assertEqual(result.returncode, 42)
         self.assertEqual((home / 'current-vm-session-source.rc').read_text().strip(), '42')

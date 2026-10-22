@@ -83,6 +83,14 @@ def staged_rebase(output):
     return json.loads(lines[0])
 
 
+def graphical_result(output):
+    """Ignore echoed commands while waiting for an actual autostart receipt."""
+    results = re.findall(r'^SESSION_RESULT=([0-9]+|pending)\r?$', terminal_text(output), re.MULTILINE)
+    if len(results) != 1:
+        raise RuntimeError('No unique graphical session status receipt')
+    return None if results[0] == 'pending' else int(results[0])
+
+
 def rebase_program(distribution, environment, channel, revision):
     # Resolve the standard VM lane through the installed authoritative inventory
     # and reuse Current's metadata and trust validation, without resetting the
@@ -120,10 +128,11 @@ exec >"$HOME/current-vm-session-$stage.log" 2>&1
   printf 'SESSION_ID=%s\nDESKTOP=%s\nSESSION_TYPE=%s\nWAYLAND_DISPLAY=%s\nDISPLAY=%s\n' "${XDG_SESSION_ID:-}" "${XDG_CURRENT_DESKTOP:-}" "${XDG_SESSION_TYPE:-}" "${WAYLAND_DISPLAY:-}" "${DISPLAY:-}"
   test "${XDG_SESSION_TYPE:-}" = wayland || test "${XDG_SESSION_TYPE:-}" = x11
   test -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}"
-  bash "$HOME/.local/bin/current-vm-qualify-workstation"
+  loginctl show-user "$(id -u)" -p Display -p Sessions
   loginctl list-sessions --no-pager
   systemctl --user --failed --no-pager
   ps -u "$(id -u)" -o pid,comm,args
+  bash "$HOME/.local/bin/current-vm-qualify-workstation"
 )
 rc=$?
 printf '%s\n' "$rc" >"$HOME/current-vm-session-$stage.rc"
@@ -246,8 +255,9 @@ class QMP:
         self.call('input-send-event', events=[
             {'type': 'abs', 'data': {'axis': 'x', 'value': round(x * 32767 / width)}},
             {'type': 'abs', 'data': {'axis': 'y', 'value': round(y * 32767 / height)}},
-            {'type': 'btn', 'data': {'down': True, 'button': 'left'}},
-            {'type': 'btn', 'data': {'down': False, 'button': 'left'}}])
+            {'type': 'btn', 'data': {'down': True, 'button': 'left'}}])
+        time.sleep(.1)
+        self.call('input-send-event', events=[{'type': 'btn', 'data': {'down': False, 'button': 'left'}}])
 
 
 class VM:
@@ -590,20 +600,31 @@ def run(args):
                     vm.qmp.click(int(user[6]) + int(user[8]) // 2, int(user[7]) + int(user[9]) // 2, width, height)
                 else:
                     vm.qmp.keys('\n')
+                # Confirm the password screen before typing a secret. A first
+                # pointer event can focus the user tile without activating it.
                 time.sleep(3)
-                vm.screenshot(stage + '-password-prompt')
+                for attempt in range(12):
+                    vm.screenshot(stage + '-password-prompt')
+                    prompt = subprocess.check_output(['tesseract', str(evidence / (stage + '-password-prompt.png')), 'stdout'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+                    if re.search(r'\bpassword\b', prompt, re.IGNORECASE):
+                        break
+                    if attempt == 0:
+                        vm.qmp.keys('\n')
+                    time.sleep(2)
+                else:
+                    raise RuntimeError('GNOME password field did not appear; no password entered')
             graphical_password_pending = True
             vm.qmp.keys(password + '\n')
             deadline = time.monotonic() + 240
             while time.monotonic() < deadline:
-                output = terminal_text(command('if test -f ~/current-vm-session-' + stage + '.rc; then cat ~/current-vm-session-' + stage + '.rc; fi')).strip()
-                if output:
+                output = graphical_result(command("printf 'SESSION_RESULT=%s\\n' \"$(if test -f ~/current-vm-session-" + stage + ".rc; then cat ~/current-vm-session-" + stage + ".rc; else printf pending; fi)\""))
+                if output is not None:
                     proof = command('cat ~/current-vm-session-' + stage + '.log')
                     (evidence / (stage + '-graphical-session.log')).write_text(proof)
                     graphical_password_pending = False
                     time.sleep(10)
                     vm.screenshot(stage + '-session')
-                    if output != '0':
+                    if output != 0:
                         raise RuntimeError('Graphical session qualification failed: ' + proof)
                     if ('DESKTOP=' + desktop.upper()) not in proof.upper():
                         raise RuntimeError('Autostart reported the wrong desktop')
