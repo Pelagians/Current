@@ -76,6 +76,13 @@ def bootc_document(output):
     return document
 
 
+def staged_rebase(output):
+    lines = re.findall(r'^REBASE_STAGED=(\{[^\r\n]+\})\r?$', terminal_text(output), re.MULTILINE)
+    if len(lines) != 1:
+        raise RuntimeError('No unique completed rebase receipt captured')
+    return json.loads(lines[0])
+
+
 def rebase_program(distribution, environment, channel, revision):
     # Resolve the standard VM lane through the installed authoritative inventory
     # and reuse Current's metadata and trust validation, without resetting the
@@ -742,9 +749,11 @@ def run(args):
             target_distribution = args.target_distribution if args.scenario == 'rebase-flow' else args.distribution
             target_desktop = ('cosmic' if args.desktop == 'gnome' else 'gnome') if args.scenario == 'workstation-flow' else None
             program = rebase_program(target_distribution, target_desktop or 'server', args.channel, args.image_revision)
-            staged = command('sudo env PYTHONPATH=/usr/lib python3 -c ' + shlex.quote(program), timeout=3600)
+            (evidence / 'rebase-program.py').write_text(program)
+            put_guest('~/current-vm-rebase.py', program)
+            staged = command('sudo env PYTHONPATH=/usr/lib python3 ~/current-vm-rebase.py', timeout=3600)
             (evidence / 'rebase-staging.log').write_text(staged)
-            target = json.loads(re.search(r'REBASE_STAGED=(.+)', terminal_text(staged))[1])
+            target = staged_rebase(staged)
             report['rebase_target'] = target
             expected = {'imageDigest': target['digest']}
             reboot_to('rebase-target', target_distribution, expected, target_desktop)

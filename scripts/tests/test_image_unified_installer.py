@@ -23,6 +23,16 @@ policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_vm_rebase_receipt_ignores_echoed_program_and_requires_completion(self):
+        echo = "> print('REBASE_STAGED='+json.dumps({'target':target}), flush=True)\r\n"
+        receipt = {'target': 'ghcr.io/pelagians/alma9-server@sha256:' + 'a' * 64,
+                   'digest': 'sha256:' + 'a' * 64, 'revision': 'b' * 40}
+        marker = 'REBASE_STAGED=' + json.dumps(receipt) + '\r\n'
+        self.assertEqual(vm.staged_rebase(echo + '\x1b]0;terminal\x07' + marker), receipt)
+        for output in (echo, marker + marker, 'REBASE_RESOLVED=' + json.dumps(receipt)):
+            with self.assertRaises(RuntimeError):
+                vm.staged_rebase(output)
+
     def test_vm_bootc_response_requires_a_real_native_digest(self):
         document = {'apiVersion': 'org.containers.bootc/v1', 'status': {'booted': {
             'image': {'imageDigest': 'sha256:' + 'a' * 64}}}}
