@@ -326,7 +326,7 @@ def run(args):
         ['git', 'rev-parse', 'HEAD'], text=True).strip(), 'distribution': args.distribution,
         'channel': args.channel, 'scenario': args.scenario,
               'desktop': args.desktop if args.scenario == 'workstation-flow' else None,
-              'target_distribution': args.target_distribution, 'image_revision': args.image_revision, 'milestones': [], 'status': 'running'}
+              'target_distribution': args.target_distribution, 'target_channel': args.target_channel, 'image_revision': args.image_revision, 'milestones': [], 'status': 'running'}
     def record(message):
         report['milestones'].append(message)
         (evidence / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
@@ -748,7 +748,7 @@ def run(args):
         if args.scenario in ('workstation-flow', 'rebase-flow'):
             target_distribution = args.target_distribution if args.scenario == 'rebase-flow' else args.distribution
             target_desktop = ('cosmic' if args.desktop == 'gnome' else 'gnome') if args.scenario == 'workstation-flow' else None
-            program = rebase_program(target_distribution, target_desktop or 'server', args.channel, args.image_revision)
+            program = rebase_program(target_distribution, target_desktop or 'server', args.target_channel or args.channel, args.image_revision)
             (evidence / 'rebase-program.py').write_text(program)
             put_guest('~/current-vm-rebase.py', program)
             staged = command('sudo env PYTHONPATH=/usr/lib python3 ~/current-vm-rebase.py', timeout=3600)
@@ -826,11 +826,14 @@ if __name__ == '__main__':
     parser.add_argument('--distribution', choices=('fedora', 'alma10', 'alma9'), default='fedora')
     parser.add_argument('--channel', default='pr-29')
     parser.add_argument('--desktop', choices=('gnome', 'cosmic'), default='gnome')
+    parser.add_argument('--target-channel', help='Optional independently published destination channel for rebase qualification')
     parser.add_argument('--target-distribution', choices=('fedora', 'alma10', 'alma9'))
     parser.add_argument('--image-revision', default='01abb3d85a097c8357de4625f10fbb01e9239445')
     parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs', 'bootstrap-reboot', 'workstation-flow', 'rebase-flow'), default='server-flow')
     args = parser.parse_args()
     if not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.channel):
+        parser.error('Invalid destination channel')
+    if args.target_channel and not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.target_channel):
         parser.error('Invalid destination channel')
     if not re.fullmatch(r'[0-9a-f]{40}', args.image_revision):
         parser.error('Expected a full destination image revision')

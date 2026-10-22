@@ -31,6 +31,9 @@ on:
         type: choice
         options: [none, fedora, alma10, alma9]
         default: none
+      target_channel:
+        description: Optional independent destination channel for native candidate rebases
+        default: ''
       image_revision:
         description: Exact source revision required from published destinations
         default: 01abb3d85a097c8357de4625f10fbb01e9239445
@@ -44,7 +47,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}-${{ inputs.channel || 'br-codex_unified-installer' }}-${{ inputs.desktop || 'gnome' }}-${{ inputs.target_distribution || 'none' }}
+  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}-${{ inputs.channel || 'br-codex_unified-installer' }}-${{ inputs.desktop || 'gnome' }}-${{ inputs.target_distribution || 'none' }}-${{ inputs.target_channel || 'same' }}
   cancel-in-progress: true
 
 jobs:
@@ -80,10 +83,12 @@ jobs:
           SCENARIO: ${{ inputs.scenario || 'server-flow' }}
           DESKTOP: ${{ inputs.desktop || 'gnome' }}
           TARGET_DISTRIBUTION: ${{ inputs.target_distribution || 'none' }}
+          TARGET_CHANNEL: ${{ inputs.target_channel || '' }}
           IMAGE_REVISION: ${{ inputs.image_revision || '01abb3d85a097c8357de4625f10fbb01e9239445' }}
         run: |
           extra=()
           if [[ "$TARGET_DISTRIBUTION" != none ]]; then extra+=(--target-distribution "$TARGET_DISTRIBUTION"); fi
+          if [[ -n "$TARGET_CHANNEL" ]]; then extra+=(--target-channel "$TARGET_CHANNEL"); fi
           exec /usr/bin/python3 scripts/test-unified-installer-vm.py \
             --artifact iso --revision "$ISO_REVISION" --output vm-evidence \
             --distribution "$DISTRIBUTION" --channel "$CHANNEL" --scenario "$SCENARIO" \
