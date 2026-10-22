@@ -28,6 +28,23 @@ def terminal_text(output):
     return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', output)
 
 
+def journal_verification(output, allow_older_reader=False):
+    """Defer only unsupported archives; rollback must verify those exact files."""
+    output = '\n'.join(terminal_text(output).splitlines())
+    status = re.search(r'^VERIFY_RC=([0-9]+)$', output, re.MULTILINE)
+    passed = re.findall(r'^PASS: (.+)$', output, re.MULTILINE)
+    failed = re.findall(r'^FAIL: (.+)$', output, re.MULTILINE)
+    deferred = []
+    for failure in failed:
+        match = re.fullmatch(r'(/var/log/journal/[0-9a-f]{32}/(?:system|user-[0-9]+)@[^/ ]+\.journal~) \(Operation not supported\)', failure)
+        if not allow_older_reader or not match:
+            raise RuntimeError('Journal verification failed: ' + failure)
+        deferred.append(match[1])
+    if not status or not passed or (status[1] != '0' and not deferred) or (status[1] == '0' and failed):
+        raise RuntimeError('Incomplete or inconsistent journal verification result')
+    return {'passed': passed, 'deferred': deferred}
+
+
 def shutdown_summary(output, expected_reboots):
     output = terminal_text(output)
     failures = re.findall(r'systemd-shutdown\[1\]: (?:(?:Failed|Unable) to finalize|Failed to execute shutdown binary|Failed to switch root to)[^\r\n]*', output)
@@ -392,6 +409,8 @@ def run(args):
             return output
 
         checkpoints = []
+        deferred_journals = set()
+        report['journal_verification'] = {}
 
         def diagnostics(stage):
             # Keep optional/version-dependent probes nonfatal, but retain each
@@ -416,7 +435,14 @@ def run(args):
                     output.write('$ ' + probe + '\n')
                     output.write(command('(' + probe + "); rc=$?; printf '\\nPROBE_RC=%s\\n' \"$rc\"; true", timeout=180))
                 output.write('$ sudo journalctl --sync && sudo journalctl --verify\n')
-                output.write(command('sudo journalctl --sync && sudo journalctl --verify', timeout=180))
+                command('sudo journalctl --sync')
+                verification = command('sudo journalctl --verify; rc=$?; printf \'\\nVERIFY_RC=%s\\n\' "$rc"; true', timeout=180)
+                output.write(verification)
+                result = journal_verification(verification, args.distribution == 'alma9' and stage in ('destination', 'destination-reboot'))
+                report['journal_verification'][stage] = result
+                deferred_journals.update(result['deferred'])
+                if stage == 'rollback' and not deferred_journals.issubset(result['passed']):
+                    raise RuntimeError('Rollback did not verify every deferred journal archive')
             command('systemctl is-active user@$(id -u).service && systemctl --user is-active default.target && systemd-run --user --wait --pipe /usr/bin/true')
             command('logger -t current-vm-checkpoint ' + stage + ' && sudo journalctl --sync')
             checkpoints.append(stage)

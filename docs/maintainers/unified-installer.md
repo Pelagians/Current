@@ -977,3 +977,159 @@ Kickstart answers automate storage/user input; manual Anaconda interaction,
 separate-home layouts, graphical sessions, physical GPUs, Secure Boot, ARM UEFI
 boot and crash/corruption recovery remain open. A completed receipt is historical
 after rollback, as documented in the recovery section. PR #29 remains draft.
+
+### Journal, shutdown and session follow-up
+
+The diagnostic harness now captures journal headers and `journalctl --verify`,
+PAM configuration, user-manager status, loop backing files, LVM mappings and the
+installed dracut shutdown service/script. It asserts execution of a transient
+user service and retention of checkpoint messages across destination boot and
+rollback. Alma 9 also receives an ordinary destination reboot to separate
+cross-version behavior from routine shutdown. These probes run only inside the
+fresh disposable VM; they do not change authentication or shutdown policy.
+
+Upstream's journal warning is broader than its wording suggests:
+[`journal_file_open_reliably`](https://github.com/systemd/systemd/blob/v259/src/shared/journal-file-util.c)
+also emits it for `EPROTONOSUPPORT`. The
+[252 writer](https://github.com/systemd/systemd/blob/v252/src/libsystemd/sd-journal/journal-file.c)
+refuses unknown compatible flags for writing, while the
+[259 writer](https://github.com/systemd/systemd/blob/v259/src/libsystemd/sd-journal/journal-file.c)
+requires its current header size and `TAIL_ENTRY_BOOT_ID` behavior. Thus a format
+transition can rotate a readable journal in either direction. The warning alone
+cannot establish data corruption or a successful integrity check; retained
+headers, verification results and cross-boot messages must support the diagnosis.
+Do not delete archived journals or disable persistent logging to hide it.
+
+The bootstrap's `PAM:setcred` audit failure also needs a narrower interpretation:
+[systemd's executor](https://github.com/systemd/systemd/blob/v259/src/core/exec-invoke.c)
+explicitly treats failed credential establishment as nonfatal before opening the
+PAM session. Successful console authentication alone does not qualify the user
+manager. The new user-service checks cover that gap without installing a PAM
+bypass; graphical desktop sessions still require their own qualification.
+
+The earlier final runs contain busy LVM-device warnings on **all three** lanes,
+not only Alma 9; Alma 9 additionally reports a busy loop device. Each serial log
+records filesystem unmount and sync before reboot, but does not establish full
+device teardown. The Alma 9 run also contains a bootstrap dracut shutdown failure
+followed by its cleanup handler. Its green stop message is insufficient evidence
+that initramfs restoration succeeded. Keep shutdown qualification open until
+backing-device and restore diagnostics explain these paths. XFS remains the
+installation default throughout this investigation.
+
+The first diagnostic attempt,
+[Fedora run 39834853697](https://github.com/Pelagians/Current/actions/runs/39834853697),
+exposed a harness parsing error before staging: an OSC 3008 shell-control sequence
+preceded the real `bootstrap` journal marker. The marker was present; both
+journals verified successfully and the transient user service exited 0. Harness
+`c538bf1576aa3c68fe33287d23ed833dc34f1962` strips terminal framing only when
+comparing marker text and has a regression test that also rejects markers present
+only inside a control sequence. Raw diagnostic logs remain intact. The two Alma
+attempts using the older harness were superseded during runner preparation.
+Repository validation at that diagnostic revision totaled 150 tests (77 runtime, 73 image).
+
+[Fedora diagnostic run 39836502956](https://github.com/Pelagians/Current/actions/runs/39836502956)
+passed the complete flow with the original final ISO and harness `c538bf15`.
+Bootstrap, Fedora destination and rollback each passed journal verification,
+checkpoint retention, user-manager/default-target checks and a transient user
+service. Their previous-boot journals reveal the actual restore error:
+`No initramfs image found to restore!`, followed by dracut's exit status 1.
+Filesystem sync/reboot and data retention passed, but clean shutdown teardown
+was therefore not qualified by that successful server-flow result.
+
+Read-only inspection of the checksum-verified bootstrap OCI initramfs layer
+`sha256:4f2d8c92f7afd7dc56896aabc3e280ff82825d5b483bc9d1387b3a6cebbdf4e4`
+found `/usr/lib/modules/7.2.11-200.fc44.x86_64/initramfs.img`. The running Fedora
+restore script searches for `modules/<kernel>/initrd`, not that bootc filename.
+The build now adds a relative `initrd -> initramfs.img` link after generation,
+through `layers/shared/initramfs.yml` in the bootstrap and destination recipes.
+It preserves an existing valid vendor initrd, rejects missing/empty generated
+images and dangling/invalid vendor entries, and does not replace dracut's
+unpacking, labeling or pivot logic. The helper is build-only: no persistent
+bootstrap configuration or boot-time symlink-management service is installed.
+Four isolated fixture tests cover multiple kernels/architectures, regeneration,
+idempotence and vendor-file preservation, bringing local validation to 154 tests.
+Runtime qualification of this lookup correction is recorded separately below.
+
+The verified original initramfs also contains the executable top-level `shutdown`
+script and `usr/bin/bash`; the lookup error is not evidence that the shutdown
+payload was omitted. The strengthened harness requires journal verification to
+exit successfully and, after completing the full server flow, checks the serial
+log for each installed-OS shutdown pivot and any final device-teardown failure.
+It excludes the installer runtime's own shutdown. A busy device on an initial
+unmount pass is permitted if the shutdown initramfs subsequently takes over;
+giving up before reboot fails qualification. The acceptance regression test
+brings the current local test total to 155 (77 runtime, 78 image).
+
+The first rebuild attempt,
+[39839233518](https://github.com/Pelagians/Current/actions/runs/39839233518),
+failed before image construction on both architectures: Quay returned
+`manifest unknown` for the previously pinned Fedora base `e6fffeed...`.
+The bootstrap and installer-runtime defaults were refreshed together to
+`quay.io/fedora/fedora-bootc:44@sha256:dc1055df531e11ea6753af22414cb7ff217023e93d68cca3f92198df6214f9ee`.
+The resolved index includes both supported native platforms; their metadata
+identifies bootable bootc Fedora `44.20261022.0` images. This is a new input, so
+previous ISO results do not qualify the rebuilt artifact. Pinning alone does
+not guarantee upstream retention; long-lived reproducibility also requires
+retaining the referenced base images and package inputs.
+
+The immutable Alma 9 baseline's packaged restore script was also read from its
+checksum-verified component layer
+`sha256:8c141cad7b793b3bf871136db2a003be94bd4337f712ad8193663492f2c51fba`.
+It already carries the corrected BLS-directory conjunctions and recognizes
+`/lib/modules/${KERNEL_VERSION}/initrd`. No backport or rewrite of that older
+script is needed for the filename mismatch. This static contract check supports
+testing the same relative-link correction on Alma 9; it does not replace a
+booted shutdown test.
+
+The replacement native ISO build
+[39839642466](https://github.com/Pelagians/Current/actions/runs/39839642466)
+succeeded for x86_64 and aarch64 at source
+`6f48c73103cb8b6174cd82f7681b52338ad1589e`. Its receipts bind each embedded OCI
+source to the bootstrap digest below; the image-builder CLI remains pinned to
+`sha256:b35d715cd67099355b9e2ee022e1f73333b917d5a1a594f01b6a82c366dc10d1`.
+
+| Architecture | ISO SHA-256 | Bootstrap native digest |
+| --- | --- | --- |
+| x86_64 | `f37441b3c596187841a79024cb7ca857f23878c8e1c9c5d3ecfef3c7e81eb1e7` | `sha256:1f22f35b215bb998ee8da5e8a52be72fd94cd2a032e61e5afe3fce955bd429b1` |
+| aarch64 | `56753bcc25ba7526ecbcb820658afdc2cacb79be8fbc71a563e2c31d0a2e9ad6` | `sha256:8c14317833d7539ef34eea363edf29e5369be7458d16caaefe46d6274673c107` |
+
+These builds establish artifact creation, not shutdown or ARM boot qualification.
+The new x86_64 Btrfs rejection run is
+[39842155680](https://github.com/Pelagians/Current/actions/runs/39842155680).
+Native destination rebuilding/signing is tracked by
+[39839224205](https://github.com/Pelagians/Current/actions/runs/39839224205),
+source `01abb3d8`; the existing all-image publication gates remain in force.
+Harness `87544ddf` additionally rejects dracut old-root unmount failures and final
+device-mapper removal errors after a successful shutdown pivot. The 16 targeted
+installer tests passed after that assertion change; the total remains 155.
+
+[Alma 9 diagnostic run 39836506525](https://github.com/Pelagians/Current/actions/runs/39836506525)
+completed the baseline flow, including an ordinary Alma 9 reboot and rollback.
+The running versions were Fedora systemd `259.10-1.fc44` and Alma systemd
+`252-67.el9_8.6.alma.1`. Fedora wrote 272-byte headers with
+`TAIL_ENTRY_BOOT_ID`; Alma wrote 264-byte headers without that flag. Alma rotated
+the two Fedora journals and could read their checkpoint messages, but its
+verifier reported `Operation not supported` for those two archived files.
+The Alma-created journals passed verification. The ordinary Alma reboot did not
+add another format-rotation warning. After rollback, Fedora verified all six
+persistent files, including both original Fedora archives and both Alma archives;
+all checkpoint messages survived. This supports format incompatibility rather
+than corruption for these recorded warnings. It does not make Alma's verifier
+capable of checking newer-format archives.
+
+The harness therefore records each journal result explicitly. Only an archived
+persistent journal reporting exactly `Operation not supported` may be deferred
+at the Alma 9 checkpoints. Rollback must successfully verify every deferred path;
+missing archives, other failures, current-file failures and incomplete output
+fail the run. Regression fixtures cover these cases, and the classifier was also
+checked against the captured four-stage Alma 9 evidence. No logs are deleted,
+rewritten or excluded from verification. Local validation now totals 156 tests
+(77 runtime, 79 image; 17 targeted installer tests passed).
+
+All four Alma 9 checkpoints passed the user-manager/default-target and transient
+user-service assertions. Its old shutdown still failed: without the module
+`initrd` filename, the packaged restore script fell through to a nonexistent ESP
+path and tried multiple decompressors on that missing file. These are not
+independent evidence of compressed-image corruption. The shared filename fix
+puts the generated initramfs before that fallback; its rebuilt boot test remains
+required.

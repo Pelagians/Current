@@ -23,6 +23,29 @@ policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_journal_verifier_defers_only_unsupported_archives(self):
+        root = '/var/log/journal/' + 'a' * 32 + '/'
+        archive = root + 'system@000123-abcdef.journal~'
+        good = 'PASS: ' + root + 'system.journal\r\n'
+        unsupported = 'FAIL: ' + archive + ' (Operation not supported)\r\n'
+        result = vm.journal_verification(good + unsupported + 'VERIFY_RC=1\r\n', True)
+        self.assertEqual(result['deferred'], [archive])
+        with self.assertRaises(RuntimeError):
+            vm.journal_verification(good + unsupported + 'VERIFY_RC=1\n')
+        for bad in (unsupported.replace('Operation not supported', 'Bad message'),
+                    unsupported.replace('@000123-abcdef.journal~', '.journal'),
+                    unsupported.replace('/var/log/journal/', '/tmp/')):
+            with self.assertRaises(RuntimeError):
+                vm.journal_verification(good + bad + 'VERIFY_RC=1\n', True)
+        rollback = vm.journal_verification(good + 'PASS: ' + archive + '\nVERIFY_RC=0\n')
+        self.assertTrue(set(result['deferred']).issubset(rollback['passed']))
+        missing = vm.journal_verification(good + 'VERIFY_RC=0\n')
+        self.assertFalse(set(result['deferred']).issubset(missing['passed']))
+        for incomplete in (good, 'VERIFY_RC=0\n', good + 'VERIFY_RC=1\n',
+                           good + unsupported + 'VERIFY_RC=0\n'):
+            with self.assertRaises(RuntimeError):
+                vm.journal_verification(incomplete, True)
+
     def test_vm_shutdown_acceptance_requires_pivots_and_no_final_failure(self):
         # A busy device on an initial unmount pass is allowed when the shutdown
         # initramfs subsequently takes over. Giving up before reboot is not.
