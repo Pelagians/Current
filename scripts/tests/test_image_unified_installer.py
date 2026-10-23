@@ -41,6 +41,16 @@ class UnifiedISO(unittest.TestCase):
                      '/source-before-portal.png/../result.json', '/bootstrap-before-portal.png', '/source-after-portal.jpg'):
             self.assertFalse(vm.allowed_evidence_path(path))
 
+    def test_accent_ocr_regions_exclude_headers_edges_grey_and_large_shapes(self):
+        def pixel(x, y):
+            if (x in (0, 399) or y in (0, 239) or
+                    (50 <= x <= 110 and 10 <= y <= 41) or
+                    (20 <= x <= 300 and 125 <= y <= 145) or
+                    (250 <= x <= 310 and 170 <= y <= 201)):
+                return (90, 210, 220)
+            return (80, 80, 80)
+        self.assertEqual(vm.accent_footer_regions(400, 240, pixel), [(256, 176, 305, 196)])
+
     def test_cosmic_onboarding_requires_unique_visible_footer_control(self):
         header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
         def word(text='Next', x=900, y=720, confidence=95):

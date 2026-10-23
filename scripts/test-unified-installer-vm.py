@@ -53,6 +53,33 @@ def allowed_evidence_path(path):
         r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-before-workstation-health\.log', path) is not None
 
 
+def accent_footer_regions(width, height, pixel):
+    """OCR regions for stock COSMIC cyan controls; a region never authorizes a click."""
+    points = set()
+    for y in range(height // 2, height):
+        for x in range(width):
+            red, green, blue = pixel(x, y)
+            if green > 130 and blue > 130 and green > red * 1.25 and blue > red * 1.25:
+                points.add((x, y))
+    regions = []
+    while points:
+        seed = points.pop()
+        pending = [seed]
+        left = right = seed[0]
+        top = bottom = seed[1]
+        while pending:
+            x, y = pending.pop()
+            left, right, top, bottom = min(left, x), max(right, x), min(top, y), max(bottom, y)
+            for neighbour in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                if neighbour in points:
+                    points.remove(neighbour)
+                    pending.append(neighbour)
+        if (0 < left < right < width - 1 and bottom < height - 1
+                and 45 <= right - left + 1 <= 240 and 20 <= bottom - top + 1 <= 70):
+            regions.append((left + 6, top + 6, right - 5, bottom - 5))
+    return sorted(regions)
+
+
 def visible_footer_button(tsv, width, height, labels=('next', 'finish'), required_phrase=None):
     """Only act on a unique visible control in the expected UI, never guess."""
     if required_phrase:
@@ -317,6 +344,10 @@ class QMP:
             {'type': 'btn', 'data': {'down': True, 'button': 'left'}}])
         time.sleep(.1)
         self.call('input-send-event', events=[{'type': 'btn', 'data': {'down': False, 'button': 'left'}}])
+        # A hovering hand cursor can cover the next page's small button label.
+        self.call('input-send-event', events=[
+            {'type': 'abs', 'data': {'axis': 'x', 'value': 16384}},
+            {'type': 'abs', 'data': {'axis': 'y', 'value': 3277}}])
 
 
 class VM:
@@ -675,6 +706,40 @@ def run(args):
             resolver = command("rpm -q avahi avahi-tools nss-mdns NetworkManager systemd-resolved; grep -E '^(hosts|passwd|group):' /etc/nsswitch.conf; ls -l /etc/resolv.conf; readlink -f /etc/resolv.conf; cat /etc/resolv.conf; nmcli general status; nmcli -g IP4.DNS,IP6.DNS device show; systemctl is-enabled NetworkManager-wait-online.service; systemctl show avahi-daemon.service NetworkManager.service NetworkManager-wait-online.service network-online.target -p After -p Wants -p ActiveEnterTimestampMonotonic -p ExecMainStartTimestampMonotonic; sudo journalctl -b -u avahi-daemon.service -u NetworkManager.service -u NetworkManager-wait-online.service --no-pager -n 500; true")
             (evidence / (stage + '-resolver-diagnostics.log')).write_text(resolver)
 
+        def control_ocr(name):
+            # Full-frame OCR reads white prompt titles. Cropped control interiors
+            # keep rounded cyan borders from hiding their small black labels.
+            # Both readings come from the same unchanged QMP screenshot.
+            from PIL import Image
+            path = evidence / (name + '.png')
+            def read(image, psm):
+                return subprocess.check_output(['tesseract', str(image), 'stdout', '--psm', str(psm), 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+            rows = [line.split('\t') for line in read(path, 11).splitlines()]
+            image = Image.open(path).convert('RGB')
+            pixels = image.load()
+            for index, box in enumerate(accent_footer_regions(image.width, image.height, lambda x, y: pixels[x, y])):
+                crop = image.crop(box).convert('L')
+                crop = crop.resize((crop.width * 3, crop.height * 3))
+                derived = evidence / (name + '-ocr-button-' + str(index) + '.png')
+                crop.save(derived)
+                for line in read(derived, 7).splitlines()[1:]:
+                    fields = line.split('\t')
+                    if len(fields) != 12 or fields[0] != '5':
+                        continue
+                    x, y, w, h = map(int, fields[6:10])
+                    fields[6:10] = map(str, (box[0] + x // 3, box[1] + y // 3, (w + 2) // 3, (h + 2) // 3))
+                    duplicate = next((row for row in rows if len(row) == 12 and row[0] == '5'
+                                      and row[11].lower() == fields[11].lower()
+                                      and abs(int(row[6]) - int(fields[6])) <= 8
+                                      and abs(int(row[7]) - int(fields[7])) <= 8), None)
+                    if duplicate is None:
+                        rows.append(fields)
+                    elif float(fields[10]) > float(duplicate[10]):
+                        duplicate[:] = fields
+            text = '\n'.join('\t'.join(row) for row in rows) + '\n'
+            (evidence / (name + '.tsv')).write_text(text)
+            return text
+
         def cosmic_onboarding(stage):
             # Exercise the actual first-run UI, including its own completion
             # marker. Never create that marker, mask autostart, or delete user
@@ -690,8 +755,7 @@ def run(args):
                     return
                 name = stage + '-first-run-' + str(attempt)
                 vm.screenshot(name)
-                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', '--psm', '11', '-c', 'thresholding_method=2', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
-                (evidence / (name + '.tsv')).write_text(tsv)
+                tsv = control_ocr(name)
                 width, height = Image.open(evidence / (name + '.png')).size
                 button = visible_footer_button(tsv, width, height)
                 if button:
@@ -722,8 +786,7 @@ def run(args):
                     break
                 name = stage + '-portal-consent-' + str(attempt)
                 vm.screenshot(name)
-                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', '--psm', '11', '-c', 'thresholding_method=2', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
-                (evidence / (name + '.tsv')).write_text(tsv)
+                tsv = control_ocr(name)
                 from PIL import Image
                 width, height = Image.open(evidence / (name + '.png')).size
                 button = visible_footer_button(tsv, width, height, labels=('allow',), required_phrase=('Allow Apps to Take Screenshots', 'Allow Applications to Take Screenshots'))
@@ -737,6 +800,8 @@ def run(args):
             capture = command('cat ' + prefix + '.log; printf "\\nPORTAL_RC=%s\\n" "$(cat ' + prefix + '.rc)"; if test "$(cat ' + prefix + '.rc)" = 0; then image=$(find ' + directory + ' -maxdepth 1 -type f -name "*.png" -print -quit); if test -n "$image"; then curl -fsS --max-time 30 --data-binary @"$image" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-portal.png; fi; fi; true', timeout=120)
             (evidence / (stage + '-portal-capture.log')).write_text(capture)
             report.setdefault('rendering_captures', []).append({'stage': stage, 'qmp_frames': [stage + '-render-' + str(i) + '.png' for i in range(3)], 'native_portal': (evidence / (stage + '-portal.png')).is_file(), 'portal_returncode': state, 'consent': consent})
+            if state != 0 or not (evidence / (stage + '-portal.png')).is_file():
+                raise RuntimeError('Native screenshot failed; rendering remains unqualified and onboarding was not tested past this capture obstacle')
 
         def workstation_health(stage, desktop, before=False):
             options = (' --require-mdns' if args.require_mdns else '') + (' --require-icc' if desktop == 'gnome' else '')
