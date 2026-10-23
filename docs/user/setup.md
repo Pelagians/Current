@@ -5,7 +5,7 @@ bootstrap through graphical Anaconda; it does not install a full desktop at that
 stage. Existing image-specific installers remain available. See the
 [build architecture and test limits](../maintainers/unified-installer.md).
 
-Keep this draft ISO on disposable test disks. The current x86_64 ISO passed
+Keep this draft ISO on disposable test disks. An earlier x86_64 baseline passed
 complete Fedora, AlmaLinux 10 and AlmaLinux 9 server UEFI/KVM flows: root-only
 automatic partitioning, authenticated first-boot setup, network-failure retry,
 signed switch, enforcing destination boot, explicit completion and rollback.
@@ -29,10 +29,18 @@ Authenticated user services passed on all three distributions despite nonfatal
 bootstrap PAM credential audit messages. Recorded GNOME/COSMIC graphical-login,
 switch and rollback cases are listed in the
 [current VM matrix](../maintainers/workstation-rebase-qualification.md#current-complete-flow-matrix).
-These basic session passes do not establish complete workstation health: native
-audit records show home/ICC label denials, and service-account/Homebrew setup
-warnings remain under investigation. Keep desktop testing disposable. See that
-evidence for exact artifacts, failed attempts, remaining warnings and test limits.
+The current ISO (`6d27cf9a`) corrects native-policy labels for newly created
+homes/account files. Current workstation images (`3bdfcaa1`) add package-derived
+Avahi account provisioning and an Alma 9 Homebrew setup correction. The matrix
+records cross-distro GNOME/COSMIC runs requiring native home/ICC types, working
+Avahi resolution, real Homebrew execution, graphical login, reboot and rollback.
+These checks do not qualify all applications, Brew packages, LAN discovery or
+physical GPUs. Keep desktop testing disposable; the evidence records exact runs,
+failed attempts and remaining limits.
+
+The added installer relabel hook excludes reused homes. Earlier draft installs
+with incorrect labels need administrator review; use a fresh disposable install
+for qualification. There is no automatic recursive repair of existing homes.
 
 In Anaconda choose storage, timezone, networking and an administrator account.
 The default root filesystem is XFS; Btrfs is excluded because the selected system

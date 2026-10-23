@@ -565,7 +565,7 @@ screen remain visible; desktop applications and completion of COSMIC onboarding
 were not tested. Native account/label captures reproduce the unresolved findings
 above even though the login, user-service and rollback gates pass.
 
-### Account and label corrections under qualification
+### Account and label corrections: initial attempts
 
 Product revision `3bdfcaa1` changes the installer runtime's `create_user` integration to
 resolve the home inside the installed root and run that payload's `restorecon`
@@ -573,8 +573,8 @@ after successful creation of a **new** home. It also labels the new account
 database/lock files. Existing home trees are excluded from the added operation;
 no forced context, policy exception, recursive whole-system relabel or persistent
 relabel service is installed. A build-time contract check rejects upstream source
-drift. Native installed-policy assertions and ICC captures must validate this in
-fresh VMs before it is called a fix.
+drift. This first attempt was insufficient; the subsequent SELinux API correction
+and current native-policy VM results are recorded below.
 
 The shared workstation build explicitly installs Avahi and derives a sysusers
 declaration from its actual package-created UID/GID, description, home and disabled
@@ -608,10 +608,10 @@ bootstrap digest; VM jobs also hash the complete downloaded ISO. Both retain the
 same pinned builder/runtime bases and XFS profile. ARM assembly is not a boot test.
 
 [Native rebuild 39888299554](https://github.com/Pelagians/Current/actions/runs/39888299554)
-and its full shared publisher remain under qualification. Initial workstation
-pilots use only individually verified/signed native candidate receipts; they do
-not advance that publisher's gates. Local validation now passes 80 runtime and
-95 image tests, Actionlint and diff checks. The new GNOME health assertion requires
+was still publishing when these initial pilots began. Those pilots used only
+individually verified/signed native candidate receipts and did not advance the
+publisher's gates. At that point local validation passed 80 runtime and 95 image
+tests, Actionlint and diff checks; final publication and tests are recorded below. The new GNOME health assertion requires
 an ICC profile with native types and no captured color-daemon denial in the
 current boot's kernel journal, alongside Avahi/Brew and persistent-data checks.
 
@@ -636,12 +636,12 @@ correction binds only `/sys/fs/selinux` after `/sys`, records it in Anaconda's
 existing reverse-order teardown, and requires `selinuxenabled` to succeed before
 new-home relabeling. It does not recursively expose every `/sys` submount, change
 enforcement or create persistent mount/relabel configuration. Build-time source
-guards and isolated mount/availability fixtures pass; another fresh-ISO VM run
-is required to establish actual installed labels.
+guards and isolated mount/availability fixtures passed. The fresh-ISO control and
+workstation reruns below establish the resulting native label types.
 
 The destination image content remains at product source `3bdfcaa1`; this follow-up
-changes only the installer runtime, tests and documentation. Reuse verified native
-receipts, rebuild the ISO and keep the failing assertion for the reruns.
+changed only the installer runtime, tests and documentation. The rebuilt ISO and
+reruns below reuse verified native receipts and retain the original label gate.
 
 ### Previous complete-flow matrix (e8fc3698)
 
@@ -727,24 +727,53 @@ a Brew-prefix sentinel retained across the target reboot and exact-source rollba
 All four real password logins and all five shutdown/journal gates remain mandatory.
 Current run results are recorded below; in-progress cases are unqualified.
 
+One complete-flow attempt,
+[39898528290](https://github.com/Pelagians/Current/actions/runs/39898528290),
+passed all four COSMIC password logins, native health checks and source rollback,
+then timed out during final bootstrap diagnostics. Its raw serial output shows a
+complete timestamped kernel audit record inserted between `VM` and `_RC=0`.
+This is not a complete-flow pass. The test reader now admits only complete audit
+records between status-marker characters; tests retain nonzero-status, echo,
+unrelated-text and truncated-record rejection. The affected case is rerun from
+a fresh disk with unchanged ISO/product receipts and all final gates retained.
+
+A second attempt,
+[39898514712](https://github.com/Pelagians/Current/actions/runs/39898514712),
+also passed all four graphical/native-health stages and exact-source rollback,
+then timed out reading historical unit diagnostics after bootstrap recovery.
+The retained output contains thousands of repeated COSMIC first-run Wayland
+broken-pipe messages from shutdown. Optional historical/warning dumps are now
+bounded to the last 1,000 entries. All closed-archive, checkpoint, full shutdown
+and final-reader assertions remain unchanged. That attempt remains incomplete;
+a fresh rerun uses the same signed images and ISO. COSMIC first-run completion,
+application behavior and shutdown-message cleanup remain separate limitations.
+
+Avahi's packaged UID/GID is 70 in the captured stages, with a disabled shell;
+no linuxbrew login account is fabricated. Successful account resolution and
+active daemon state do not prove LAN discovery. Native Avahi logs still include
+missing mDNS NSS support and a chroot resolver warning on recorded EL targets.
+No resolver/NSS policy is rewritten to silence those messages. The Homebrew
+checks cover setup, client version and retained prefix bytes/ownership, not
+arbitrary installed package ABI compatibility across distributions.
+
 <!-- CURRENT-HEALTH-MATRIX -->
 
 | Case | Run | Result |
 | --- | --- | --- |
-| Alma 10 COSMIC → Alma 9 COSMIC | [39898528290](https://github.com/Pelagians/Current/actions/runs/39898528290) | In progress; unqualified |
+| Alma 10 COSMIC → Alma 9 COSMIC | [39901294471](https://github.com/Pelagians/Current/actions/runs/39901294471) | In progress; unqualified |
 | Alma 10 COSMIC → Fedora COSMIC | [39898327339](https://github.com/Pelagians/Current/actions/runs/39898327339) | In progress; unqualified |
-| Alma 10 GNOME → Alma 9 GNOME | [39898507969](https://github.com/Pelagians/Current/actions/runs/39898507969) | In progress; unqualified |
-| Alma 10 GNOME → Fedora GNOME | [39898305861](https://github.com/Pelagians/Current/actions/runs/39898305861) | In progress; unqualified |
-| Alma 9 COSMIC → Alma 10 COSMIC | [39898319639](https://github.com/Pelagians/Current/actions/runs/39898319639) | In progress; unqualified |
+| Alma 10 GNOME → Alma 9 GNOME | [39898507969](https://github.com/Pelagians/Current/actions/runs/39898507969) | Passed; 4 graphical/native-health checks, 5 shutdowns, 18 final archives |
+| Alma 10 GNOME → Fedora GNOME | [39898305861](https://github.com/Pelagians/Current/actions/runs/39898305861) | Passed; 4 graphical/native-health checks, 5 shutdowns, 14 final archives |
+| Alma 9 COSMIC → Alma 10 COSMIC | [39898319639](https://github.com/Pelagians/Current/actions/runs/39898319639) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
 | Alma 9 COSMIC → Fedora COSMIC | [39898522018](https://github.com/Pelagians/Current/actions/runs/39898522018) | In progress; unqualified |
-| Alma 9 COSMIC → Fedora GNOME | [39898544040](https://github.com/Pelagians/Current/actions/runs/39898544040) | In progress; unqualified |
-| Alma 9 GNOME → Alma 10 GNOME | [39898299628](https://github.com/Pelagians/Current/actions/runs/39898299628) | In progress; unqualified |
-| Alma 9 GNOME → Fedora GNOME | [39898500747](https://github.com/Pelagians/Current/actions/runs/39898500747) | In progress; unqualified |
-| Fedora COSMIC → Alma 10 COSMIC | [39898514712](https://github.com/Pelagians/Current/actions/runs/39898514712) | In progress; unqualified |
-| Fedora COSMIC → Alma 9 COSMIC | [39898312453](https://github.com/Pelagians/Current/actions/runs/39898312453) | In progress; unqualified |
-| Fedora GNOME → Alma 10 GNOME | [39898493525](https://github.com/Pelagians/Current/actions/runs/39898493525) | In progress; unqualified |
-| Fedora GNOME → Alma 9 COSMIC | [39898535728](https://github.com/Pelagians/Current/actions/runs/39898535728) | In progress; unqualified |
-| Fedora GNOME → Alma 9 GNOME | [39898293054](https://github.com/Pelagians/Current/actions/runs/39898293054) | In progress; unqualified |
+| Alma 9 COSMIC → Fedora GNOME | [39898544040](https://github.com/Pelagians/Current/actions/runs/39898544040) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
+| Alma 9 GNOME → Alma 10 GNOME | [39898299628](https://github.com/Pelagians/Current/actions/runs/39898299628) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
+| Alma 9 GNOME → Fedora GNOME | [39898500747](https://github.com/Pelagians/Current/actions/runs/39898500747) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
+| Fedora COSMIC → Alma 10 COSMIC | [39901481474](https://github.com/Pelagians/Current/actions/runs/39901481474) | In progress; unqualified |
+| Fedora COSMIC → Alma 9 COSMIC | [39898312453](https://github.com/Pelagians/Current/actions/runs/39898312453) | Passed; 4 graphical/native-health checks, 5 shutdowns, 18 final archives |
+| Fedora GNOME → Alma 10 GNOME | [39898493525](https://github.com/Pelagians/Current/actions/runs/39898493525) | Passed; 4 graphical/native-health checks, 5 shutdowns, 16 final archives |
+| Fedora GNOME → Alma 9 COSMIC | [39898535728](https://github.com/Pelagians/Current/actions/runs/39898535728) | Passed; 4 graphical/native-health checks, 5 shutdowns, 18 final archives |
+| Fedora GNOME → Alma 9 GNOME | [39898293054](https://github.com/Pelagians/Current/actions/runs/39898293054) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
 
 These results cover fresh unified-installer XFS layouts and standard images.
 Existing/reused homes are not automatically relabeled by the added installer hook.

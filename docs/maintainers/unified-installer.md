@@ -206,37 +206,47 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-The latest rebuilt ISOs use source `7eae0d4b` (x86_64 checksum `b301fe88...`)
-and the new signed native image publication uses product source `e8fc3698`.
-See [current workstation and cross-distro VM evidence](workstation-rebase-qualification.md#current-complete-flow-matrix)
-for exact receipts, tested digests, completed runs and remaining gates.
+The current ISOs use installer source `6d27cf9a` (x86_64 checksum
+`be3a6b5d...`) and signed destination images use product source `3bdfcaa1`.
+[Both native ISO builds](https://github.com/Pelagians/Current/actions/runs/39893211536)
+and [all 51 native-build/publication jobs](https://github.com/Pelagians/Current/actions/runs/39888299554)
+passed. Independent receipt checks matched 45 native images, 24 shared indexes
+and 21 ARM compatibility references. See the
+[current workstation and cross-distro VM evidence](workstation-rebase-qualification.md#current-complete-flow-matrix)
+for full checksums, exact runs and remaining gates. Later qualification-only
+changes reuse these receipts; they do not change installed product/runtime files.
 
-The previous x86_64 ISO (`6f48c731`, checksum `f37441b3...`) passed complete
-Fedora, Alma 10 and Alma 9 server flows in disposable UEFI/KVM VMs, using the
-shipped XFS defaults and enforcing SELinux on bootstrap and destination. The
-rebuilt images restore the shutdown initramfs and unmount the old root on every
-recorded reboot. User-service checks and journal checks pass; Alma 9's unsupported
-Fedora archives are verified after rollback. Its final run verifies closed
-archives to avoid upstream online-verifier races. Exact runs and the failed
-attempt remain in the final shared-reference qualification history below.
+The installer exposes only the missing SELinux API submount to Anaconda's
+installed-root account setup and retains its reverse-order teardown. New homes
+and account files receive native-policy labels without forcing SELinux user/range
+values. Existing home trees are excluded from the added relabel hook. The fresh
+[bootstrap control](https://github.com/Pelagians/Current/actions/runs/39894407267)
+passed native label assertions, authenticated setup and reboot with enforcing
+SELinux and a clean shutdown. Workstation builds provision Avahi through
+package-derived sysusers records; an EL9-only Brew drop-in uses the supported
+no-overwrite copy option. Native workstation health checks are mandatory in the
+current matrix, alongside real password login, reboot and exact-source rollback.
 
-These results cover the recorded server VM configuration, not universal hardware
-or storage support. The development host is ARM64, lacks `/dev/kvm`, and had only
-4.6 GiB free on the container-storage filesystem at the initial audit. Builds and
-installation tests used native CI runners. No host installation or host bootc
-mutation occurred.
+The preceding `e8fc3698` product / `7eae0d4b` ISO baseline passed all six directed
+server distro pairs and all six same-distro GNOME↔COSMIC directions. Those are
+historical results, not newly repeated server/same-distro tests of `3bdfcaa1`.
+Shutdown and closed-journal gates remain mandatory in current workstation flows;
+Alma 9's unsupported Fedora archives must pass the final bootstrap reader.
 
 | Transition / hardware | Status |
 | --- | --- |
-| Bootstrap Fedora 44 → Fedora server | Rebuilt ISO full UEFI/KVM flow passed; current complete matrix adds both outgoing distro rebases, target reboot and exact-source rollback |
-| Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Recorded authenticated login, desktop switch, target reboot and rollback passed in both directions; policy/service health and physical rendering remain experimental |
-| Bootstrap Fedora 44 → Alma 10 server | Rebuilt ISO full flow passed, including SELinux finalization; both outgoing distro rebases and exact-source rollback passed |
-| Bootstrap Fedora 44 → Alma 10 GNOME/COSMIC | Recorded authenticated login, desktop switch, target reboot and rollback passed in both directions; policy/service health and physical rendering remain experimental |
-| Bootstrap Fedora 44 → Alma 9 server | Rebuilt ISO full flow passed with parent=0/exchange=0 XFS; both outgoing distro rebases and exact-source rollback passed; deferred archives verified by Fedora |
-| Bootstrap Fedora 44 → Alma 9 GNOME/COSMIC | Recorded authenticated login, desktop switch, target reboot and rollback passed in both directions; native home/ICC labeling and service provisioning remain open gates |
-| Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
-| NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
+| Fresh x86_64 bootstrap | Native labels, first-boot authentication, persistence and reboot passed on current ISO |
+| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Current 14-case matrix records all directed same-desktop pairs and two mixed-desktop cases; consult individual completed results |
+| Server and same-distro desktop switches | Previous baseline completed; not repeated at current product revision |
+| Generic ARM64 UEFI | Current native ISO assembly passed; EFI/board/installer boot required |
+| NVIDIA R580/open, hybrid systems | Synthetic recommendations/build gates only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |
+
+These results cover fresh root-only XFS VM layouts with standard drivers and
+Secure Boot disabled. Reused homes, encrypted/separate-home layouts, custom IDs,
+application/Brew-package ABI behavior and physical hardware remain unqualified.
+The development host is ARM64 without KVM; native CI disposable disks were used.
+No host installation or host bootc mutation occurred.
 
 Use disposable UEFI VMs with a new virtual disk and snapshot. Never attach the
 development host's block devices. For each distro, install the ISO interactively,
