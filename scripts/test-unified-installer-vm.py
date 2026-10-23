@@ -49,7 +49,8 @@ def allowed_evidence_path(path):
     return path in fixed or re.fullmatch(
         r'/(?:bootstrap|source|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health)\.log',
         path) is not None or re.fullmatch(
-        r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-(?:before|after)-portal\.png', path) is not None
+        r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-(?:before|after)-portal\.png', path) is not None or re.fullmatch(
+        r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-before-workstation-health\.log', path) is not None
 
 
 def cosmic_setup_button(tsv, width, height):
@@ -685,7 +686,7 @@ def run(args):
 
         def cosmic_rendering(stage, phase):
             # Keep the original software GPU and resolution. Capture more than
-            # one QMP frame, plus an independent native portal image when the
+            # one QMP frame, plus a native portal image as a second capture
             # packaged CLI supports it. Neither route invents display variables.
             stage = stage + '-' + phase
             diagnostics = command("rpm -q cosmic-initial-setup cosmic-comp cosmic-session cosmic-screenshot mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; cosmic-screenshot --help; true")
@@ -697,6 +698,11 @@ def run(args):
             capture = command('mkdir -p ' + directory + '; systemd-run --user --wait --pipe --collect --property=RuntimeMaxSec=40s cosmic-screenshot --interactive=false --modal=false --notify=false --save-dir ' + directory + '; rc=$?; printf "\\nPORTAL_RC=%s\\n" "$rc"; if test "$rc" = 0; then image=$(find ' + directory + ' -maxdepth 1 -type f -name "*.png" -print -quit); if test -n "$image"; then curl -fsS --max-time 30 --data-binary @"$image" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-portal.png; fi; fi; true', timeout=120)
             (evidence / (stage + '-portal-capture.log')).write_text(capture)
             report.setdefault('rendering_captures', []).append({'stage': stage, 'qmp_frames': [stage + '-render-' + str(i) + '.png' for i in range(3)], 'native_portal': (evidence / (stage + '-portal.png')).is_file()})
+
+        def workstation_health(stage, desktop, before=False):
+            options = (' --require-mdns' if args.require_mdns else '') + (' --require-icc' if desktop == 'gnome' else '')
+            name = stage + ('-before' if before else '') + '-workstation-health.log'
+            command('sudo python3 ~/.local/bin/current-vm-workstation-health' + options + ' > ~/current-vm-workstation-health.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-workstation-health.json" http://10.0.2.2:' + str(server.server_port) + '/' + name)
 
         def graphical_login(stage, desktop):
             nonlocal graphical_password_pending
@@ -762,14 +768,15 @@ def run(args):
                         raise RuntimeError('Graphical session qualification failed: ' + proof)
                     if ('DESKTOP=' + desktop.upper()) not in proof.upper():
                         raise RuntimeError('Autostart reported the wrong desktop')
+                    command('sudo systemctl start avahi-daemon.service')
                     if desktop == 'cosmic':
+                        (evidence / (stage + '-session.png')).rename(evidence / (stage + '-session-initial.png'))
+                        workstation_health(stage, desktop, before=True)
                         cosmic_rendering(stage, 'before')
                         cosmic_onboarding(stage)
                         cosmic_rendering(stage, 'after')
                         vm.screenshot(stage + '-session')
-                    command('sudo systemctl start avahi-daemon.service')
-                    health_options = (' --require-mdns' if args.require_mdns else '') + (' --require-icc' if desktop == 'gnome' else '')
-                    command('sudo python3 ~/.local/bin/current-vm-workstation-health' + health_options + ' > ~/current-vm-workstation-health.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-workstation-health.json" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-workstation-health.log')
+                    workstation_health(stage, desktop)
                     brew = command('/var/home/linuxbrew/.linuxbrew/bin/brew --version')
                     (evidence / (stage + '-brew-version.log')).write_text(brew)
                     if stage == 'source':

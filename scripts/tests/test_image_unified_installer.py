@@ -27,6 +27,7 @@ class UnifiedISO(unittest.TestCase):
     def test_health_receipts_are_allowed_at_source_and_each_reboot_stage(self):
         for stage in ('source', 'rebase-target', 'rebase-target-reboot', 'rebase-rollback'):
             self.assertTrue(vm.allowed_evidence_path('/' + stage + '-workstation-health.log'))
+            self.assertTrue(vm.allowed_evidence_path('/' + stage + '-before-workstation-health.log'))
             for phase in ('before', 'after'):
                 self.assertTrue(vm.allowed_evidence_path('/' + stage + '-' + phase + '-portal.png'))
         for path in ('/bootstrap-account-labels.log', '/installer-account-diagnostics.log'):
