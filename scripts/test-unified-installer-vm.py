@@ -752,7 +752,6 @@ def run(args):
             entry = {'stage': stage, 'actions': actions, 'completed': False}
             report.setdefault('cosmic_onboarding', []).append(entry)
             timezone_searched = False
-            fullscreen_requested = False
             for attempt in range(24):
                 state = command("printf '\\nONBOARDING_DONE=%s\\n' \"$(if test -f ~/.config/cosmic-initial-setup-done; then printf 1; else printf 0; fi)\"")
                 if re.search(r'^ONBOARDING_DONE=1\r?$', terminal_text(state), re.MULTILINE):
@@ -782,21 +781,6 @@ def run(args):
                 button = visible_control(tsv, width, height, labels=('skip',), required_phrase='No networks have been found')
                 if not button:
                     button = visible_control(tsv, width, height)
-                if not button and not fullscreen_requested:
-                    # EL9's native welcome can open taller than the VM output.
-                    # Focus its recognized title and use the ordinary window
-                    # shortcut once; keep the original display/renderer and
-                    # require actual visible controls on the next capture.
-                    title = visible_control(tsv, width, height, labels=('setup',),
-                                            required_phrase='Accessibility setup', minimum_y=0)
-                    if title:
-                        vm.qmp.click(title[1], title[2], width, height)
-                        vm.qmp.call('human-monitor-command', **{'command-line': 'sendkey meta_l-f11 100'})
-                        actions.append({'screenshot': name + '.png', 'window_action': 'fullscreen',
-                                        'shortcut': 'Super+F11'})
-                        fullscreen_requested = True
-                        time.sleep(3)
-                        continue
                 if button:
                     label, x, y = button
                     vm.qmp.click(x, y, width, height)
