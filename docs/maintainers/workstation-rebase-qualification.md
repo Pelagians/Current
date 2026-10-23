@@ -972,8 +972,9 @@ COSMIC/portal clients still emit Wayland Broken-pipe messages during shutdown;
 the serial capture contains 2,939 matching lines across the flow, not 2,939
 independent failures. Bounded diagnostic snapshots overlap, so their counts must
 not be summed. All five shutdown initramfs pivots and final journal checks passed.
-[Upstream session ordering](https://github.com/pop-os/cosmic-session/blob/master/src/main.rs)
-stops compositor work before deferred target teardown; that is consistent with
+[The 1.9](https://github.com/pop-os/cosmic-session/blob/epoch-1.9.0/src/main.rs)
+and [1.11 session implementations](https://github.com/pop-os/cosmic-session/blob/epoch-1.11.0/src/main.rs)
+abort compositor work before deferred target teardown; that is consistent with
 client disconnects, not proof that every message is harmless. No speculative
 session backport, service mask, log suppression or renderer override is applied.
 Fresh-session missing configuration/cache, UTC geodata and virtual-GPU Mesa

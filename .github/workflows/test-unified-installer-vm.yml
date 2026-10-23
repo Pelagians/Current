@@ -6,11 +6,11 @@ on:
       iso_run:
         description: Successful unified ISO workflow run ID
         required: true
-        default: '39909853781'
+        default: '39917099704'
       iso_revision:
         description: Exact source revision in the ISO build receipt
         required: true
-        default: 809c0fc3903df8ea92e80a08d228468240951f09
+        default: 480b323e91ce0ca4fc7f3497f6a8934e9c6953d1
       distribution:
         type: choice
         options: [fedora, alma10, alma9]
@@ -41,7 +41,7 @@ on:
         default: ''
       image_revision:
         description: Exact source revision required from published destinations
-        default: 809c0fc3903df8ea92e80a08d228468240951f09
+        default: 782560bfcb1a853ac9a6a3d3eeb694438794f7e6
   push:
     paths:
       - .github/workflows/test-unified-installer-vm.yml
@@ -125,11 +125,11 @@ jobs:
         with:
           name: current-installer-x86_64-experimental
           path: iso
-          run-id: ${{ inputs.iso_run || '39909853781' }}
+          run-id: ${{ inputs.iso_run || '39917099704' }}
           github-token: ${{ github.token }}
       - name: Exercise original ISO and first boot on a new virtual disk
         env:
-          ISO_REVISION: ${{ inputs.iso_revision || '809c0fc3903df8ea92e80a08d228468240951f09' }}
+          ISO_REVISION: ${{ inputs.iso_revision || '480b323e91ce0ca4fc7f3497f6a8934e9c6953d1' }}
           DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
           CHANNEL: ${{ inputs.channel || 'br-codex_unified-installer' }}
           SCENARIO: ${{ inputs.scenario || 'server-flow' }}
@@ -137,7 +137,7 @@ jobs:
           TARGET_DISTRIBUTION: ${{ inputs.target_distribution || 'none' }}
           TARGET_DESKTOP: ${{ inputs.target_desktop || 'auto' }}
           TARGET_CHANNEL: ${{ inputs.target_channel || '' }}
-          IMAGE_REVISION: ${{ inputs.image_revision || '809c0fc3903df8ea92e80a08d228468240951f09' }}
+          IMAGE_REVISION: ${{ inputs.image_revision || '782560bfcb1a853ac9a6a3d3eeb694438794f7e6' }}
         run: |
           extra=()
           scenario="$SCENARIO"
