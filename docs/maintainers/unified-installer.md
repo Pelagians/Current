@@ -236,7 +236,7 @@ Alma 9's unsupported Fedora archives must pass the final bootstrap reader.
 | Transition / hardware | Status |
 | --- | --- |
 | Fresh x86_64 bootstrap | Native labels, first-boot authentication, persistence and reboot passed on current ISO |
-| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Current 14-case matrix records all directed same-desktop pairs and two mixed-desktop cases; consult individual completed results |
+| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | All 14 current cases passed: directed same-desktop pairs and two mixed-desktop cases, including graphical login, native health, target reboot and rollback |
 | Server and same-distro desktop switches | Previous baseline completed; not repeated at current product revision |
 | Generic ARM64 UEFI | Current native ISO assembly passed; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations/build gates only; physical rendering/module tests required |

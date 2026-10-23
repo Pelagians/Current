@@ -725,7 +725,8 @@ matching label types, no captured current-boot colord denial, a resolvable and
 active Avahi daemon, successful Brew setup and real user `brew --version`, plus
 a Brew-prefix sentinel retained across the target reboot and exact-source rollback.
 All four real password logins and all five shutdown/journal gates remain mandatory.
-Current run results are recorded below; in-progress cases are unqualified.
+All fourteen current runs passed the complete recorded flow. Individual results
+are recorded below; failed earlier attempts remain failures.
 
 One complete-flow attempt,
 [39898528290](https://github.com/Pelagians/Current/actions/runs/39898528290),
@@ -756,20 +757,57 @@ No resolver/NSS policy is rewritten to silence those messages. The Homebrew
 checks cover setup, client version and retained prefix bytes/ownership, not
 arbitrary installed package ABI compatibility across distributions.
 
+The fresh Alma 10 COSMIC→Alma 9 COSMIC rerun's
+`rebase-rollback-session.png` also shows colored horizontal streaks near the
+bottom edge of the software-rendered Alma 10 COSMIC session. Authentication,
+session ownership and native health assertions passed, but this single frame is
+not a clean-rendering qualification. The disposable guest was torn down after
+collection; persistence/reproduction of that visual artifact needs a separate
+rendering test. No compositor or driver workaround is introduced from one frame.
+
+### Completed current-revision assessment (2026-10-23 UTC)
+
+All twelve directed same-desktop distro pairs (six GNOME and six COSMIC) and
+both mixed-desktop cases passed on the current receipts. Across these fourteen
+fresh flows, all 56 graphical/native-health stages passed, with zero captured
+current-boot colord denials and 31 ICC-file label checks. The final bootstrap
+readers verified 266 archives in total across the separate VM filesystems;
+that total is not a count of independent tests. All 70 recorded shutdown pivots
+and old-root unmounts passed. Home/account/ICC native types, Avahi resolution and
+active daemon, real user Homebrew execution and retained prefix were mandatory
+at source, target, target reboot and exact-source rollback.
+
+Target and rollback session screenshots were visually reviewed for every current
+case; source and target-reboot frames were additionally sampled in three cases.
+The native autostart/logind proof and greeter/password captures cover all four
+stages in each flow. COSMIC frames show an authenticated session with its own
+first-run window; that UI was not completed or qualified by this probe. No visual
+review claim extends to all application behavior or physical GPU rendering.
+
+The two fresh recovery reruns retain the same ISO/product receipts: the audit
+marker reader correction is exercised by the Alma 10 COSMIC→Alma 9 COSMIC rerun,
+and bounded observational dumps by Fedora COSMIC→Alma 10 COSMIC. Prior timeouts
+remain documented above. A replay of the actual failed audit-split serial trace
+also recovers its exact zero status with the corrected reader. All 177 local
+tests (80 runtime and 97 image), Actionlint and diff checks pass. Later commits
+modify qualification tools, workflow test/default wiring and documentation;
+installed destination contents remain `3bdfcaa1` and installer runtime contents
+remain `6d27cf9a`. XFS remains the default and PR #29 remains draft.
+
 <!-- CURRENT-HEALTH-MATRIX -->
 
 | Case | Run | Result |
 | --- | --- | --- |
-| Alma 10 COSMIC → Alma 9 COSMIC | [39901294471](https://github.com/Pelagians/Current/actions/runs/39901294471) | In progress; unqualified |
-| Alma 10 COSMIC → Fedora COSMIC | [39898327339](https://github.com/Pelagians/Current/actions/runs/39898327339) | In progress; unqualified |
+| Alma 10 COSMIC → Alma 9 COSMIC | [39901294471](https://github.com/Pelagians/Current/actions/runs/39901294471) | Passed; 4 graphical/native-health checks, 5 shutdowns, 20 final archives |
+| Alma 10 COSMIC → Fedora COSMIC | [39898327339](https://github.com/Pelagians/Current/actions/runs/39898327339) | Passed; 4 graphical/native-health checks, 5 shutdowns, 14 final archives |
 | Alma 10 GNOME → Alma 9 GNOME | [39898507969](https://github.com/Pelagians/Current/actions/runs/39898507969) | Passed; 4 graphical/native-health checks, 5 shutdowns, 18 final archives |
 | Alma 10 GNOME → Fedora GNOME | [39898305861](https://github.com/Pelagians/Current/actions/runs/39898305861) | Passed; 4 graphical/native-health checks, 5 shutdowns, 14 final archives |
 | Alma 9 COSMIC → Alma 10 COSMIC | [39898319639](https://github.com/Pelagians/Current/actions/runs/39898319639) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
-| Alma 9 COSMIC → Fedora COSMIC | [39898522018](https://github.com/Pelagians/Current/actions/runs/39898522018) | In progress; unqualified |
+| Alma 9 COSMIC → Fedora COSMIC | [39898522018](https://github.com/Pelagians/Current/actions/runs/39898522018) | Passed; 4 graphical/native-health checks, 5 shutdowns, 24 final archives |
 | Alma 9 COSMIC → Fedora GNOME | [39898544040](https://github.com/Pelagians/Current/actions/runs/39898544040) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
 | Alma 9 GNOME → Alma 10 GNOME | [39898299628](https://github.com/Pelagians/Current/actions/runs/39898299628) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
 | Alma 9 GNOME → Fedora GNOME | [39898500747](https://github.com/Pelagians/Current/actions/runs/39898500747) | Passed; 4 graphical/native-health checks, 5 shutdowns, 22 final archives |
-| Fedora COSMIC → Alma 10 COSMIC | [39901481474](https://github.com/Pelagians/Current/actions/runs/39901481474) | In progress; unqualified |
+| Fedora COSMIC → Alma 10 COSMIC | [39901481474](https://github.com/Pelagians/Current/actions/runs/39901481474) | Passed; 4 graphical/native-health checks, 5 shutdowns, 14 final archives |
 | Fedora COSMIC → Alma 9 COSMIC | [39898312453](https://github.com/Pelagians/Current/actions/runs/39898312453) | Passed; 4 graphical/native-health checks, 5 shutdowns, 18 final archives |
 | Fedora GNOME → Alma 10 GNOME | [39898493525](https://github.com/Pelagians/Current/actions/runs/39898493525) | Passed; 4 graphical/native-health checks, 5 shutdowns, 16 final archives |
 | Fedora GNOME → Alma 9 COSMIC | [39898535728](https://github.com/Pelagians/Current/actions/runs/39898535728) | Passed; 4 graphical/native-health checks, 5 shutdowns, 18 final archives |

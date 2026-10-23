@@ -31,8 +31,8 @@ switch and rollback cases are listed in the
 [current VM matrix](../maintainers/workstation-rebase-qualification.md#current-complete-flow-matrix).
 The current ISO (`6d27cf9a`) corrects native-policy labels for newly created
 homes/account files. Current workstation images (`3bdfcaa1`) add package-derived
-Avahi account provisioning and an Alma 9 Homebrew setup correction. The matrix
-records cross-distro GNOME/COSMIC runs requiring native home/ICC types, working
+Avahi account provisioning and an Alma 9 Homebrew setup correction. All fourteen recorded
+cross-distro GNOME/COSMIC flows passed checks for native home/ICC types, working
 Avahi resolution, real Homebrew execution, graphical login, reboot and rollback.
 These checks do not qualify all applications, Brew packages, LAN discovery or
 physical GPUs. Keep desktop testing disposable; the evidence records exact runs,
