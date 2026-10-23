@@ -86,7 +86,7 @@ jobs:
           repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${DISTRO}-cosmic"
           channel="repair-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           native="${repository}:${channel}-amd64"
-          docker buildx build --push --provenance=false --platform linux/amd64 \
+          docker buildx build --push --provenance=false --platform linux/amd64 --file candidate/Containerfile \
             --build-arg "BASE=$base" --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --label "io.current.repair-base-revision=782560bfcb1a853ac9a6a3d3eeb694438794f7e6" \
             --metadata-file candidate-build.json --tag "$native" candidate
