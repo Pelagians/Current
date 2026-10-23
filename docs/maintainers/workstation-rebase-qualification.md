@@ -880,3 +880,88 @@ checks. Baseline investigation runs
 [39905053393](https://github.com/Pelagians/Current/actions/runs/39905053393) use
 unchanged `3bdfcaa1` images and harness `c8f9c554`; they do not test the Avahi fix.
 Fresh current-image mDNS flows remain required after publication.
+
+The first two controls (`39905046419`, `39905053393`) both stopped at the new
+onboarding gate. Retained Fedora frames prove the capture probe itself opened
+COSMIC's normal “Allow Apps to Take Screenshots?” permission dialog, which remained
+over the first-run page after the blocking request timed out. These are probe
+failures, not evidence that Next/Finish is broken. Harness `4c077165` makes that
+request asynchronous, recognizes the exact visible permission title and a unique
+Allow control, and records normal GUI consent in the disposable user's session.
+No permission-store edit, portal bypass or product policy change is made. Sparse
+text OCR handles small footer controls; missing/ambiguous controls still fail.
+The early native pilot `39907117956` was cancelled during tool setup because it
+retained the confirmed probe defect; replacement
+[39908306518](https://github.com/Pelagians/Current/actions/runs/39908306518) uses
+the corrected probe and individually verified signed `2592911a` candidates.
+
+The Fedora control also captures `LANG=C.UTF-8` in both the real graphical session
+and system locale, despite the English Kickstart answer. This is a valid POSIX
+locale; COSMIC's locale parser warnings do not make it corrupt. Upstream
+[Anaconda language installation](https://github.com/rhinstaller/anaconda/blob/main/pyanaconda/modules/localization/installation.py)
+falls back to `C.UTF-8` when the installed payload cannot support the selected
+locale. A fresh
+[bootstrap locale control 39908189677](https://github.com/Pelagians/Current/actions/runs/39908189677)
+collects installed locale packages and final Anaconda language logs before a
+payload change is chosen. No forced LANG/LC_ALL override is introduced. Local
+checks now pass 80 runtime and 100 image tests, including title-guarded screenshot
+consent and rejection of ambiguous controls.
+
+The bootstrap locale control passed its ordinary label/authentication/reboot gates
+and confirmed the missing support: `glibc-minimal-langpack` was installed,
+`glibc-langpack-en` and `glibc-all-langpacks` were absent, and `locale -a` listed
+only `C`, `C.utf8`, `POSIX`. The final Anaconda journal explicitly records
+`en_US.UTF-8` matching no installed locale, the unsupported-locale decision,
+and writing `C.UTF-8` as its fallback. This is a payload-content issue rather
+than an invented greeter-language override.
+
+Revision `809c0fc3` adds `glibc-langpack-en` to the minimal bootstrap and common
+OS layer. The latter keeps the installer's English choice available on server
+as well as workstation destinations. This adds locale data, not a desktop or
+persistent environment override. Anaconda still selects the locale. Other
+bootstrap languages remain limited to installed support; broad multilingual
+setup and deliberately selected C locales are not qualified by this correction.
+
+The Avahi-only build `39905610863` was intentionally cancelled as superseded.
+Its shared-publisher job executed no steps; partial native successes are not a
+complete publication pass. The individually signed `2592911a` pilot remains a
+diagnostic of that earlier content. The coherent rebuilds are now
+[native images 39909852390](https://github.com/Pelagians/Current/actions/runs/39909852390)
+and [both ISOs 39909853781](https://github.com/Pelagians/Current/actions/runs/39909853781),
+with all existing signature/NVIDIA/shared-index gates retained. These builds
+must pass before the new revision is called qualified.
+
+Strict workstation mDNS, bootstrap-locale and server rebase-locale scenarios now
+require the selected English locale in `/etc/locale.conf` and native libc; real
+graphical-session captures must retain it too. They do not set LANG/LC_ALL to make
+an assertion pass. Fresh current-ISO flows must repeat native home/ICC, accounts,
+mDNS, first-run completion, password login, reboot, exact-source rollback and
+full final journal/shutdown gates. The earlier fourteen-flow matrix remains
+historical evidence for `3bdfcaa1` / `6d27cf9a`.
+
+The Avahi-only native pilot `39908306518` passed its source Alma 9 mDNS checks:
+both explicit `mdns4` and ordinary NSS returned the temporary published address,
+and the captured Avahi startup-warning count was zero. Its full flow failed at
+onboarding because default OCR omitted the visibly present Next control; it is
+not a completed transition. Original PNGs remain unchanged. Local calibration
+against that exact frame found Tesseract's adaptive thresholding recognizes Next
+at 93% confidence; harness `cfbb3b76` uses that standard OCR option, retains the
+unique-control gate, and accepts both observed screenshot-permission titles
+(“Allow Apps…” and “Allow Applications…”). It still requires upstream's own
+completion marker and process exit. No guessed coordinate or fabricated state
+replaces the UI.
+
+Both `809c0fc3` ISO jobs passed. Small receipt reads bind x86_64 artifact
+`12483430069` to ISO SHA-256
+`8d1457e8d86d922c8a2796a8c4f532314469bf7985bb3892d47e5783dee3f356`
+and bootstrap digest
+`sha256:93a1b1ca7d56574b940cb6882fb94d2e29b3f5e2c8db89a08dc944e13828ccfc`.
+The native ARM64 artifact `12482603287` has ISO SHA-256
+`c25fd94cd7e18cff89365698d9a438305e021358817114b09278c85c1928fd40`
+and bootstrap digest
+`sha256:87e1006462b5214dcc0922eb27ee7f5dc1948074e297fa21fe1dad03f76f25c6`.
+Native ARM assembly is not ARM boot qualification. The x86_64 locale control
+[39911888427](https://github.com/Pelagians/Current/actions/runs/39911888427)
+uses this new ISO. The native image rebuild is still pending at this checkpoint;
+individually signed native candidates can be tested before publication, but the
+complete publication and shared-index checks remain mandatory and separate.
