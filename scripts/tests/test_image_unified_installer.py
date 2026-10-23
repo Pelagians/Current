@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('bootstrap_build', ROOT / 'scripts/bootstrap-build.py')
@@ -51,6 +51,15 @@ class UnifiedISO(unittest.TestCase):
         for point in ((-1, 0), (1280, 0), (0, 800)):
             with self.assertRaises(ValueError):
                 qmp.click(*point, 1280, 800)
+
+    def test_vm_console_login_recovers_only_before_password(self):
+        serial = SimpleNamespace(sendline=Mock(),
+                                 expect=Mock(side_effect=[1, 0]))
+        vm.console_password(serial)
+        self.assertEqual(serial.sendline.call_args_list, [call('currenttest')] * 2)
+        serial.expect.side_effect = [1, 1, 1]
+        with self.assertRaisesRegex(RuntimeError, 'repeatedly reset'):
+            vm.console_password(serial)
 
     def test_vm_graphical_status_ignores_serial_echo(self):
         echo = "printf 'SESSION_RESULT=%s\\n' ...\r\n"

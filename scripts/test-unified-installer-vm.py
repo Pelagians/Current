@@ -83,6 +83,16 @@ def staged_rebase(output):
     return json.loads(lines[0])
 
 
+def console_password(serial):
+    # A late getty restart can discard the first username at boot. Retry only
+    # after a fresh login prompt, before sending any password.
+    for _ in range(3):
+        serial.sendline('currenttest')
+        if serial.expect(['Password:', 'current-vm login:'], timeout=60) == 0:
+            return
+    raise RuntimeError('Serial login repeatedly reset before requesting a password')
+
+
 def graphical_result(output):
     """Ignore echoed commands while waiting for an actual autostart receipt."""
     results = re.findall(r'^SESSION_RESULT=([0-9]+|pending)\r?$', terminal_text(output), re.MULTILINE)
@@ -459,8 +469,7 @@ def run(args):
         record('Anaconda reached post-install and rebooted into an authenticated login')
 
         def login(bootstrap):
-            vm.serial.sendline('currenttest')
-            vm.serial.expect('Password:')
+            console_password(vm.serial)
             vm.serial.sendline(password)
             shell_prompt = r'\[currenttest@current-vm [^\r\n]*\]\$ '
             started_setup = vm.serial.expect(['Current initial setup', shell_prompt]) == 0
