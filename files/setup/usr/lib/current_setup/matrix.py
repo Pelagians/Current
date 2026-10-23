@@ -137,4 +137,3 @@ def load_rows(path: Path) -> list[dict[str, str]]:
     if not rows:
         die('image matrix is empty')
     return rows
-

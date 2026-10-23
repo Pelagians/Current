@@ -51,4 +51,3 @@ def recipe_graph(path: Path, stack: tuple[Path, ...] = ()) -> list[Path]:
     for include in direct_includes(path):
         graph.extend(recipe_graph(include, (*stack, path)))
     return graph
-
