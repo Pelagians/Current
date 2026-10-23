@@ -857,6 +857,16 @@ and complete signed shared publication remain required. Its native ARM64 Alma 9
 COSMIC job passed and records the compatibility helper adding 249 flag fields;
 this is build evidence only.
 
+Its first attempt retained 41 successful native images. Three x86_64 Alma 9
+COSMIC variants exhausted native COPR RPM downloads with curl timeout 28 before
+reaching the compatibility helper. The last Alma 10 NVIDIA server lane was
+cancelled after about 50 minutes to inspect its log and release the held retry.
+That log shows a core-package step taking 24 minutes, partial/slow native mirror
+downloads, then successful layer export; cancellation stopped its push. It is a
+cancelled diagnostic attempt, not a measured recipe failure. The publisher ran
+no steps. The failed-job retry runs four unfinished native lanes at the same
+source and retains successful artifacts; all signing/publication gates remain.
+
 The preceding amended build `dc78334d` passed all 45 native image jobs. Its
 publisher was cancelled as superseded by the measured country-schema fix.
 Independent checks after cancellation still matched all 24 shared references and
@@ -1011,6 +1021,7 @@ access recovered. No conclusion was inferred from inaccessible evidence.
 | `39919462672`, `39927020805` | Corrected Alma 9 probe reached actual empty language page; latter retained exact schema error |
 | `39921090622`, `39921099634` | Populated timezone page required ordinary city selection; harness corrected |
 | `39922866183` | Docker inventory failed with max-depth before reading data; Podman inventory subsequently passed |
+| `39932122029`, attempt 1 | Three native COSMIC RPM-download failures and one prolonged server build cancelled for diagnosis; four-lane retry retains successful artifacts |
 
 The corrected OCR probe combines original whole-frame OCR with OCR-only interiors
 of bounded cyan controls, requires high-confidence exact title/unique label, and
