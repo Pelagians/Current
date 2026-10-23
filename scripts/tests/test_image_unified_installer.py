@@ -116,6 +116,10 @@ class UnifiedISO(unittest.TestCase):
             self.assertIsNone(vm.visible_control(header + invalid, 1280, 800, **auth_options))
         observed = (ROOT / 'scripts/tests/fixtures/cosmic-welcome/timezone-authentication.tsv').read_text()
         self.assertEqual(vm.visible_control(observed, 1280, 800, **auth_options), ('Password', 538, 373))
+        submit_options = dict(labels=('authenticate',), required_phrase=auth_options['required_phrase'], minimum_y=0)
+        self.assertEqual(vm.visible_control(observed, 1280, 800, **submit_options), ('Authenticate', 842, 462))
+        for invalid in (word('Authenticate'), prompt, prompt + word('Authenticate') + word('Authenticate', x=1000)):
+            self.assertIsNone(vm.visible_control(header + invalid, 1280, 800, **submit_options))
         for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),
                      word('Skip'), word() + word('Finish', x=1000), ''):
             self.assertIsNone(vm.visible_control(header + rows, 1280, 800))

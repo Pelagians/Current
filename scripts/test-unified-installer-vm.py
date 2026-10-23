@@ -834,13 +834,33 @@ def run(args):
                     field = visible_control(tsv, width, height, labels=('password',),
                                             required_phrase='Authentication is required to set the system timezone',
                                             minimum_y=0, control_confidence=50)
-                    if not timezone_searched or timezone_authenticated or not field:
+                    submit = visible_control(tsv, width, height, labels=('authenticate',),
+                                             required_phrase='Authentication is required to set the system timezone',
+                                             minimum_y=0)
+                    if not timezone_searched or timezone_authenticated or not field or not submit:
                         raise RuntimeError('Unexpected authentication dialog during COSMIC onboarding; no password entered')
                     _, x, y = field
                     vm.qmp.click(x, y, width, height)
+                    # Like the greeter, this native dialog must finish focusing
+                    # before QMP sends the first password character.
+                    time.sleep(1)
                     graphical_password_pending = True
-                    vm.qmp.keys(password + '\n', delay=.1)
-                    command('(for attempt in $(seq 1 20); do if test "$(timedatectl show -p Timezone --value)" = Africa/Dakar; then exit 0; fi; sleep 1; done; exit 1)')
+                    vm.qmp.keys(password, delay=.1)
+                    time.sleep(.5)
+                    _, x, y = submit
+                    vm.qmp.click(x, y, width, height)
+                    try:
+                        command('(for attempt in $(seq 1 20); do if test "$(timedatectl show -p Timezone --value)" = Africa/Dakar; then exit 0; fi; sleep 1; done; exit 1)')
+                    except RuntimeError:
+                        # Keep screenshots blocked while a password may remain
+                        # visible. Native text diagnostics distinguish a failed
+                        # authentication from selecting the wrong timezone.
+                        try:
+                            diagnostic = command('timedatectl status; sudo journalctl -b --no-pager -n 400; true')
+                            (evidence / (stage + '-timezone-authentication-failure.log')).write_text(diagnostic.replace(password, '[REDACTED]'))
+                        except RuntimeError:
+                            pass
+                        raise
                     graphical_password_pending = False
                     timezone_authenticated = True
                     actions.append({'screenshot': name + '.png', 'authentication': 'native timezone polkit dialog', 'timezone_verified': 'Africa/Dakar'})
@@ -852,7 +872,11 @@ def run(args):
                     vm.qmp.click(x, y, width, height)
                     # A real native city choice; Dakar observes UTC year-round,
                     # matching this disposable install's UTC time preference.
-                    vm.qmp.keys('Dakar\n')
+                    vm.qmp.keys('Dakar', delay=.1)
+                    # on_submit captures the first result from the last drawn
+                    # view. Let the complete query render before pressing Enter.
+                    time.sleep(3)
+                    vm.qmp.keys('\n')
                     actions.append({'screenshot': name + '.png', 'field': 'timezone', 'search': 'Dakar', 'selection': 'native first search result via Enter'})
                     timezone_searched = True
                     time.sleep(3)

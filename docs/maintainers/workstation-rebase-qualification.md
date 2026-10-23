@@ -1316,3 +1316,16 @@ offset and malformed-input rejection. The resulting runtime RPM SHA-256 is
 The source/parent/patch receipt was independently checked. All nine package
 jobs passed; signed assembly, fresh native sessions and normal-image acceptance
 remain separate gates.
+
+The first fresh Alma 9 → Fedora candidate run, `40030009569`, reached real
+Alma 9 login, native portal capture, OSK liveness and the visible accessibility
+controls, but failed while verifying the timezone after native authentication.
+Its retained pre-password frame contains the correct prompt and field; it does
+not establish whether input focus or city selection raced. Native welcome's
+Enter handler captures the first result from its last rendered search view.
+The harness now lets the complete city query render before Enter, waits for
+password-field focus, and clicks the uniquely recognized native Authenticate
+button. It still requires the actual `Africa/Dakar` timezone before advancing.
+A failure retains redacted native text diagnostics while screenshots remain
+blocked during possible password entry. The unchanged signed candidates require
+a fresh complete-flow retry; the interrupted run is not a shutdown or rebase pass.
