@@ -2,6 +2,7 @@ name: Qualify native COSMIC repairs
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

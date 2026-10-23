@@ -25,8 +25,9 @@ vendored dependencies with network access disabled. Source and repaired binary
 RPMs accompany build receipts. Build dependencies exist only in disposable
 containers; candidate payloads install only the repaired runtime RPMs.
 
-Dispatch **Qualify native COSMIC repairs** (`test-cosmic-repairs.yml`) on the
-feature branch. Five native x86_64 package builds produce three signed isolated
+Dispatch **current-builder** (`build.yml`) on the feature branch with
+`cosmic_repairs_only=true`. This calls `test-cosmic-repairs.yml` without requiring
+the new workflow to exist on `stable`. Five native x86_64 package builds produce three signed isolated
 bootc candidates under `repair-run-RUN-ATTEMPT`. The candidates retain the
 standard image repository identity and setup API. Their test indexes contain
 only x86_64; they do not qualify ARM or replace the normal multi-architecture
