@@ -1,0 +1,118 @@
+name: Qualify native COSMIC repairs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      packages: ${{ steps.matrix.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: matrix
+        run: echo "packages=$(python3 scripts/build-cosmic-repairs.py matrix)" >> "$GITHUB_OUTPUT"
+
+  packages:
+    needs: matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: sigstore/cosign-installer@v4.1.2
+      - name: Verify pinned native parent
+        env:
+          BASE: ${{ matrix.base }}
+        run: cosign verify --key cosign.pub "$BASE" > parent-signature.json
+      - name: Rebuild patched native RPM with vendored dependencies
+        env:
+          BASE: ${{ matrix.base }}
+          DISTRO: ${{ matrix.distribution }}
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          mkdir -p "$RUNNER_TEMP/cosmic-rpms"
+          docker run --rm --entrypoint /usr/bin/python3 \
+            -v "$PWD:/work:ro" -v "$RUNNER_TEMP/cosmic-rpms:/out" \
+            "$BASE" /work/scripts/build-cosmic-repairs.py build \
+            --distribution "$DISTRO" --package "$PACKAGE" --output /out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-repair-${{ matrix.distribution }}-${{ matrix.package }}
+          path: ${{ runner.temp }}/cosmic-rpms/*
+          if-no-files-found: error
+          retention-days: 7
+
+  candidates:
+    needs: packages
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        distribution: [fedora, alma9, alma10]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cosmic-repair-${{ matrix.distribution }}-*
+          path: repair-artifacts
+          merge-multiple: true
+      - uses: sigstore/cosign-installer@v4.1.2
+      - uses: docker/setup-buildx-action@v3
+      - name: Assemble and sign isolated candidate
+        env:
+          DISTRO: ${{ matrix.distribution }}
+          REGISTRY_TOKEN: ${{ github.token }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+          COSIGN_PASSWORD: ""
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+          python3 scripts/prepare-cosmic-repair-candidate.py "$DISTRO" repair-artifacts candidate
+          base=$(python3 -c 'import json,sys; print(json.load(open("packages/cosmic-repairs/sources.json"))[sys.argv[1]]["base"])' "$DISTRO")
+          cosign verify --key cosign.pub "$base" > parent-signature.json
+          repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${DISTRO}-cosmic"
+          channel="repair-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          native="${repository}:${channel}-amd64"
+          docker buildx build --push --provenance=false --platform linux/amd64 \
+            --build-arg "BASE=$base" --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "io.current.repair-base-revision=782560bfcb1a853ac9a6a3d3eeb694438794f7e6" \
+            --metadata-file candidate-build.json --tag "$native" candidate
+          digest=$(python3 -c 'import json; print(json.load(open("candidate-build.json"))["containerimage.digest"])')
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$repository@$digest"
+          # The setup API resolves an index to its native child. This isolated
+          # test index intentionally contains only x86_64; it is not an ARM claim.
+          docker buildx imagetools create --tag "$repository:$channel" "$repository@$digest"
+          index_digest=$(docker buildx imagetools inspect "$repository:$channel" --format '{{json .Manifest}}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$repository@$index_digest"
+          cosign verify --key cosign.pub "$repository@$digest" > candidate-signature.json
+          python3 - "$repository" "$channel" "$digest" "$index_digest" <<'PY'
+          import json, os, sys
+          repository, channel, digest, index_digest = sys.argv[1:]
+          with open('candidate-receipt.json', 'w') as handle:
+              json.dump(dict(reference=repository+':'+channel, digest=digest,
+                             index_digest=index_digest, revision=os.environ['GITHUB_SHA'],
+                             architecture='x86_64', run_id=os.environ['GITHUB_RUN_ID']), handle, indent=2)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-repair-candidate-${{ matrix.distribution }}
+          path: |
+            candidate-receipt.json
+            candidate-build.json
+            candidate-signature.json
+            parent-signature.json
+            candidate/receipts/*.json
+          if-no-files-found: error
+          retention-days: 7

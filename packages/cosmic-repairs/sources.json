@@ -1,0 +1,50 @@
+{
+  "alma9": {
+    "packages": {
+      "cosmic-initial-setup": {
+        "version": "1.9.0-1.el9",
+        "url": "https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/epel-9-x86_64/Packages/c/cosmic-initial-setup-1.9.0-1.el9.src.rpm",
+        "sha256": "c74c37bd81a1b1af9b813d86b563f95f75666e8e05de879fb56304c359d3f057",
+        "patch": "setup-bounded-window.patch"
+      },
+      "xdg-desktop-portal-cosmic": {
+        "version": "1.9.0-1.el9",
+        "url": "https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/epel-9-x86_64/Packages/x/xdg-desktop-portal-cosmic-1.9.0-1.el9.src.rpm",
+        "sha256": "73472006d24c898434eaf0061c11c98cfc53d492ed9be4649c57cf6a8d40ef77",
+        "patch": "portal-disconnect.patch"
+      }
+    },
+    "base": "ghcr.io/pelagians/alma9-cosmic@sha256:34e78d7a75fd4267693b581bccd6ed95ab86b45868866a7c8efddb08ebe01fbd",
+    "base_revision": "782560bfcb1a853ac9a6a3d3eeb694438794f7e6"
+  },
+  "alma10": {
+    "packages": {
+      "cosmic-panel": {
+        "version": "1.11.0-1.el10",
+        "url": "https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/rhel+epel-10-x86_64/Packages/c/cosmic-panel-1.11.0-1.el10.src.rpm",
+        "sha256": "6b238e1cda81dae4d530bf57c4486363197475987f4830c828d9b2a4d51579d5",
+        "patch": "panel-transparent-repaint.patch"
+      },
+      "xdg-desktop-portal-cosmic": {
+        "version": "1.11.0-1.el10",
+        "url": "https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/rhel+epel-10-x86_64/Packages/x/xdg-desktop-portal-cosmic-1.11.0-1.el10.src.rpm",
+        "sha256": "b6080762f85e1a920a7a7abd71b342e05050a69384cb3d182291bb04f6352ba8",
+        "patch": "portal-disconnect.patch"
+      }
+    },
+    "base": "ghcr.io/pelagians/alma10-cosmic@sha256:857fa53942507f107b0a36f20261d55fbc0fe7fd25039c870ea2d5d3950a2d7f",
+    "base_revision": "782560bfcb1a853ac9a6a3d3eeb694438794f7e6"
+  },
+  "fedora": {
+    "packages": {
+      "xdg-desktop-portal-cosmic": {
+        "version": "1.11.0-2.fc44",
+        "url": "https://kojipkgs.fedoraproject.org/packages/xdg-desktop-portal-cosmic/1.11.0/2.fc44/src/xdg-desktop-portal-cosmic-1.11.0-2.fc44.src.rpm",
+        "sha256": "80cdbeb1a155c8beef01c1cbf18980116e017f9a94541d6be1ce92a9b1ba50e9",
+        "patch": "portal-disconnect.patch"
+      }
+    },
+    "base": "ghcr.io/pelagians/fedora-cosmic@sha256:2a2cdbac782fd14ca15b0c5ff74cf7cde8e39f00465a4b97b3b72207c7026fa3",
+    "base_revision": "782560bfcb1a853ac9a6a3d3eeb694438794f7e6"
+  }
+}

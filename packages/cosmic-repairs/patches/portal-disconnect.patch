@@ -1,0 +1,17 @@
+--- a/src/wayland/mod.rs
++++ b/src/wayland/mod.rs
+@@ -341,7 +341,13 @@
+                         tracing::error!("wayland dispatch: {}", err);
+                     }
+                     // Protocol or I/O error; the connection is unusable
+-                    Err(err) => panic!("wayland dispatch: {}", err),
++                    Err(err) => {
++                        // A disconnected compositor cannot service pending portal requests.
++                        // Exit unsuccessfully so the native service policy can recover,
++                        // without unwinding a worker and running AppData::drop during panic.
++                        tracing::error!("wayland dispatch: {}; terminating portal", err);
++                        std::process::exit(1);
++                    }
+                 }
+             }
+         });
