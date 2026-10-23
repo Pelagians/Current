@@ -9,7 +9,9 @@ Keep this draft ISO on disposable test disks. The current x86_64 ISO passed
 complete Fedora, AlmaLinux 10 and AlmaLinux 9 server UEFI/KVM flows: root-only
 automatic partitioning, authenticated first-boot setup, network-failure retry,
 signed switch, enforcing destination boot, explicit completion and rollback.
-Manual separate-home and encrypted layouts remain unqualified.
+All six directed server rebase pairs among these distributions now pass the
+recorded VM flow, including target reboot and exact-source rollback. Manual
+separate-home and encrypted layouts remain unqualified.
 
 The Alma 10 SELinux finalizer correction passed. The XFS profile disables parent
 pointers and atomic extent exchange so Alma 9 can mount it and its bundled repair
@@ -24,9 +26,13 @@ newer Fedora journals and cannot verify their format; all retained archives in
 the final rerun passed verification after rollback to Fedora. Structural checks
 use closed archives because upstream verification can race active journal writes.
 Authenticated user services passed on all three distributions despite nonfatal
-bootstrap PAM credential audit messages. Desktop sessions remain unqualified.
-See the linked maintainer evidence for exact artifacts, the failed diagnostic
-attempt, remaining warnings and test limits.
+bootstrap PAM credential audit messages. Recorded GNOME/COSMIC graphical-login,
+switch and rollback cases are listed in the
+[current VM matrix](../maintainers/workstation-rebase-qualification.md#current-complete-flow-matrix).
+These basic session passes do not establish complete workstation health: native
+audit records show home/ICC label denials, and service-account/Homebrew setup
+warnings remain under investigation. Keep desktop testing disposable. See that
+evidence for exact artifacts, failed attempts, remaining warnings and test limits.
 
 In Anaconda choose storage, timezone, networking and an administrator account.
 The default root filesystem is XFS; Btrfs is excluded because the selected system
@@ -36,7 +42,8 @@ rejection with Begin Installation disabled and an entirely unallocated disk.
 Unused existing volumes are not installation targets.
 Root login is locked. After reboot, log in
 on the local console with the account you created. Setup opens after normal
-administrator authentication. It never uses root autologin. SSH remains usable.
+administrator authentication. It never uses root autologin. SSH remains enabled;
+setup does not automatically launch in an SSH login.
 
 Start or resume manually:
 

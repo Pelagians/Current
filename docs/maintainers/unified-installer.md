@@ -208,7 +208,7 @@ snapshot package repositories and pin the module/tool versions as well.
 
 The latest rebuilt ISOs use source `7eae0d4b` (x86_64 checksum `b301fe88...`)
 and the new signed native image publication uses product source `e8fc3698`.
-See [current workstation and cross-distro VM evidence](workstation-rebase-qualification.md#rebuilt-iso-and-signed-native-candidates)
+See [current workstation and cross-distro VM evidence](workstation-rebase-qualification.md#current-complete-flow-matrix)
 for exact receipts, tested digests, completed runs and remaining gates.
 
 The previous x86_64 ISO (`6f48c731`, checksum `f37441b3...`) passed complete
@@ -228,12 +228,12 @@ mutation occurred.
 
 | Transition / hardware | Status |
 | --- | --- |
-| Bootstrap Fedora 44 → Fedora server | Rebuilt ISO full UEFI/KVM flow passed, including two clean reboot teardowns, journals/user services, XFS repair-tool recognition, enforcing SELinux, completion and rollback; physical hardware unqualified |
-| Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 10 server | Rebuilt ISO full UEFI/KVM flow passed, including SELinux finalization, two clean reboot teardowns, journals/user services, XFS repair-tool recognition, enforcing SELinux, completion and rollback |
-| Bootstrap Fedora 44 → Alma 10 GNOME/COSMIC | Experimental; desktop login and rendering tests required |
-| Bootstrap Fedora 44 → Alma 9 server | Rebuilt ISO full UEFI/KVM flow passed with parent=0/exchange=0 XFS, three clean reboot teardowns, closed-archive verification after rollback, user services, Alma 9 repair-tool recognition, enforcing SELinux and completion |
-| Bootstrap Fedora 44 → Alma 9 GNOME/COSMIC | Experimental; desktop login and rendering tests required |
+| Bootstrap Fedora 44 → Fedora server | Rebuilt ISO full UEFI/KVM flow passed; current complete matrix adds both outgoing distro rebases, target reboot and exact-source rollback |
+| Bootstrap Fedora 44 → Fedora GNOME/COSMIC | Recorded authenticated login, desktop switch, target reboot and rollback passed in both directions; policy/service health and physical rendering remain experimental |
+| Bootstrap Fedora 44 → Alma 10 server | Rebuilt ISO full flow passed, including SELinux finalization; both outgoing distro rebases and exact-source rollback passed |
+| Bootstrap Fedora 44 → Alma 10 GNOME/COSMIC | Recorded authenticated login, desktop switch, target reboot and rollback passed in both directions; policy/service health and physical rendering remain experimental |
+| Bootstrap Fedora 44 → Alma 9 server | Rebuilt ISO full flow passed with parent=0/exchange=0 XFS; both outgoing distro rebases and exact-source rollback passed; deferred archives verified by Fedora |
+| Bootstrap Fedora 44 → Alma 9 GNOME/COSMIC | Authenticated desktop observations and complete-flow results are recorded in the current matrix; native home/ICC labeling and service provisioning remain open gates |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |
