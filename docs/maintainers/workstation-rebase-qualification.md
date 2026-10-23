@@ -643,7 +643,7 @@ The destination image content remains at product source `3bdfcaa1`; this follow-
 changes only the installer runtime, tests and documentation. Reuse verified native
 receipts, rebuild the ISO and keep the failing assertion for the reruns.
 
-### Current complete-flow matrix
+### Previous complete-flow matrix (e8fc3698)
 
 All entries use ISO `39867706688` / source `7eae0d4b`, the shipped XFS profile,
 UEFI/KVM with Secure Boot disabled, and signed native images at product source
@@ -681,3 +681,75 @@ actual source rollback. No physical GPU, ARM boot, Secure Boot enabled, encrypte
 layout, crash/corruption, or cross-distro workstation qualification follows from
 these standard x86_64 VM cases. Desktop policy/service/account health remains
 gated by the native audit evidence described above.
+
+
+### Current complete-flow matrix
+
+Destination images use product source `3bdfcaa1`; the installer uses source
+`6d27cf9a`. [Native publication 39888299554](https://github.com/Pelagians/Current/actions/runs/39888299554)
+passed all 51 jobs. Independent read-only checks matched all 45 native receipts,
+24 shared indexes and 21 ARM compatibility references. Signing and NVIDIA gates
+were retained. These checks do not qualify hardware drivers.
+
+[ISO rebuild 39893211536](https://github.com/Pelagians/Current/actions/runs/39893211536)
+passed both native architectures. The x86_64 checksum is
+`be3a6b5df92c60cd3fa2eb9a04a69b31a807335d6c1682a1dd36bd9800a39aea`
+(artifact `12475714467`); ARM is
+`7e5bc66470a953e7fe1ec65aeed0ee666bd5c2f854d153143d020a8d5cc65836`
+(artifact `12476091848`). Inputs retain the pinned builder/runtime bases and XFS
+parent=0/exchange=0 profile. ARM assembly is not ARM boot qualification.
+
+[Fresh bootstrap control 39894407267](https://github.com/Pelagians/Current/actions/runs/39894407267)
+passed authenticated first boot and reboot with enforcing SELinux, correct native
+home/account-file types, persistent user/network/journals and a clean shutdown
+pivot/old-root unmount. The original ISO's graphical Anaconda welcome screen was
+visually inspected. The final installer journal now records actual account-file
+relabeling. SELinux user/range values are preserved; the assertions compare native
+policy types rather than forcing a complete context.
+
+The first six workstation runs against this ISO reached real source sessions and
+completed the native health script, then failed uploading
+`source-workstation-health.log`: the bounded collector's stage allowlist omitted
+`source`. The `&& curl` error is a test-transport failure, not a native label,
+Avahi or Brew setup failure. Runs `39896492203`, `39896498280`, `39896504809`,
+`39896510990`, `39896518979`, `39896525686` remain incomplete and are not full-flow
+passes. The collector now admits the exact source health path; a regression test
+checks all four session stages and rejects unrelated/traversal paths. No health,
+authentication, rollback or journal gate was relaxed. Local validation passes
+80 runtime and 97 image tests, Actionlint and diff checks.
+
+The current fourteen reruns use the verified shared channel on fresh x86_64
+UEFI/KVM disks with software virtio graphics, Secure Boot disabled, root-only XFS
+and a UID 1000 administrator. Each requires a native ICC profile for GNOME,
+matching label types, no captured current-boot colord denial, a resolvable and
+active Avahi daemon, successful Brew setup and real user `brew --version`, plus
+a Brew-prefix sentinel retained across the target reboot and exact-source rollback.
+All four real password logins and all five shutdown/journal gates remain mandatory.
+Current run results are recorded below; in-progress cases are unqualified.
+
+<!-- CURRENT-HEALTH-MATRIX -->
+
+| Case | Run | Result |
+| --- | --- | --- |
+| Alma 10 COSMIC → Alma 9 COSMIC | [39898528290](https://github.com/Pelagians/Current/actions/runs/39898528290) | In progress; unqualified |
+| Alma 10 COSMIC → Fedora COSMIC | [39898327339](https://github.com/Pelagians/Current/actions/runs/39898327339) | In progress; unqualified |
+| Alma 10 GNOME → Alma 9 GNOME | [39898507969](https://github.com/Pelagians/Current/actions/runs/39898507969) | In progress; unqualified |
+| Alma 10 GNOME → Fedora GNOME | [39898305861](https://github.com/Pelagians/Current/actions/runs/39898305861) | In progress; unqualified |
+| Alma 9 COSMIC → Alma 10 COSMIC | [39898319639](https://github.com/Pelagians/Current/actions/runs/39898319639) | In progress; unqualified |
+| Alma 9 COSMIC → Fedora COSMIC | [39898522018](https://github.com/Pelagians/Current/actions/runs/39898522018) | In progress; unqualified |
+| Alma 9 COSMIC → Fedora GNOME | [39898544040](https://github.com/Pelagians/Current/actions/runs/39898544040) | In progress; unqualified |
+| Alma 9 GNOME → Alma 10 GNOME | [39898299628](https://github.com/Pelagians/Current/actions/runs/39898299628) | In progress; unqualified |
+| Alma 9 GNOME → Fedora GNOME | [39898500747](https://github.com/Pelagians/Current/actions/runs/39898500747) | In progress; unqualified |
+| Fedora COSMIC → Alma 10 COSMIC | [39898514712](https://github.com/Pelagians/Current/actions/runs/39898514712) | In progress; unqualified |
+| Fedora COSMIC → Alma 9 COSMIC | [39898312453](https://github.com/Pelagians/Current/actions/runs/39898312453) | In progress; unqualified |
+| Fedora GNOME → Alma 10 GNOME | [39898493525](https://github.com/Pelagians/Current/actions/runs/39898493525) | In progress; unqualified |
+| Fedora GNOME → Alma 9 COSMIC | [39898535728](https://github.com/Pelagians/Current/actions/runs/39898535728) | In progress; unqualified |
+| Fedora GNOME → Alma 9 GNOME | [39898293054](https://github.com/Pelagians/Current/actions/runs/39898293054) | In progress; unqualified |
+
+These results cover fresh unified-installer XFS layouts and standard images.
+Existing/reused homes are not automatically relabeled by the added installer hook.
+Classic mutable installs, older installer layouts, encrypted/separate-home setups,
+custom account IDs, contaminated session preferences, full application/Brew-package
+ABI behavior, physical GPUs, Secure Boot enabled and ARM boot remain unqualified.
+The software graphics and version/prefix tests do not establish physical rendering,
+color accuracy, LAN discovery or arbitrary package compatibility.
