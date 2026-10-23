@@ -616,6 +616,33 @@ an ICC profile with native types and no captured color-daemon denial in the
 current boot's kernel journal, alongside Avahi/Brew and persistent-data checks.
 
 
+### First label-fix attempts and SELinux API correction
+
+The first rebuilt ISO's stronger label assertion failed **before any destination
+pull** in workstation runs `39890077246`, `39890109731`, `39890625831` and
+`39890685357`, and bootstrap control `39889645399`. They are not workstation or
+Avahi/Brew qualification passes. The follow-up
+[installer-log capture 39892108856](https://github.com/Pelagians/Current/actions/runs/39892108856)
+also failed that same gate and retained the final Anaconda journal. It proves the
+new-home hook executed: `restorecon -R -v -- /var/home/currenttest` and the account
+file relabel both returned zero, without changing the resulting `var_t` home.
+The native policy already contained the expected home and ICC rules.
+
+[Anaconda's bootc API setup](https://github.com/rhinstaller/anaconda/blob/main/pyanaconda/modules/payloads/payload/rpm_ostree/installation.py)
+binds `/sys` nonrecursively, excluding its separate SELinux filesystem mount.
+[Upstream restorecon](https://github.com/SELinuxProject/selinux/blob/main/policycoreutils/setfiles/setfiles.c)
+deliberately exits zero when SELinux is unavailable to the process. The added
+correction binds only `/sys/fs/selinux` after `/sys`, records it in Anaconda's
+existing reverse-order teardown, and requires `selinuxenabled` to succeed before
+new-home relabeling. It does not recursively expose every `/sys` submount, change
+enforcement or create persistent mount/relabel configuration. Build-time source
+guards and isolated mount/availability fixtures pass; another fresh-ISO VM run
+is required to establish actual installed labels.
+
+The destination image content remains at product source `3bdfcaa1`; this follow-up
+changes only the installer runtime, tests and documentation. Reuse verified native
+receipts, rebuild the ISO and keep the failing assertion for the reruns.
+
 ### Current complete-flow matrix
 
 All entries use ISO `39867706688` / source `7eae0d4b`, the shipped XFS profile,

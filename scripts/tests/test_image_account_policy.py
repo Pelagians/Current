@@ -18,6 +18,32 @@ health_spec.loader.exec_module(health)
 
 
 class Accounts(unittest.TestCase):
+    def test_bootc_exposes_only_needed_selinux_submount_and_tracks_teardown(self):
+        original = '''class PrepareBootcMountTargetsTask:
+    def _handle_api_mount_points(self):
+        for path in ("/proc", "/sys"):
+            sysroot_path = self._sysroot + path
+            safe_exec_program("mount", ["--bind", path, sysroot_path])
+            self._internal_mounts.append(sysroot_path)
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'installation.py'; path.write_text(original)
+            policy.install_mounts(path)
+            mount = Mock(); scope = dict(safe_exec_program=mount)
+            exec(compile(path.read_text(), str(path), 'exec'), scope)
+            task = scope['PrepareBootcMountTargetsTask']()
+            task._sysroot = '/target'; task._internal_mounts = []
+            task._handle_api_mount_points()
+            self.assertEqual(task._internal_mounts, ['/target/proc', '/target/sys', '/target/sys/fs/selinux'])
+            self.assertEqual(mount.call_args_list[-1].args,
+                             ('mount', ['--bind', '/sys/fs/selinux', '/target/sys/fs/selinux']))
+            self.assertNotIn('--rbind', path.read_text())
+            with self.assertRaisesRegex(ValueError, 'contract changed'):
+                policy.install_mounts(path)
+            path.write_text(original.replace('"/sys"', '"/dev"'))
+            with self.assertRaisesRegex(ValueError, 'contract changed'):
+                policy.install_mounts(path)
+
     def test_health_rejects_colord_denials_separately_from_bootc_probe(self):
         probe = 'type=AVC avc: denied { mac_admin } scontext=system_u:system_r:unconfined_service_t:s0 tcontext=system_u:object_r:invalid_bootcinstall_testlabel_t:s0'
         health.check_avcs(probe)
@@ -52,11 +78,12 @@ class Accounts(unittest.TestCase):
             scope = dict(util=util, os=SimpleNamespace(path=SimpleNamespace(exists=exists)), args=['fixture'])
             exec(compile(path.read_text(), str(path), 'exec'), scope)
             scope['create_user']('/target', '/home/alice')
-            self.assertEqual(util.execWithRedirect.call_args_list[1].args,
+            self.assertEqual(util.execWithRedirect.call_args_list[1].args[0], 'selinuxenabled')
+            self.assertEqual(util.execWithRedirect.call_args_list[2].args,
                              ('restorecon', ['-R', '-v', '--', '/var/home/alice']))
             self.assertTrue(all(call.kwargs.get('root') == '/target'
                                 for call in util.execWithRedirect.call_args_list[1:]))
-            self.assertIn('/etc/.pwd.lock', util.execWithRedirect.call_args_list[2].args[1])
+            self.assertIn('/etc/.pwd.lock', util.execWithRedirect.call_args_list[3].args[1])
             util.execWithRedirect.reset_mock()
             exists.return_value = True
             scope['create_user']('/target', '/home/alice')
@@ -75,7 +102,7 @@ class Accounts(unittest.TestCase):
         scope = function.__globals__
         from unittest.mock import patch
         for home, statuses in [('/', []), ('', []), ('/var/home/alice', [1]),
-                               ('/var/home/alice', [0, 1])]:
+                               ('/var/home/alice', [0, 1]), ('/var/home/alice', [0, 0, 1])]:
             util = SimpleNamespace(execWithCapture=Mock(return_value=home),
                                    execWithRedirect=Mock(side_effect=statuses))
             with self.subTest(home=home, statuses=statuses), patch.dict(scope, util=util):
