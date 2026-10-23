@@ -1,0 +1,7 @@
+{
+  "runtime": "ghcr.io/pelagians/current-cosmic-repairs@sha256:9ced98656d1d47057161ca089f2665337df3daa6596d4d85113f77c4d7dff2fe",
+  "sources": "ghcr.io/pelagians/current-cosmic-repairs@sha256:47042bc7c0d88d80c805f46ef5b0d8ad0c0de059382aba5984267aaa8493cd64",
+  "build_run": "40011318210",
+  "revision": "d677e809df12e81fae11624a78cbb19a5d3225b8",
+  "architecture": "x86_64"
+}

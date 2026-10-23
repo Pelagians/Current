@@ -25,6 +25,15 @@ installer = module('cosmic_repair_installer', '../files/scripts/install-cosmic-r
 
 
 class NativeRepairs(unittest.TestCase):
+    def test_normal_cosmic_layer_uses_the_reviewed_immutable_bundle(self):
+        bundle = json.loads((build.INPUTS / 'bundle.json').read_text())
+        for name in ('runtime', 'sources'):
+            self.assertRegex(bundle[name], r'^ghcr\.io/pelagians/current-cosmic-repairs@sha256:[0-9a-f]{64}$')
+        layer = (ROOT / 'recipes/layers/shared/workstation-cosmic.yml').read_text()
+        self.assertIn('from=' + bundle['runtime'] + ',src=/,dst=/tmp/current-cosmic-repairs,ro', layer)
+        self.assertIn('install-cosmic-repairs.py /tmp/current-cosmic-repairs', layer)
+        self.assertNotIn(bundle['sources'], layer)
+
     def test_native_installation_checks_all_inputs_before_dnf_and_preserves_arm(self):
         with patch.object(installer, 'rpm', return_value='aarch64'), patch.object(installer.subprocess, 'run') as command:
             installer.install(Path('/absent'), 'alma9', Path('/unused'))

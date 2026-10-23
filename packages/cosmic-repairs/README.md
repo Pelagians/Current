@@ -1,8 +1,9 @@
 # COSMIC native repair candidates
 
 These source patches address the three failures reproduced during PR #29's
-disposable x86_64 UEFI qualification. They are candidates until boot evidence
-establishes their effect. The normal BlueBuild recipes do not consume them yet.
+disposable x86_64 UEFI qualification. Runtime acceptance is recorded in the
+[workstation qualification ledger](../../docs/maintainers/workstation-rebase-qualification.md).
+Build success alone does not establish their effect.
 
 - The portal patch replaces an unrecoverable Wayland-dispatch panic with a logged
   unsuccessful process exit. It preserves native service recovery and error
@@ -47,3 +48,26 @@ artifacts are reused. The assembler rechecks every native source, parent,
 patch and binary checksum against the current catalogue before building or
 signing anything; it never reuses assembled candidate images. A changed repair
 patch or source must be rebuilt rather than seeded with a mismatching receipt.
+
+## Normal image integration
+
+`bundle.json` pins the signed runtime and corresponding-source OCI bundles.
+The shared COSMIC layer mounts the runtime bundle read-only and calls
+`files/scripts/install-cosmic-repairs.py`. CI verifies its Current signature
+before the native image build. Both published digests were independently
+resolved without registry credentials. The runtime bundle is approximately
+57 MiB compressed; the source bundle is not pulled into the finished image.
+RPMs and build tools are not left in an image layer by the mount.
+
+The installer validates every receipt, binary checksum, RPM identity and
+installed native version before one offline DNF transaction. A changed upstream
+version fails with an explicit review request; it is never silently downgraded.
+The installed image retains the small receipts under
+`/usr/share/current/cosmic-repairs/`. ARM explicitly retains native upstream RPMs,
+so x86_64 repair evidence must not be advertised as an ARM repair.
+
+To update, review the native source and patch, rebuild the affected RPM (matching
+unchanged artifacts may be seeded), qualify signed candidates, then update both
+bundle digests and the shared layer reference together. Re-run normal native
+image builds and boot tests. Remove a local patch only after the upstream
+replacement passes its corresponding regression flow.
