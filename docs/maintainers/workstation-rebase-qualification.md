@@ -685,6 +685,11 @@ gated by the native audit evidence described above.
 
 ### Current complete-flow matrix
 
+This matrix is the preceding `3bdfcaa1` / `6d27cf9a` baseline. The newer
+`809c0fc3` warning/locale qualification is recorded in the follow-up below; these
+older passes are not promoted to that revision. The heading/anchor is retained
+for existing evidence links.
+
 Destination images use product source `3bdfcaa1`; the installer uses source
 `6d27cf9a`. [Native publication 39888299554](https://github.com/Pelagians/Current/actions/runs/39888299554)
 passed all 51 jobs. Independent read-only checks matched all 45 native receipts,
@@ -965,3 +970,100 @@ Native ARM assembly is not ARM boot qualification. The x86_64 locale control
 uses this new ISO. The native image rebuild is still pending at this checkpoint;
 individually signed native candidates can be tested before publication, but the
 complete publication and shared-index checks remain mandatory and separate.
+
+The first three pending COSMIC runs (`39912392568`, `39912482280`, `39912488784`)
+were cancelled before VM qualification as superseded: the longer Alma screenshot
+permission title wraps, and actual TSV inserts blank hierarchy rows between its
+words. Harness `36884f41` collapses OCR whitespace before matching either observed
+title, with a wrapped-word fixture; it still requires one visible Allow control.
+Replacement COSMIC runs are `39912696556`, `39912702689`, `39912710312`.
+The final representative matrix uses exact signed native candidate tags from
+`39909852390`; shared publication/architecture/index receipts are independently
+qualified afterward. Native-candidate runs are not evidence that a partial
+publication succeeded.
+
+Both new `809c0fc3` server locale controls passed the entire rebase/reboot/rollback
+flow: Fedora→Alma 9 (`39912020799`, 18 final archives) and Alma 10→Fedora
+(`39912031177`, 14 archives), with five clean shutdown pivots each. Their native
+locale assertions passed at every stage. The warning review nevertheless found
+`No NSS support for mDNS` in the Fedora bootstrap/server boots: those already
+inherit a running Avahi from the Fedora bootc base, outside the workstation
+substrate. Revision `dd43ff64` supplies `nss-mdns` in bootstrap and the Fedora distro
+core layer too. It does not enable a new service or add Alma server dependencies.
+These server passes remain exact-revision diagnostic evidence; the amended
+payload requires new ISO/image builds and affected-flow reruns.
+
+The existing vendor Avahi network-online drop-in is shared through the base
+runtime files and explicitly included in the minimal bootstrap. Its content is
+unchanged; workstation, inherited Fedora server and bootstrap Avahi use one
+ordering policy. No persistent service mask, resolver file or chroot exception
+is introduced. Alma servers without Avahi are not given a new daemon. Ordinary
+DNS/locale/rebase checks are distinct from the workstation's temporary-record
+mDNS qualification.
+
+Artifact retrieval then returned HTTP 503, “Egress is over the account limit,”
+including a bounded range request for only the failed COSMIC result JSON.
+[Azure's error reference](https://learn.microsoft.com/rest/api/storageservices/common-rest-api-error-codes)
+classifies that as `ServerBusy`; it is not by itself evidence of billing or
+permission failure. The completed Alma 9 COSMIC→Fedora COSMIC run `39912696556`
+failed its VM step, but its actual error/captures could not yet be retrieved.
+The normal job-log connector also failed, and the CLI's redirected log endpoint
+returned 403. No root cause or compatibility pass is inferred from missing logs.
+Artifact retries use backoff; automatic dispatch of the amended build was held
+while this failure was investigated. Existing VM jobs remain observed.
+
+The new `--require-clean-avahi` qualification mode shares the native journal
+checker with workstation mDNS health, saves complete current-boot unit output
+through the existing bounded HTTP evidence collector, and applies at every
+bootstrap/server/workstation checkpoint. Missing/failed journal reads fail;
+absence of an Avahi unit on an Alma server does not start one. The workstation's
+separate active-service and provider/default lookup checks remain mandatory.
+Local validation now passes 80 runtime and 101 image tests.
+
+Artifact service access recovered. The complete `809c0fc3` native publisher passed
+all 51 jobs; independent checks matched all 45 native receipts, 24 shared indexes
+and 21 ARM compatibility aliases. The earlier six-of-nine representative results
+are: bootstrap, both server rebases and all three GNOME transitions passed; all
+three COSMIC controls stopped in the UI probe, not in a qualified complete flow.
+The failed Fedora frame retains a native screenshot-permission modal; the
+adaptive whole-frame OCR omitted its white title/Allow label. The Alma 9 frame
+reached “Get connected,” but the hand cursor covered Next. The Alma 10 frame
+retains its permission modal after the screenshot request failed, so it did not
+test onboarding beyond that obstacle.
+
+Harness `dc78334d` reads the unmodified full frame plus small OCR-only control
+interiors derived from bounded cyan regions, requires the real title and unique
+recognized control, and moves the pointer away after releasing a click. Raw QMP
+and portal images are retained. The later confidence filter excludes the actual
+low-confidence icon OCR between Alma's wrapped title words; local calibration
+recognizes Allow on both saved permission frames and Next on the saved first-run
+frame. The optional native Wi-Fi page's visible Skip control is used only with
+“No networks have been found”; these guests have already passed wired networking
+checks. No Wi-Fi, preference reset or fabricated first-run completion is implied.
+Native Finish/marker/process-exit gates remain mandatory.
+
+Both amended ISO jobs
+[39917099704](https://github.com/Pelagians/Current/actions/runs/39917099704) passed
+at source `480b323e`; the later probe changes do not alter installed payloads.
+The x86_64 artifact `12486396307` has ISO SHA-256
+`f8e20767b4b3d7d1dffc11a37e9cb7192d15e966d920e94da5ac0205378055ef`
+and bootstrap digest
+`sha256:55397bb2b78a3d0d620af38f84b43ae70804744ca600606fa052a8f1801a5926`.
+ARM64 artifact `12486225521` has ISO SHA-256
+`62b20b75ad1cc1ae37ab60bf00bf77d679831b051c4dce122cd787303a5152d3`
+and bootstrap digest
+`sha256:ab3feaaeae6cda5fe50ec52a782d202bde208482df5b51ae9614d3cff84a6f01`.
+The fresh strict bootstrap control
+[39919245213](https://github.com/Pelagians/Current/actions/runs/39919245213)
+passed native Avahi warning/English-locale assertions, authenticated setup,
+persistence, reboot and shutdown. Native ARM assembly still does not qualify
+ARM boot or Secure Boot.
+
+The amended full native matrix
+[39920333623](https://github.com/Pelagians/Current/actions/runs/39920333623) is
+running at `dc78334d`. The corrected UI pilot
+[39919462672](https://github.com/Pelagians/Current/actions/runs/39919462672)
+uses the amended `480b323e` ISO and exact signed `809c0fc3` Alma 9/Fedora COSMIC
+candidates. That isolates the probe/NSS-bootstrap changes; it is not evidence
+that the amended destination matrix has passed. Local checks pass 80 runtime
+and 102 image tests, plus Actionlint and diff checks. XFS is unchanged.

@@ -29,14 +29,23 @@ Authenticated user services passed on all three distributions despite nonfatal
 bootstrap PAM credential audit messages. Recorded GNOME/COSMIC graphical-login,
 switch and rollback cases are listed in the
 [current VM matrix](../maintainers/workstation-rebase-qualification.md#current-complete-flow-matrix).
-The current ISO (`6d27cf9a`) corrects native-policy labels for newly created
-homes/account files. Current workstation images (`3bdfcaa1`) add package-derived
-Avahi account provisioning and an Alma 9 Homebrew setup correction. All fourteen recorded
-cross-distro GNOME/COSMIC flows passed checks for native home/ICC types, working
-Avahi resolution, real Homebrew execution, graphical login, reboot and rollback.
-These checks do not qualify all applications, Brew packages, LAN discovery or
-physical GPUs. Keep desktop testing disposable; the evidence records exact runs,
-failed attempts and remaining limits.
+The prior ISO (`6d27cf9a`) corrected native-policy labels for newly created
+homes/account files; prior workstation images (`3bdfcaa1`) added package-derived
+Avahi account provisioning and an Alma 9 Homebrew setup correction. Their fourteen
+recorded cross-distro GNOME/COSMIC flows passed native home/ICC type, Avahi account,
+real Homebrew execution, graphical-login, reboot and rollback checks.
+
+Current ISO source `480b323e` and the destination rebuild additionally supply the native workstation
+mDNS packages, orders Avahi after network startup, and includes minimal English
+locale data in bootstrap and destination images. The older payload lacked the
+selected English locale, so Anaconda used its C.UTF-8 fallback. This correction
+supplies locale data without forcing LANG/LC_ALL or resetting user preferences.
+Other languages and deliberately selected C locales remain separate qualification
+work. The current ISO passed its bootstrap locale/Avahi/authentication/reboot checks.
+Destination and [warning/first-run checks](../maintainers/workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
+are pending; prior results do not count as current-revision passes. These checks
+do not qualify all applications, Brew packages, external LAN discovery or physical
+GPUs. Keep testing disposable; the evidence retains exact runs and failures.
 
 The added installer relabel hook excludes reused homes. Earlier draft installs
 with incorrect labels need administrator review; use a fresh disposable install

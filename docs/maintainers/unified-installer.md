@@ -206,15 +206,22 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-The current ISOs use installer source `6d27cf9a` (x86_64 checksum
-`be3a6b5d...`) and signed destination images use product source `3bdfcaa1`.
-[Both native ISO builds](https://github.com/Pelagians/Current/actions/runs/39893211536)
-and [all 51 native-build/publication jobs](https://github.com/Pelagians/Current/actions/runs/39888299554)
-passed. Independent receipt checks matched 45 native images, 24 shared indexes
-and 21 ARM compatibility references. See the
-[current workstation and cross-distro VM evidence](workstation-rebase-qualification.md#current-complete-flow-matrix)
-for full checksums, exact runs and remaining gates. Later qualification-only
-changes reuse these receipts; they do not change installed product/runtime files.
+The current ISOs use source `480b323e`; [both native builds](https://github.com/Pelagians/Current/actions/runs/39917099704)
+passed, with x86_64 checksum `f8e20767...`. The
+[native destination/publication rebuild](https://github.com/Pelagians/Current/actions/runs/39920333623)
+is running at `dc78334d`. These include the inherited Fedora bootstrap/server NSS
+correction; later differences are qualification-only. The strict fresh
+[bootstrap control](https://github.com/Pelagians/Current/actions/runs/39919245213)
+passed locale, native Avahi journal, account/authentication, reboot and shutdown
+checks. Corrected COSMIC flows remain under qualification at this checkpoint. See the [warning follow-up](workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
+for exact receipts, diagnostic failures and remaining gates. Later test-only
+commits reuse the product revision; they do not change installed payload recipes or runtime sources.
+
+The preceding `3bdfcaa1` product / `6d27cf9a` installer baseline passed both ISOs,
+all 51 native/publication jobs, 45 native receipts, 24 shared indexes and 21 ARM
+compatibility references, plus fourteen complete workstation flows. The
+[earlier workstation matrix](workstation-rebase-qualification.md#current-complete-flow-matrix)
+is historical evidence for those exact receipts, not a pass for the amended payload/destination revision.
 
 The installer exposes only the missing SELinux API submount to Anaconda's
 installed-root account setup and retains its reverse-order teardown. New homes
@@ -235,9 +242,9 @@ Alma 9's unsupported Fedora archives must pass the final bootstrap reader.
 
 | Transition / hardware | Status |
 | --- | --- |
-| Fresh x86_64 bootstrap | Native labels, first-boot authentication, persistence and reboot passed on current ISO |
-| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | All 14 current cases passed: directed same-desktop pairs and two mixed-desktop cases, including graphical login, native health, target reboot and rollback |
-| Server and same-distro desktop switches | Previous baseline completed; not repeated at current product revision |
+| Fresh x86_64 bootstrap | Current ISO passed native labels, English locale, Avahi startup, authenticated setup resume and reboot |
+| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Three strict GNOME flows passed at 809c0fc3; three COSMIC probe failures retained, corrected reruns pending; amended destinations require qualification |
+| Server and same-distro desktop switches | Two complete server locale controls passed at 809c0fc3; amended Fedora NSS correction requires destination reruns; same-distro desktop switches not repeated |
 | Generic ARM64 UEFI | Current native ISO assembly passed; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations/build gates only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |
