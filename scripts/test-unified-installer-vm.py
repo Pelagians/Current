@@ -57,7 +57,8 @@ def visible_footer_button(tsv, width, height, labels=('next', 'finish'), require
     """Only act on a unique visible control in the expected UI, never guess."""
     if required_phrase:
         words = ' '.join(line.split('\t')[-1] for line in tsv.splitlines()[1:])
-        if required_phrase.lower() not in words.lower():
+        phrases = (required_phrase,) if isinstance(required_phrase, str) else required_phrase
+        if not any(phrase.lower() in words.lower() for phrase in phrases):
             return None
     buttons = []
     for line in tsv.splitlines()[1:]:
@@ -685,7 +686,7 @@ def run(args):
                     return
                 name = stage + '-first-run-' + str(attempt)
                 vm.screenshot(name)
-                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', '--psm', '11', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', '--psm', '11', '-c', 'thresholding_method=2', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
                 (evidence / (name + '.tsv')).write_text(tsv)
                 width, height = Image.open(evidence / (name + '.png')).size
                 button = visible_footer_button(tsv, width, height)
@@ -717,11 +718,11 @@ def run(args):
                     break
                 name = stage + '-portal-consent-' + str(attempt)
                 vm.screenshot(name)
-                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', '--psm', '11', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', '--psm', '11', '-c', 'thresholding_method=2', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
                 (evidence / (name + '.tsv')).write_text(tsv)
                 from PIL import Image
                 width, height = Image.open(evidence / (name + '.png')).size
-                button = visible_footer_button(tsv, width, height, labels=('allow',), required_phrase='Allow Apps to Take Screenshots')
+                button = visible_footer_button(tsv, width, height, labels=('allow',), required_phrase=('Allow Apps to Take Screenshots', 'Allow Applications to Take Screenshots'))
                 if button:
                     label, x, y = button
                     vm.qmp.click(x, y, width, height)
@@ -802,7 +803,7 @@ def run(args):
                         raise RuntimeError('Graphical session qualification failed: ' + proof)
                     if ('DESKTOP=' + desktop.upper()) not in proof.upper():
                         raise RuntimeError('Autostart reported the wrong desktop')
-                    if args.expect_locale and ('LANG=' + args.expect_locale) not in proof:
+                    if args.expect_locale and not re.search(r'^LANG=' + re.escape(args.expect_locale) + r'\r?$', terminal_text(proof), re.MULTILINE):
                         raise RuntimeError('Graphical session did not retain the installer locale')
                     command('sudo systemctl start avahi-daemon.service')
                     if desktop == 'cosmic':

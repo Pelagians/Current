@@ -51,8 +51,9 @@ class UnifiedISO(unittest.TestCase):
         header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
         title = '5\t1\t1\t1\t1\t1\t450\t280\t400\t25\t95\tAllow Apps to Take Screenshots?\n'
         allow = '5\t1\t2\t1\t1\t1\t835\t460\t65\t20\t95\tAllow\n'
-        options = dict(labels=('allow',), required_phrase='Allow Apps to Take Screenshots')
-        self.assertEqual(vm.visible_footer_button(header + title + allow, 1280, 800, **options), ('Allow', 867, 470))
+        options = dict(labels=('allow',), required_phrase=('Allow Apps to Take Screenshots', 'Allow Applications to Take Screenshots'))
+        for observed in (title, title.replace('Apps', 'Applications')):
+            self.assertEqual(vm.visible_footer_button(header + observed + allow, 1280, 800, **options), ('Allow', 867, 470))
         for rows in (allow, title, title + allow + allow, title.replace('Screenshots', 'Files') + allow):
             self.assertIsNone(vm.visible_footer_button(header + rows, 1280, 800, **options))
 
