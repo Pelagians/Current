@@ -42,6 +42,16 @@ class UnifiedISO(unittest.TestCase):
                      '/source-before-portal.png/../result.json', '/bootstrap-before-portal.png', '/source-after-portal.jpg'):
             self.assertFalse(vm.allowed_evidence_path(path))
 
+    def test_kernel_uuid_is_canonicalized_without_accepting_echoed_or_ambiguous_identity(self):
+        kernel = '34a37482-35b5-4215-a529-c75fa46fe7a8'
+        echo = 'printf "COSMIC_BOOT_ID=%s" "$(cat /proc/sys/kernel/random/boot_id)"\r\n'
+        native = 'COSMIC_BOOT_ID=' + kernel + '\r\n'
+        self.assertEqual(vm.cosmic_boot_id(echo + native), kernel.replace('-', ''))
+        self.assertEqual(vm.cosmic_boot_id(native.upper()), kernel.replace('-', ''))
+        for invalid in (echo, native + native, 'COSMIC_BOOT_ID=bad\n', 'COSMIC_BOOT_ID=' + '0' * 32 + '\n'):
+            with self.subTest(invalid=invalid), self.assertRaises((ValueError, RuntimeError)):
+                vm.cosmic_boot_id(invalid)
+
     def test_completed_cosmic_boots_require_original_journal_identity_and_no_panics_or_cores(self):
         event = dict(_BOOT_ID='a' * 32, SYSLOG_IDENTIFIER='xdg-desktop-portal-cosmic',
                      MESSAGE='wayland dispatch: Broken pipe; terminating portal')

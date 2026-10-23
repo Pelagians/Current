@@ -22,6 +22,7 @@ import socket
 import subprocess
 import threading
 import time
+import uuid
 
 
 # Kernel audit records can split printf's marker between any two characters.
@@ -140,6 +141,17 @@ def shutdown_summary(output, expected_reboots):
     return {'expected_reboots': expected_reboots, 'initrd_pivots': pivots,
             'oldroot_unmounts': unmounted, 'finalization_failures': failures,
             'passed': not failures and pivots >= expected_reboots and unmounted == pivots}
+
+
+def cosmic_boot_id(output):
+    """Kernel UUIDs use hyphens; journalctl boot descriptors require 32 hex digits."""
+    matches = re.findall(r'^COSMIC_BOOT_ID=([0-9a-fA-F-]+)\r?$', terminal_text(output), re.MULTILINE)
+    if len(matches) != 1:
+        raise RuntimeError('Missing or ambiguous native COSMIC boot identity')
+    value = uuid.UUID(matches[0])
+    if not value.int:
+        raise RuntimeError('Invalid nil COSMIC boot identity')
+    return value.hex
 
 
 def cosmic_shutdown_summary(text):
@@ -864,7 +876,8 @@ def run(args):
         def graphical_login(stage, desktop):
             nonlocal graphical_password_pending
             if desktop == 'cosmic':
-                command('cat /proc/sys/kernel/random/boot_id > ~/current-vm-cosmic-' + stage + '.boot')
+                identity = command('printf "\\nCOSMIC_BOOT_ID=%s\\n" "$(cat /proc/sys/kernel/random/boot_id)"')
+                report.setdefault('cosmic_boot_ids', {})[stage] = cosmic_boot_id(identity)
                 cosmic_stages.append(stage)
             from PIL import Image
             command('printf %s ' + shlex.quote(stage) + ' > ~/current-vm-stage')
@@ -1122,8 +1135,11 @@ def run(args):
                 # Preserve long native messages; journalctl otherwise replaces
                 # large JSON values with null. Keep core metadata, not memory
                 # blobs or process environments, in the bounded evidence upload.
-                command('sudo journalctl --boot="$(cat ~/current-vm-cosmic-' + completed_stage + '.boot)" --all --no-pager -o json --output-fields=MESSAGE,_BOOT_ID,__REALTIME_TIMESTAMP,SYSLOG_IDENTIFIER,_EXE,_PID,_UID,_COMM,PRIORITY,_SYSTEMD_USER_UNIT,COREDUMP_EXE,COREDUMP_UID,COREDUMP_SIGNAL,COREDUMP_FILENAME _UID=$(id -u) + COREDUMP_UID=$(id -u) > ~/current-vm-cosmic-shutdown.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-cosmic-shutdown.json" http://10.0.2.2:' + str(server.server_port) + '/' + name)
+                boot_id = report['cosmic_boot_ids'][completed_stage]
+                command('sudo journalctl --boot=' + boot_id + ' --all --no-pager -o json --output-fields=MESSAGE,_BOOT_ID,__REALTIME_TIMESTAMP,SYSLOG_IDENTIFIER,_EXE,_PID,_UID,_COMM,PRIORITY,_SYSTEMD_USER_UNIT,COREDUMP_EXE,COREDUMP_UID,COREDUMP_SIGNAL,COREDUMP_FILENAME _UID=$(id -u) + COREDUMP_UID=$(id -u) > ~/current-vm-cosmic-shutdown.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-cosmic-shutdown.json" http://10.0.2.2:' + str(server.server_port) + '/' + name)
                 summary = cosmic_shutdown_summary((evidence / name).read_text())
+                if summary['boot_id'] != boot_id:
+                    raise RuntimeError('Collected COSMIC journal differs from the authenticated boot identity')
                 report.setdefault('cosmic_shutdown', {})[completed_stage] = dict(summary, journal=name)
             if any(not summary['passed'] for summary in report.get('cosmic_shutdown', {}).values()):
                 raise RuntimeError('Native COSMIC panic or coredump in a completed session boot; inspect cosmic-shutdown journals')
