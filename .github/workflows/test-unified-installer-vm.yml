@@ -6,11 +6,11 @@ on:
       iso_run:
         description: Successful unified ISO workflow run ID
         required: true
-        default: '39839642466'
+        default: '39867706688'
       iso_revision:
         description: Exact source revision in the ISO build receipt
         required: true
-        default: 6f48c73103cb8b6174cd82f7681b52338ad1589e
+        default: 7eae0d4b856adf5672d9da233264d1115c2350f3
       distribution:
         type: choice
         options: [fedora, alma10, alma9]
@@ -36,7 +36,7 @@ on:
         default: ''
       image_revision:
         description: Exact source revision required from published destinations
-        default: 01abb3d85a097c8357de4625f10fbb01e9239445
+        default: e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7
   push:
     paths:
       - .github/workflows/test-unified-installer-vm.yml
@@ -73,18 +73,18 @@ jobs:
         with:
           name: current-installer-x86_64-experimental
           path: iso
-          run-id: ${{ inputs.iso_run || '39839642466' }}
+          run-id: ${{ inputs.iso_run || '39867706688' }}
           github-token: ${{ github.token }}
       - name: Exercise original ISO and first boot on a new virtual disk
         env:
-          ISO_REVISION: ${{ inputs.iso_revision || '6f48c73103cb8b6174cd82f7681b52338ad1589e' }}
+          ISO_REVISION: ${{ inputs.iso_revision || '7eae0d4b856adf5672d9da233264d1115c2350f3' }}
           DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
           CHANNEL: ${{ inputs.channel || 'br-codex_unified-installer' }}
           SCENARIO: ${{ inputs.scenario || 'server-flow' }}
           DESKTOP: ${{ inputs.desktop || 'gnome' }}
           TARGET_DISTRIBUTION: ${{ inputs.target_distribution || 'none' }}
           TARGET_CHANNEL: ${{ inputs.target_channel || '' }}
-          IMAGE_REVISION: ${{ inputs.image_revision || '01abb3d85a097c8357de4625f10fbb01e9239445' }}
+          IMAGE_REVISION: ${{ inputs.image_revision || 'e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7' }}
         run: |
           extra=()
           if [[ "$TARGET_DISTRIBUTION" != none ]]; then extra+=(--target-distribution "$TARGET_DISTRIBUTION"); fi

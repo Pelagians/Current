@@ -240,14 +240,14 @@ class QMP:
             if 'return' in answer:
                 return answer['return']
 
-    def keys(self, text):
+    def keys(self, text, delay=.025):
         punctuation = {' ': 'spc', '/': 'slash', ':': 'shift-semicolon', '=': 'equal',
                        '-': 'minus', '.': 'dot', ',': 'comma', '_': 'shift-minus',
                        '(': 'shift-9', ')': 'shift-0', '\n': 'ret'}
         for char in text:
             key = punctuation.get(char, 'shift-' + char.lower() if char.isupper() else char)
             self.call('human-monitor-command', **{'command-line': 'sendkey ' + key + ' 10'})
-            time.sleep(.025)
+            time.sleep(delay)
 
     def click(self, x, y, width, height):
         if not (0 <= x < width and 0 <= y < height):
@@ -617,8 +617,17 @@ def run(args):
                 time.sleep(3)
                 for attempt in range(12):
                     vm.screenshot(stage + '-password-prompt')
-                    prompt = subprocess.check_output(['tesseract', str(evidence / (stage + '-password-prompt.png')), 'stdout'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
-                    if re.search(r'\bpassword\b', prompt, re.IGNORECASE):
+                    prompt = subprocess.check_output(['tesseract', str(evidence / (stage + '-password-prompt.png')), 'stdout', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+                    fields = [line.split('\t') for line in prompt.splitlines()[1:] if len(line.split('\t')) == 12]
+                    field = next((w for w in fields if w[11].lower().strip(':') == 'password'), None)
+                    if field:
+                        # The prompt can appear while GDM still initializes PAM.
+                        # Focus the actual entry and allow that initialization
+                        # to settle before sending a deliberately paced password.
+                        time.sleep(5)
+                        width, height = Image.open(evidence / (stage + '-password-prompt.png')).size
+                        vm.qmp.click(int(field[6]) + int(field[8]) // 2, int(field[7]) + int(field[9]) // 2, width, height)
+                        time.sleep(1)
                         break
                     if attempt == 0:
                         vm.qmp.keys('\n')
@@ -626,7 +635,7 @@ def run(args):
                 else:
                     raise RuntimeError('GNOME password field did not appear; no password entered')
             graphical_password_pending = True
-            vm.qmp.keys(password + '\n')
+            vm.qmp.keys(password + '\n', delay=.1)
             deadline = time.monotonic() + 240
             while time.monotonic() < deadline:
                 output = graphical_result(command("printf 'SESSION_RESULT=%s\\n' \"$(if test -f ~/current-vm-session-" + stage + ".rc; then cat ~/current-vm-session-" + stage + ".rc; else printf pending; fi)\""))
@@ -644,7 +653,8 @@ def run(args):
                     record(stage + ': real greeter password login and desktop-session ownership checks passed')
                     return
                 time.sleep(5)
-            command('loginctl list-sessions --no-pager; sudo journalctl -b -u display-manager.service --no-pager; true')
+            authentication = command("loginctl list-sessions --no-pager; sudo journalctl -b --no-pager -u gdm.service -u cosmic-greeter.service -u cosmic-greeter-daemon.service; sudo journalctl -b --no-pager -g 'gdm-password|authentication|avc:|session opened'; true")
+            (evidence / (stage + '-authentication.log')).write_text(authentication)
             raise RuntimeError('No graphical autostart proof after password login; inspect greeter/session evidence')
 
         def booted(stage):
@@ -861,7 +871,7 @@ if __name__ == '__main__':
     parser.add_argument('--desktop', choices=('gnome', 'cosmic'), default='gnome')
     parser.add_argument('--target-channel', help='Optional independently published destination channel for rebase qualification')
     parser.add_argument('--target-distribution', choices=('fedora', 'alma10', 'alma9'))
-    parser.add_argument('--image-revision', default='01abb3d85a097c8357de4625f10fbb01e9239445')
+    parser.add_argument('--image-revision', default='e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7')
     parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs', 'bootstrap-reboot', 'workstation-flow', 'rebase-flow'), default='server-flow')
     args = parser.parse_args()
     if not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.channel):
