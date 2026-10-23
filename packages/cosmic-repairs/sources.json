@@ -18,6 +18,12 @@
         "url": "https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/epel-9-x86_64/Packages/c/cosmic-panel-1.9.0-1.el9.src.rpm",
         "sha256": "67591d4d482c0c5eb5120d18a53734ffd1787d6f464b294a006e18ce77844c47",
         "patch": "panel-transparent-repaint.patch"
+      },
+      "cosmic-osk": {
+        "version": "1.9.0-1.el9",
+        "url": "https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/epel-9-x86_64/Packages/c/cosmic-osk-1.9.0-1.el9.src.rpm",
+        "sha256": "4c32ebb91e85fdc75b887b9d450094cce5e4cc07f0e6203b182676751acd42c5",
+        "patch": "osk-keymap-compat.patch"
       }
     },
     "base": "ghcr.io/pelagians/alma9-cosmic@sha256:34e78d7a75fd4267693b581bccd6ed95ab86b45868866a7c8efddb08ebe01fbd",

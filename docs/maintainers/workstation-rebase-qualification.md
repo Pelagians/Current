@@ -1270,3 +1270,27 @@ frames. Its reboot was clean. The native 1.9 rendering source accepts the same
 full-repaint patch without offsets; the repair catalogue now includes the exact
 Alma 9 panel source RPM as well. This is additional evidence of the affected
 scope, not a claim that the prior Alma 10-only panel repair covered Alma 9.
+
+Further isolated investigation narrows the Alma 9 OSK failure to the keymap's
+terminating NUL. The exact compositor's pinned Smithay `e3d461a` builds a sealed
+`CString` keymap and advertises its size including that NUL. Native Rust
+`xkbcommon` 0.9 forwards the entire size to `xkb_keymap_new_from_buffer`. The
+unmodified Alma 9 1.0.3 library rejects a minimal valid map with that final byte,
+reporting the same end-of-input syntax error; the identical map without it
+parses, and the newer host library accepts both. This probe loaded only the
+extracted official ARM RPM library in a scratch child process, without installing
+it or changing host services. It establishes parser behavior, not ARM desktop
+qualification. Official test RPM SHA-256:
+`5f19c861f7d3b0a24c020c4aacec2f237b8d4c7554f7cbdd17d7f5d111cb7799`.
+
+The native OSK candidate reads exactly the advertised bytes with `read_exact_at`,
+strips only an optional final NUL and rejects interior NUL, invalid UTF-8,
+truncation, excessive size and native parse failures. It installs the keyboard
+state only after successful parsing and never substitutes a different layout.
+Two Rust tests pass against both the actual extracted EL9 1.0.3 library and the
+newer host library, including the resulting `a` keysym and unchanged shared fd
+offset. These tests are included in the native source patch for its native RPM
+check section. The VM also requires the repaired OSK to remain running before
+and after onboarding; swallowing a panic or silently exiting cannot pass.
+Full native x86_64 build, boot/session/shutdown and actual on-screen input remain
+separate from the isolated parser evidence.

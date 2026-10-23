@@ -858,7 +858,10 @@ def run(args):
             # one QMP frame, plus a native portal image as a second capture path.
             # Consent uses the real GUI; no display variables are manufactured.
             stage = stage + '-' + phase
-            diagnostics = command("rpm -q iso-codes cosmic-initial-setup cosmic-comp cosmic-panel cosmic-session cosmic-screenshot xdg-desktop-portal-cosmic libxkbcommon mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; if test -d /usr/share/current/cosmic-repairs; then cat /usr/share/current/cosmic-repairs/*.json; fi; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE|XDG_DATA_DIRS)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; systemctl --user show org.freedesktop.impl.portal.desktop.cosmic.service -p ActiveState -p Result -p ExecMainCode -p ExecMainStatus -p NRestarts; cosmic-screenshot --help; true")
+            # A repaired parser must keep the native keyboard alive, not merely
+            # replace its startup panic with a silent unsuccessful exit.
+            command('if test -f /usr/share/current/cosmic-repairs/cosmic-osk.json; then test "$(pgrep -u $(id -u) -x cosmic-osk | wc -l)" = 1; fi')
+            diagnostics = command("rpm -q iso-codes cosmic-initial-setup cosmic-comp cosmic-panel cosmic-session cosmic-osk cosmic-screenshot xdg-desktop-portal-cosmic libxkbcommon mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; if test -d /usr/share/current/cosmic-repairs; then cat /usr/share/current/cosmic-repairs/*.json; fi; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE|XDG_DATA_DIRS)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; systemctl --user show org.freedesktop.impl.portal.desktop.cosmic.service -p ActiveState -p Result -p ExecMainCode -p ExecMainStatus -p NRestarts; cosmic-screenshot --help; true")
             (evidence / (stage + '-rendering-diagnostics.log')).write_text(diagnostics)
             for index in range(3):
                 time.sleep(3)

@@ -1,0 +1,139 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 3b7a3c3..ace4e44 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -40,6 +40,7 @@ use unicode_width::UnicodeWidthStr;
+ use xkbcommon::xkb;
+ 
+ mod ei;
++mod keymap_compat;
+ 
+ use layout::Layout;
+ mod layout;
+@@ -1016,26 +1017,24 @@ impl Application for App {
+ 
+                         if evt.device.has_capability(DeviceCapability::Keyboard) {
+                             log::info!("  has keyboard");
++                            let xkb_keymap = match evt.device.keymap().ok_or_else(||
++                                "EI keyboard has no keymap".to_string()).and_then(|keymap|
++                                keymap_compat::from_fd(&keymap.fd, keymap.size as usize)) {
++                                Ok(map) => map,
++                                Err(error) => {
++                                    log::error!("Cannot enable EI keyboard: {error}");
++                                    self.ei_keyboard = None;
++                                    self.xkb_state = None;
++                                    self.xkb_keymap = None;
++                                    return Task::none();
++                                }
++                            };
+                             self.ei_keyboard = Some((
+                                 evt.device.device().clone(),
+                                 evt.device.interface::<reis::ei::Keyboard>().unwrap(),
+                             ));
+                             let serial = self.ei_conn.as_ref().unwrap().serial();
+                             evt.device.device().start_emulating(0, serial);
+-                            let keymap = evt.device.keymap().unwrap();
+-                            let ctx = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
+-                            let xkb_keymap = unsafe {
+-                                xkb::Keymap::new_from_fd(
+-                                    &ctx,
+-                                    keymap.fd.try_clone().unwrap(),
+-                                    keymap.size as usize,
+-                                    xkb::KEYMAP_FORMAT_TEXT_V1,
+-                                    xkb::KEYMAP_COMPILE_NO_FLAGS,
+-                                )
+-                                .unwrap()
+-                                .unwrap()
+-                            };
+-
+                             self.xkb_state = Some(xkb::State::new(&xkb_keymap));
+                             self.xkb_keymap = Some(xkb_keymap);
+                             return self.update_config();
+--- /dev/null
++++ b/src/keymap_compat.rs
+@@ -0,0 +1,85 @@
++// SPDX-License-Identifier: GPL-3.0-only
++use std::{
++    fs::File,
++    os::{fd::OwnedFd, unix::fs::FileExt},
++};
++use xkbcommon::xkb;
++
++// EI keymaps from Smithay are NUL-terminated. libxkbcommon 1.0 rejects that
++// terminator when it is counted in new_from_buffer, unlike newer releases.
++// Read exactly the advertised bytes without changing the shared fd offset.
++// Reject truncation, oversized input and interior NULs instead of accepting a
++// partial map or falling back to a layout different from the compositor's.
++pub fn from_fd(fd: &OwnedFd, size: usize) -> Result<xkb::Keymap, String> {
++    if size == 0 || size > 1024 * 1024 {
++        return Err("invalid EI keymap size".into());
++    }
++    let file = File::from(fd.try_clone().map_err(|e| e.to_string())?);
++    let mut bytes = vec![0; size];
++    file.read_exact_at(&mut bytes, 0)
++        .map_err(|e| e.to_string())?;
++    if bytes.last() == Some(&0) {
++        bytes.pop();
++    }
++    if bytes.contains(&0) {
++        return Err("interior NUL in EI keymap".into());
++    }
++    let text = String::from_utf8(bytes).map_err(|e| e.to_string())?;
++    let context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
++    xkb::Keymap::new_from_string(
++        &context,
++        text,
++        xkb::KEYMAP_FORMAT_TEXT_V1,
++        xkb::KEYMAP_COMPILE_NO_FLAGS,
++    )
++    .ok_or_else(|| "native XKB library rejected EI keymap".into())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::io::{Seek, Write};
++
++    const MAP: &[u8] = br#"xkb_keymap {
++ xkb_keycodes "minimal" { minimum = 8; maximum = 255; <AC01> = 38; };
++ xkb_types "minimal" { type "ONE_LEVEL" { modifiers = None; map[None] = Level1; level_name[Level1] = "Any"; }; };
++ xkb_compatibility "minimal" {};
++ xkb_symbols "minimal" { key <AC01> { type="ONE_LEVEL", symbols[Group1]=[ a ] }; };
++};
++"#;
++
++    #[test]
++    fn accepts_native_map_with_or_without_terminator_and_preserves_offset() {
++        for terminated in [false, true] {
++            let mut file = tempfile::tempfile().unwrap();
++            file.write_all(MAP).unwrap();
++            if terminated {
++                file.write_all(&[0]).unwrap();
++            }
++            let size = file.stream_position().unwrap();
++            let fd: OwnedFd = file.try_clone().unwrap().into();
++            let map = from_fd(&fd, size as usize).unwrap();
++            assert_eq!(file.stream_position().unwrap(), size);
++            assert_eq!(
++                map.key_get_syms_by_level(xkb::Keycode::new(38), 0, 0),
++                &[xkb::Keysym::new(0x61)]
++            );
++        }
++    }
++
++    #[test]
++    fn rejects_invalid_or_truncated_input() {
++        for bytes in [&b"bad map"[..], &b"\xff"[..], &b"\0bad"[..], &b"\0\0"[..]] {
++            let mut file = tempfile::tempfile().unwrap();
++            file.write_all(bytes).unwrap();
++            let fd: OwnedFd = file.into();
++            assert!(from_fd(&fd, bytes.len()).is_err());
++        }
++        let mut file = tempfile::tempfile().unwrap();
++        file.write_all(MAP).unwrap();
++        let fd: OwnedFd = file.into();
++        for size in [0, MAP.len() + 1, 1024 * 1024 + 1] {
++            assert!(from_fd(&fd, size).is_err());
++        }
++    }
++}
