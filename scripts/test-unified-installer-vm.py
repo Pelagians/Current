@@ -586,6 +586,10 @@ def run(args):
             if executable:
                 command('chmod 700 ' + path)
 
+        def graphical_diagnostics(stage):
+            output = command("loginctl list-sessions --no-pager; sudo journalctl -b --no-pager -u gdm.service -u cosmic-greeter.service -u cosmic-greeter-daemon.service; sudo journalctl -b --no-pager -g 'gdm-password|authentication|avc:|session opened'; sudo ausearch -m AVC,USER_AVC -ts boot -i; sudo ls -ldZ /etc/passwd /etc/shadow /etc/.pwd.lock /var/lib/AccountsService/users /var/home/currenttest; true")
+            (evidence / (stage + '-authentication.log')).write_text(output)
+
         def graphical_login(stage, desktop):
             nonlocal graphical_password_pending
             from PIL import Image
@@ -643,6 +647,7 @@ def run(args):
                     proof = command('cat ~/current-vm-session-' + stage + '.log')
                     (evidence / (stage + '-graphical-session.log')).write_text(proof)
                     graphical_password_pending = False
+                    graphical_diagnostics(stage)
                     time.sleep(10)
                     vm.screenshot(stage + '-session')
                     if output != 0:
@@ -653,8 +658,7 @@ def run(args):
                     record(stage + ': real greeter password login and desktop-session ownership checks passed')
                     return
                 time.sleep(5)
-            authentication = command("loginctl list-sessions --no-pager; sudo journalctl -b --no-pager -u gdm.service -u cosmic-greeter.service -u cosmic-greeter-daemon.service; sudo journalctl -b --no-pager -g 'gdm-password|authentication|avc:|session opened'; true")
-            (evidence / (stage + '-authentication.log')).write_text(authentication)
+            graphical_diagnostics(stage)
             raise RuntimeError('No graphical autostart proof after password login; inspect greeter/session evidence')
 
         def booted(stage):
