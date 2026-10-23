@@ -683,7 +683,8 @@ def run(args):
                     if ('DESKTOP=' + desktop.upper()) not in proof.upper():
                         raise RuntimeError('Autostart reported the wrong desktop')
                     command('sudo systemctl start avahi-daemon.service')
-                    command('sudo python3 ~/.local/bin/current-vm-workstation-health > ~/current-vm-workstation-health.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-workstation-health.json" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-workstation-health.log')
+                    health_options = ' --require-icc' if desktop == 'gnome' else ''
+                    command('sudo python3 ~/.local/bin/current-vm-workstation-health' + health_options + ' > ~/current-vm-workstation-health.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-workstation-health.json" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-workstation-health.log')
                     brew = command('/var/home/linuxbrew/.linuxbrew/bin/brew --version')
                     (evidence / (stage + '-brew-version.log')).write_text(brew)
                     if stage == 'source':

@@ -18,6 +18,12 @@ health_spec.loader.exec_module(health)
 
 
 class Accounts(unittest.TestCase):
+    def test_health_rejects_colord_denials_separately_from_bootc_probe(self):
+        probe = 'type=AVC avc: denied { mac_admin } scontext=system_u:system_r:unconfined_service_t:s0 tcontext=system_u:object_r:invalid_bootcinstall_testlabel_t:s0'
+        health.check_avcs(probe)
+        with self.assertRaisesRegex(RuntimeError, 'Color daemon'):
+            health.check_avcs(probe + '\ntype=AVC avc:  denied { read } scontext=system_u:system_r:colord_t:s0 tcontext=unconfined_u:object_r:var_t:s0')
+
     def test_health_detects_incorrect_types_without_forcing_context_user(self):
         expected = lambda path: b'unconfined_u:object_r:user_home_dir_t:s0\n'
         labels = health.check_labels([Path('/fixture')],
