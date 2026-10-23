@@ -48,7 +48,7 @@ modules:
       - >-
         RUN --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,ro
         --mount=type=bind,from=ghcr.io/pelagians/current-cosmic-repairs@sha256:9ced98656d1d47057161ca089f2665337df3daa6596d4d85113f77c4d7dff2fe,src=/,dst=/tmp/current-cosmic-repairs,ro
-        python3 /tmp/files/scripts/install-cosmic-repairs.py /tmp/current-cosmic-repairs
+        python3 /tmp/files/scripts/install-cosmic-repairs.py --image-build /tmp/current-cosmic-repairs
 
   - from-file: layers/shared/flatpak-cosmic.yml
 

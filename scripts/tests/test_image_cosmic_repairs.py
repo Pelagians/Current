@@ -34,7 +34,7 @@ class NativeRepairs(unittest.TestCase):
                                            for p in (build.INPUTS / 'patches').glob('*.patch')})
         layer = (ROOT / 'recipes/layers/shared/workstation-cosmic.yml').read_text()
         self.assertIn('from=' + bundle['runtime'] + ',src=/,dst=/tmp/current-cosmic-repairs,ro', layer)
-        self.assertIn('install-cosmic-repairs.py /tmp/current-cosmic-repairs', layer)
+        self.assertIn('install-cosmic-repairs.py --image-build /tmp/current-cosmic-repairs', layer)
         self.assertNotIn(bundle['sources'], layer)
 
     def test_native_installation_checks_all_inputs_before_dnf_and_preserves_arm(self):

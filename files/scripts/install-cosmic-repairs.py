@@ -67,9 +67,10 @@ def install(bundle, distro, receipts):
 
 
 if __name__ == '__main__':
-    if not Path('/run/.containerenv').exists() and not Path('/.dockerenv').exists():
-        raise SystemExit('COSMIC repair installation must run in an image build container')
-    if len(sys.argv) != 2:
-        raise SystemExit('usage: install-cosmic-repairs.py BUNDLE')
-    install(Path(sys.argv[1]), distribution(Path('/usr/lib/os-release').read_text()),
+    # BuildKit RUN steps do not provide Podman/Docker runtime marker files.
+    # Require the recipe's explicit build invocation instead of guessing from
+    # /.dockerenv; this helper is never part of the installed command interface.
+    if len(sys.argv) != 3 or sys.argv[1] != '--image-build':
+        raise SystemExit('build-only usage: install-cosmic-repairs.py --image-build BUNDLE')
+    install(Path(sys.argv[2]), distribution(Path('/usr/lib/os-release').read_text()),
             Path('/usr/share/current/cosmic-repairs'))
