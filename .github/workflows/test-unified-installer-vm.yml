@@ -27,10 +27,15 @@ on:
         options: [gnome, cosmic]
         default: gnome
       target_distribution:
-        description: Destination distro for rebase-flow
+        description: Optional destination distro for rebase-flow or workstation-flow
         type: choice
         options: [none, fedora, alma10, alma9]
         default: none
+      target_desktop:
+        description: Desktop at the destination; auto preserves it across distros or switches it within one distro
+        type: choice
+        options: [auto, gnome, cosmic]
+        default: auto
       target_channel:
         description: Optional independent destination channel for native candidate rebases
         default: ''
@@ -47,7 +52,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}-${{ inputs.channel || 'br-codex_unified-installer' }}-${{ inputs.desktop || 'gnome' }}-${{ inputs.target_distribution || 'none' }}-${{ inputs.target_channel || 'same' }}
+  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}-${{ inputs.channel || 'br-codex_unified-installer' }}-${{ inputs.desktop || 'gnome' }}-${{ inputs.target_distribution || 'none' }}-${{ inputs.target_desktop || 'auto' }}-${{ inputs.target_channel || 'same' }}
   cancel-in-progress: true
 
 jobs:
@@ -83,11 +88,13 @@ jobs:
           SCENARIO: ${{ inputs.scenario || 'server-flow' }}
           DESKTOP: ${{ inputs.desktop || 'gnome' }}
           TARGET_DISTRIBUTION: ${{ inputs.target_distribution || 'none' }}
+          TARGET_DESKTOP: ${{ inputs.target_desktop || 'auto' }}
           TARGET_CHANNEL: ${{ inputs.target_channel || '' }}
           IMAGE_REVISION: ${{ inputs.image_revision || 'e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7' }}
         run: |
           extra=()
           if [[ "$TARGET_DISTRIBUTION" != none ]]; then extra+=(--target-distribution "$TARGET_DISTRIBUTION"); fi
+          if [[ "$TARGET_DESKTOP" != auto ]]; then extra+=(--target-desktop "$TARGET_DESKTOP"); fi
           if [[ -n "$TARGET_CHANNEL" ]]; then extra+=(--target-channel "$TARGET_CHANNEL"); fi
           exec /usr/bin/python3 scripts/test-unified-installer-vm.py \
             --artifact iso --revision "$ISO_REVISION" --output vm-evidence \

@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Read-only native-policy/account assertions for fresh disposable VM installs."""
+import json
+import os
+from pathlib import Path
+import subprocess
+
+
+def check_labels(paths, get_context=lambda path: os.getxattr(path, 'security.selinux'),
+                 expected_context=lambda path: subprocess.check_output(['matchpathcon', '-n', str(path)])):
+    results = []
+    for path in paths:
+        actual = get_context(path).decode().rstrip('\0\n')
+        expected = expected_context(path).decode().strip()
+        # restorecon normally preserves SELinux user/range. Compare policy types,
+        # without forcing an administrator's context user or MLS range.
+        if actual.split(':')[2] != expected.split(':')[2]:
+            raise RuntimeError(f'Incorrect native-policy type: {path}: {actual}, expected {expected}')
+        results.append(dict(path=str(path), actual=actual, expected=expected))
+    return results
+
+
+def main():
+    home = Path('/var/home/currenttest')
+    paths = [home, home / 'current-sentinel', Path('/etc/passwd'), Path('/etc/shadow'),
+             Path('/etc/group'), Path('/etc/gshadow'), Path('/etc/.pwd.lock')]
+    icc = home / '.local/share/icc'
+    if icc.exists():
+        paths.extend([icc, *sorted(path for path in icc.rglob('*') if not path.is_symlink())])
+    result = {'labels': check_labels(paths)}
+    result['avahi_user'] = subprocess.check_output(['getent', 'passwd', 'avahi'], text=True).strip()
+    result['avahi_group'] = subprocess.check_output(['getent', 'group', 'avahi'], text=True).strip()
+    if result['avahi_user'].split(':')[3] != result['avahi_group'].split(':')[2]:
+        raise RuntimeError('Avahi primary group does not resolve consistently')
+    subprocess.run(['systemctl', 'is-active', '--quiet', 'avahi-daemon.service'], check=True)
+    brew_result = subprocess.check_output(['systemctl', 'show', 'brew-setup.service', '-p', 'Result', '--value'], text=True).strip()
+    if brew_result != 'success':
+        raise RuntimeError('Homebrew setup unit failed: ' + brew_result)
+    brew = Path('/var/home/linuxbrew/.linuxbrew')
+    if not (brew / 'bin/brew').is_file() or not Path('/etc/.linuxbrew').exists():
+        raise RuntimeError('Homebrew initial setup did not complete')
+    result['brew_uid'] = brew.stat().st_uid
+    if result['brew_uid'] != 1000:
+        raise RuntimeError('Homebrew prefix lost its user ownership')
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == '__main__':
+    main()

@@ -22,6 +22,7 @@ CONFIG
 # Fail at image build if upstream changes the configuration contract.
 python3 -c 'from pyanaconda.core.configuration.storage import StorageSection; assert hasattr(StorageSection, "file_system_type"); assert hasattr(StorageSection, "default_scheme"); assert hasattr(StorageSection, "default_partitioning")'
 python3 /tmp/storage-policy.py
+python3 /tmp/account-policy.py
 # Upstream generic ISO Anaconda runtime setup. Credentials are runtime-only.
 echo 'install:x:0:0:root:/root:/usr/libexec/anaconda/run-anaconda' >> /etc/passwd
 echo 'install::14438:0:99999:7:::' >> /etc/shadow

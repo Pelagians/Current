@@ -18,6 +18,7 @@ RUN case "$(uname -m)" in \
 COPY installer/alma10-server/prepare-efi.sh /tmp/prepare-efi.sh
 COPY installer/unified/prepare-runtime.sh /tmp/prepare-runtime.sh
 COPY installer/unified/storage-policy.py /tmp/storage-policy.py
+COPY installer/unified/account-policy.py /tmp/account-policy.py
 COPY installer/unified/iso.yaml /usr/lib/image-builder/bootc/iso.yaml
 COPY installer/unified/interactive-defaults.ks /usr/share/anaconda/interactive-defaults.ks
-RUN bash /tmp/prepare-efi.sh / fedora "$(uname -m)" && bash /tmp/prepare-runtime.sh && rm /tmp/prepare-efi.sh /tmp/prepare-runtime.sh /tmp/storage-policy.py
+RUN bash /tmp/prepare-efi.sh / fedora "$(uname -m)" && bash /tmp/prepare-runtime.sh && rm /tmp/prepare-efi.sh /tmp/prepare-runtime.sh /tmp/storage-policy.py /tmp/account-policy.py

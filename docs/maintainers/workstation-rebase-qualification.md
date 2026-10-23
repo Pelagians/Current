@@ -565,6 +565,39 @@ screen remain visible; desktop applications and completion of COSMIC onboarding
 were not tested. Native account/label captures reproduce the unresolved findings
 above even though the login, user-service and rollback gates pass.
 
+### Account and label corrections under qualification
+
+The next revision changes the installer runtime's `create_user` integration to
+resolve the home inside the installed root and run that payload's `restorecon`
+after successful creation of a **new** home. It also labels the new account
+database/lock files. Existing home trees are excluded from the added operation;
+no forced context, policy exception, recursive whole-system relabel or persistent
+relabel service is installed. A build-time contract check rejects upstream source
+drift. Native installed-policy assertions and ICC captures must validate this in
+fresh VMs before it is called a fix.
+
+The shared workstation build explicitly installs Avahi and derives a sysusers
+declaration from its actual package-created UID/GID, description, home and disabled
+shell. This follows [bootc's account merge guidance](https://bootc.dev/bootc/building/bootc-users-and-groups.7.html):
+new package accounts in image `/etc/passwd` need runtime provisioning when the
+machine has already customized that file. Existing local identities are retained
+by sysusers; no UID or NSS change is guessed. VM assertions require both NSS
+records and an active daemon, rather than merely a successful image build.
+
+An Alma 9 vendor drop-in changes only Brew's initial copy from `--update=none` to
+the older coreutils' `-n`. The upstream conditions, prefix, ownership and completion
+marker remain in effect. Isolated copy tests preserve existing files and symlinks;
+VM checks additionally require a successful setup unit, real `brew --version` as
+UID 1000 and a prefix sentinel retained through rebase/reboot/rollback.
+
+`workstation-flow` now accepts a destination distribution and optional desktop.
+Across distributions the default preserves GNOME or COSMIC; within one distro
+it retains the existing opposite-desktop test. All four authenticated graphical
+session checks, exact-source rollback, signature policy, SELinux enforcement,
+XFS, account/network retention and final journal/shutdown gates still apply.
+The earlier matrix below describes the prior revision; new-image cross-distro
+workstation results must be recorded separately with exact receipts.
+
 ### Current complete-flow matrix
 
 All entries use ISO `39867706688` / source `7eae0d4b`, the shipped XFS profile,

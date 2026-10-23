@@ -24,6 +24,14 @@ policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_cross_distro_workstations_keep_desktop_unless_explicitly_selected(self):
+        for source in ('fedora', 'alma9', 'alma10'):
+            for target in ('fedora', 'alma9', 'alma10'):
+                for desktop in ('gnome', 'cosmic'):
+                    selected = vm.workstation_target(source, desktop, target)
+                    self.assertEqual(selected == desktop, source != target)
+                    self.assertEqual(vm.workstation_target(source, desktop, target, 'gnome'), 'gnome')
+
     def test_vm_rebase_receipt_ignores_echoed_program_and_requires_completion(self):
         echo = "> print('REBASE_STAGED='+json.dumps({'target':target}), flush=True)\r\n"
         receipt = {'target': 'ghcr.io/pelagians/alma9-server@sha256:' + 'a' * 64,

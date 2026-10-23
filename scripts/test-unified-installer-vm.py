@@ -30,6 +30,16 @@ import time
 COMMAND_RC = r'\r?\nVM_RC=([0-9]+)'
 
 
+def workstation_target(distribution, desktop, target_distribution=None, target_desktop=None):
+    # Keep desktop identity for cross-distro tests, and preserve the existing
+    # default GNOME <-> COSMIC test within one distro. Explicit choice is allowed.
+    if target_desktop:
+        return target_desktop
+    if target_distribution and target_distribution != distribution:
+        return desktop
+    return 'cosmic' if desktop == 'gnome' else 'gnome'
+
+
 def terminal_text(output):
     """Remove terminal framing, retaining the actual guest output for assertions."""
     output = re.sub(r'\x1b\].*?(?:\x07|\x1b\\)', '', output, flags=re.DOTALL)
@@ -352,7 +362,8 @@ def run(args):
         ['git', 'rev-parse', 'HEAD'], text=True).strip(), 'distribution': args.distribution,
         'channel': args.channel, 'scenario': args.scenario,
               'desktop': args.desktop if args.scenario == 'workstation-flow' else None,
-              'target_distribution': args.target_distribution, 'target_channel': args.target_channel, 'image_revision': args.image_revision, 'milestones': [], 'status': 'running'}
+              'target_distribution': args.target_distribution, 'target_desktop': args.target_desktop,
+              'target_channel': args.target_channel, 'image_revision': args.image_revision, 'milestones': [], 'status': 'running'}
     def record(message):
         report['milestones'].append(message)
         (evidence / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
@@ -671,6 +682,15 @@ def run(args):
                         raise RuntimeError('Graphical session qualification failed: ' + proof)
                     if ('DESKTOP=' + desktop.upper()) not in proof.upper():
                         raise RuntimeError('Autostart reported the wrong desktop')
+                    command('sudo systemctl start avahi-daemon.service')
+                    health = command('sudo python3 ~/.local/bin/current-vm-workstation-health')
+                    (evidence / (stage + '-workstation-health.log')).write_text(health)
+                    brew = command('/var/home/linuxbrew/.linuxbrew/bin/brew --version')
+                    (evidence / (stage + '-brew-version.log')).write_text(brew)
+                    if stage == 'source':
+                        command('printf retained-brew-data > /var/home/linuxbrew/.linuxbrew/current-vm-sentinel')
+                    else:
+                        command('test "$(cat /var/home/linuxbrew/.linuxbrew/current-vm-sentinel)" = retained-brew-data')
                     report.setdefault('graphical_logins', []).append({'stage': stage, 'desktop': desktop, 'proof': stage + '-graphical-session.log'})
                     record(stage + ': real greeter password login and desktop-session ownership checks passed')
                     return
@@ -742,6 +762,7 @@ def run(args):
         if args.scenario == 'workstation-flow':
             command('mkdir -p ~/.local/bin ~/.config/autostart')
             put_guest('~/.local/bin/current-vm-qualify-workstation', Path('scripts/qualify-workstation-boot.sh').read_text(), True)
+            put_guest('~/.local/bin/current-vm-workstation-health', Path('scripts/qualify-workstation-health.py').read_text())
             put_guest('~/.local/bin/current-vm-session', session_probe(), True)
             put_guest('~/.config/autostart/current-vm-session.desktop', '[Desktop Entry]\nType=Application\nName=Current VM qualification\nExec=/home/currenttest/.local/bin/current-vm-session\n')
         command('rpm -q ostree bootc selinux-policy-targeted policycoreutils libsemanage; sudo semodule -lfull; sudo ls -ldZ /etc/selinux /var/lib/selinux; sudo bootc status --json')
@@ -810,8 +831,9 @@ def run(args):
         command('sudo current setup status; sudo current setup')
         record('Destination boot, retained login/user data/network, explicit completion and completed resume passed')
         if args.scenario in ('workstation-flow', 'rebase-flow'):
-            target_distribution = args.target_distribution if args.scenario == 'rebase-flow' else args.distribution
-            target_desktop = ('cosmic' if args.desktop == 'gnome' else 'gnome') if args.scenario == 'workstation-flow' else None
+            target_distribution = args.target_distribution or args.distribution
+            target_desktop = workstation_target(args.distribution, args.desktop, args.target_distribution,
+                                                args.target_desktop) if args.scenario == 'workstation-flow' else None
             program = rebase_program(target_distribution, target_desktop or 'server', args.target_channel or args.channel, args.image_revision)
             (evidence / 'rebase-program.py').write_text(program)
             put_guest('~/current-vm-rebase.py', program)
@@ -892,6 +914,7 @@ if __name__ == '__main__':
     parser.add_argument('--desktop', choices=('gnome', 'cosmic'), default='gnome')
     parser.add_argument('--target-channel', help='Optional independently published destination channel for rebase qualification')
     parser.add_argument('--target-distribution', choices=('fedora', 'alma10', 'alma9'))
+    parser.add_argument('--target-desktop', choices=('gnome', 'cosmic'))
     parser.add_argument('--image-revision', default='e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7')
     parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs', 'bootstrap-reboot', 'workstation-flow', 'rebase-flow'), default='server-flow')
     args = parser.parse_args()

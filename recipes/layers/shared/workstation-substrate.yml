@@ -22,6 +22,7 @@ modules:
         - alsa-ucm
         - alsa-utils
         - attr
+        - avahi
         - bash-completion
         - bluez
         - bolt
