@@ -15,5 +15,11 @@ compatibility. The original screenshots remain in their respective run artifacts
 OCR. It includes the precise native timezone request and a uniquely recognized
 Password placeholder scored 58.2. The harness requires the high-confidence
 request text and observed authentication title, permits that specific field at
-confidence 50, then verifies the actual timezone change before taking further
+confidence 45, then verifies the actual timezone change before taking further
 screenshots. It never uses an unrecognized or ambiguous field.
+
+`timezone-authentication-fedora.tsv` is the unmodified `40030245690` frame 5
+OCR. The same visually verified native password placeholder scores 48.2 with
+this background, while the exact timezone request and Authenticate button have
+high confidence. The narrow field threshold is 45; the prompt, unique field,
+unique submission control and actual resulting timezone are all still required.

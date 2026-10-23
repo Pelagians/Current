@@ -1329,3 +1329,12 @@ button. It still requires the actual `Africa/Dakar` timezone before advancing.
 A failure retains redacted native text diagnostics while screenshots remain
 blocked during possible password entry. The unchanged signed candidates require
 a fresh complete-flow retry; the interrupted run is not a shutdown or rebase pass.
+
+Fedora-source run `40030245690` stopped before entering a password because its
+visually correct native placeholder scored 48.2 in full-frame OCR, below the
+previous field-only threshold of 50. Its exact request and Authenticate button
+were recognized at high confidence. The original TSV is retained as a second
+fixture. A threshold of 45 applies only to that known field under the exact
+native request; unique controls and actual timezone verification remain
+mandatory. Alma 10-source run `40030259820` instead stopped at native portal
+capture before onboarding and requires its own diagnostic review.

@@ -833,7 +833,7 @@ def run(args):
                 if re.search(r'authentication\s+required', screen_text, re.IGNORECASE):
                     field = visible_control(tsv, width, height, labels=('password',),
                                             required_phrase='Authentication is required to set the system timezone',
-                                            minimum_y=0, control_confidence=50)
+                                            minimum_y=0, control_confidence=45)
                     submit = visible_control(tsv, width, height, labels=('authenticate',),
                                              required_phrase='Authentication is required to set the system timezone',
                                              minimum_y=0)
