@@ -219,7 +219,9 @@ The final [destination/publication rebuild](https://github.com/Pelagians/Current
 at `782560bf` adds only the measured COSMIC country-data compatibility correction.
 All 45 native jobs and three final-source COSMIC functional flows passed,
 including fresh Alma 9 welcome completion, 12 real graphical logins, 15 shutdown
-pivots and 54 final archives. Complete shared publication is still running.
+pivots and 54 final archives. The complete publisher passed all 51 jobs; independent checks matched 45 native
+receipts, 24 shared indexes, 21 ARM references and the three tested COSMIC native
+source/target digests.
 COSMIC portal shutdown panics, intermittent welcome-window clipping and the
 reproduced Alma 10 software-rendering artifact remain unqualified. The current installer payload is unchanged. See the
 [warning follow-up](workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)

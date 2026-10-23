@@ -49,7 +49,8 @@ schema that left its language page empty. Fresh-source Fedora→Alma 10,
 Alma 10→Alma 9 and Alma 9→Fedora COSMIC flows passed actual native welcome,
 graphical login, reboot, exact rollback and recovery. Missing flag fields derive
 from existing native country codes without changing names, identities or user
-preferences. Full candidate publication remains under verification. COSMIC portal
+preferences. The complete native/shared candidate publication passed independent receipt
+and reference checks, including the tested COSMIC image digests. COSMIC portal
 shutdown panics, an intermittent oversized welcome window and reproduced
 software-rendered dock artifacts remain unresolved. See the
 [warning/first-run evidence](../maintainers/workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)

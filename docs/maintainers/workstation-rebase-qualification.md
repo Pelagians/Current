@@ -852,9 +852,11 @@ journals, authenticated setup/resume, retained networking, ordinary reboot and
 shutdown. ARM ISO assembly does not qualify ARM boot or Secure Boot.
 
 The final [native rebuild 39932122029](https://github.com/Pelagians/Current/actions/runs/39932122029)
-at `782560bf` passed all 45 native image jobs. The complete shared publisher is
-running; full publication and independent native/index/ARM-reference matching
-remain open gates. The native x86_64 and ARM64 Alma 9 logs record 249 missing
+at `782560bf` passed all 51 native/publication jobs after the inspected retries.
+Independent inspection matched all 45 native receipts, 24 shared indexes and
+21 ARM compatibility references to that exact source. The three tested COSMIC
+source/target digests also match the published x86_64 children; these are not
+merely same-commit images with different native digests. The native x86_64 and ARM64 Alma 9 logs record 249 missing
 country flag fields added; already-compatible Alma 10 data receives zero changes.
 Three final-source COSMIC flows below passed actual native first-run completion,
 reboot, exact rollback and recovery. Rendering remains separately unqualified.
