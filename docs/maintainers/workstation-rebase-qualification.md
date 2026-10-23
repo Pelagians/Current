@@ -1189,3 +1189,16 @@ the normal publisher. The bootstrap trust policy is unchanged. Build
 Build `40011004179` also exposed an explicit Containerfile-path omission in the
 new runtime/source bundle job; its obsolete candidate assembly was cancelled
 after all five RPM seed jobs succeeded. No native compiler was cancelled.
+
+All three original candidate VM attempts (`40009759614`, `40010554179`,
+`40010568297`) stopped at the same enforced-signature failure before staging;
+none reached a repaired desktop. Corrected build `40011318210` at `d677e809`
+passed all five native artifact checks, three candidate assemblies and the
+runtime/source bundle publication. The immutable bundle references in
+`packages/cosmic-repairs/bundle.json` were independently resolved using
+`skopeo inspect --no-creds`; the returned manifest hashes matched both pins.
+The normal shared COSMIC layer now mounts the approximately 57 MiB runtime
+bundle read-only. It verifies RPM bytes, metadata and native versions before
+an offline install, retains receipts, and leaves source archives/build tools
+out of the payload. CI verifies the bundle's Current signature. ARM retains
+its upstream native RPMs, explicitly outside these x86_64 repairs.
