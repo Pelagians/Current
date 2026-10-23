@@ -567,7 +567,7 @@ above even though the login, user-service and rollback gates pass.
 
 ### Account and label corrections under qualification
 
-The next revision changes the installer runtime's `create_user` integration to
+Product revision `3bdfcaa1` changes the installer runtime's `create_user` integration to
 resolve the home inside the installed root and run that payload's `restorecon`
 after successful creation of a **new** home. It also labels the new account
 database/lock files. Existing home trees are excluded from the added operation;
@@ -597,6 +597,24 @@ session checks, exact-source rollback, signature policy, SELinux enforcement,
 XFS, account/network retention and final journal/shutdown gates still apply.
 The earlier matrix below describes the prior revision; new-image cross-distro
 workstation results must be recorded separately with exact receipts.
+
+[ISO rebuild 39888308688](https://github.com/Pelagians/Current/actions/runs/39888308688)
+passed both architectures at this product revision. The x86_64 ISO checksum is
+`e61f47dc1d94140b2804ab8d5e8c2a082529d98697885c58ee0ffb32dee16f1e`
+(artifact `12473578764`); ARM is
+`514e6d7003b63ba16eec97e64a889b1934d344027be21e4d496fcf898a38f097`
+(artifact `12474600352`). Range-read receipts bind source, architecture and signed
+bootstrap digest; VM jobs also hash the complete downloaded ISO. Both retain the
+same pinned builder/runtime bases and XFS profile. ARM assembly is not a boot test.
+
+[Native rebuild 39888299554](https://github.com/Pelagians/Current/actions/runs/39888299554)
+and its full shared publisher remain under qualification. Initial workstation
+pilots use only individually verified/signed native candidate receipts; they do
+not advance that publisher's gates. Local validation now passes 80 runtime and
+95 image tests, Actionlint and diff checks. The new GNOME health assertion requires
+an ICC profile with native types and no captured color-daemon denial in the
+current boot's kernel journal, alongside Avahi/Brew and persistent-data checks.
+
 
 ### Current complete-flow matrix
 
