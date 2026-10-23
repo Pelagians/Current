@@ -105,7 +105,7 @@ jobs:
           base=$(python3 -c 'import json,sys; print(json.load(open("packages/cosmic-repairs/sources.json"))[sys.argv[1]]["base"])' "$DISTRO")
           cosign verify --key cosign.pub "$base" > parent-signature.json
           repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${DISTRO}-cosmic"
-          channel="repair-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          channel="br-repair-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           native="${repository}:${channel}-amd64"
           sudo podman build --platform linux/amd64 --file candidate/Containerfile \
             --build-arg "BASE=$base" --label "org.opencontainers.image.revision=$GITHUB_SHA" \
