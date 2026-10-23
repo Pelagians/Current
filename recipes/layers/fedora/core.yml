@@ -6,6 +6,8 @@ modules:
       install-weak-deps: false
       packages:
         - dnf5-plugins
+        # The Fedora bootc base includes Avahi even in the server lane.
+        - nss-mdns
         - just
         - plocate
 

@@ -6,6 +6,7 @@ on:
     paths:
       - files/setup/**
       - files/bootstrap/**
+      - files/base/runtime/usr/lib/systemd/system/avahi-daemon.service.d/**
       - files/scripts/setup-trust-policy.sh
       - files/base/runtime/usr/share/current/image-matrix.tsv
       - recipes/bootstrap.yml
@@ -22,6 +23,7 @@ on:
     paths:
       - files/setup/**
       - files/bootstrap/**
+      - files/base/runtime/usr/lib/systemd/system/avahi-daemon.service.d/**
       - recipes/bootstrap.yml
       - recipes/layers/shared/initramfs.yml
       - recipes/layers/shared/signing.yml

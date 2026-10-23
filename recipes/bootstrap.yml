@@ -16,6 +16,8 @@ modules:
         # Anaconda falls back to C.UTF-8 unless the selected locale is present.
         # Keep the English installer/TUI path supported without desktop payloads.
         - glibc-langpack-en
+        # The Fedora base already runs Avahi; supply its native NSS module.
+        - nss-mdns
         - NetworkManager
         - NetworkManager-tui
         - NetworkManager-wifi
@@ -39,6 +41,8 @@ modules:
     files:
       - source: bootstrap
         destination: /
+      - source: base/runtime/usr/lib/systemd/system/avahi-daemon.service.d
+        destination: /usr/lib/systemd/system/avahi-daemon.service.d
       - source: base/runtime/usr/share/current/image-matrix.tsv
         destination: /usr/share/current/image-matrix.tsv
       - source: justfiles/usr/local/bin/current
