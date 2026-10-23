@@ -739,6 +739,9 @@ def run(args):
         command('sudo truncate -s 512M /var/tmp/current-xfs-repair.img && sudo mkfs.xfs -f -nparent=0 -iexchange=0 /var/tmp/current-xfs-repair.img')
         command('test -d /sys/firmware/efi && id && nmcli -t -f STATE general && systemctl is-active NetworkManager')
         command("printf 'retained-user-data\\n' > ~/current-sentinel; sha256sum ~/current-sentinel")
+        command('mkdir -p ~/.local/bin')
+        put_guest('~/.local/bin/current-vm-workstation-health', Path('scripts/qualify-workstation-health.py').read_text())
+        command('sudo python3 ~/.local/bin/current-vm-workstation-health --labels-only > ~/current-vm-bootstrap-labels.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-bootstrap-labels.json" http://10.0.2.2:' + str(server.server_port) + '/bootstrap-account-labels.log')
         command('id -u > ~/current-original-uid; sudo sh -c \'sha256sum /etc/NetworkManager/system-connections/*\' > ~/current-network-hashes')
         # Test-only persistent journal retains shutdown-time finalization errors.
         command('sudo mkdir -p /var/log/journal && sudo systemd-tmpfiles --create --prefix /var/log/journal && sudo journalctl --flush')
@@ -761,8 +764,6 @@ def run(args):
         if args.scenario == 'workstation-flow':
             command('mkdir -p ~/.local/bin ~/.config/autostart')
             put_guest('~/.local/bin/current-vm-qualify-workstation', Path('scripts/qualify-workstation-boot.sh').read_text(), True)
-            put_guest('~/.local/bin/current-vm-workstation-health', Path('scripts/qualify-workstation-health.py').read_text())
-            command('sudo python3 ~/.local/bin/current-vm-workstation-health --labels-only > ~/current-vm-bootstrap-labels.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-bootstrap-labels.json" http://10.0.2.2:' + str(server.server_port) + '/bootstrap-account-labels.log')
             put_guest('~/.local/bin/current-vm-session', session_probe(), True)
             put_guest('~/.config/autostart/current-vm-session.desktop', '[Desktop Entry]\nType=Application\nName=Current VM qualification\nExec=/home/currenttest/.local/bin/current-vm-session\n')
         command('rpm -q ostree bootc selinux-policy-targeted policycoreutils libsemanage; sudo semodule -lfull; sudo ls -ldZ /etc/selinux /var/lib/selinux; sudo bootc status --json')
