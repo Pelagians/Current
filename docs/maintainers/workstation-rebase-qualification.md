@@ -820,3 +820,63 @@ custom account IDs, contaminated session preferences, full application/Brew-pack
 ABI behavior, physical GPUs, Secure Boot enabled and ARM boot remain unqualified.
 The software graphics and version/prefix tests do not establish physical rendering,
 color accuracy, LAN discovery or arbitrary package compatibility.
+
+### Avahi, COSMIC onboarding and rendering follow-up
+
+The fourteen completed flows above describe product `3bdfcaa1` and installer
+`6d27cf9a`. The following work does not retroactively qualify a newer image.
+
+Avahi's upstream [NSS check](https://github.com/avahi/avahi/blob/master/avahi-client/check-nss.c)
+tries to load an mDNS library; a quiet log alone does not prove that the machine's
+`hosts:` chain uses it. All captured distributions lacked that library. The
+sporadic resolver/chroot warnings occur on early boots and disappear on ordinary
+reboots. Upstream [issue 153](https://github.com/avahi/avahi/issues/153) describes
+the same NetworkManager volatile-resolver startup race. Native resolver symlink,
+DNS, dependency and timestamp diagnostics are now captured before choosing any
+additional policy change.
+
+Product `2592911a` adds the native `nss-mdns` and `avahi-tools` packages to the
+shared workstation substrate and an immutable Avahi drop-in with
+`Wants=network-online.target` and `After=network-online.target`. It retains chroot,
+NetworkManager and the distribution packages' NSS integration; it does not write
+a static resolver file, force an authselect profile, rewrite live hosts/PAM
+chains, or create empty resolver targets. The
+[NetworkManager wait-online contract](https://networkmanager.dev/docs/api/latest/NetworkManager-wait-online.service.html)
+waits for startup to complete, not internet availability, and can delay offline
+boot depending on connection profiles. Existing workstation Brew setup already
+requests this target; native VM dependency/timing captures must verify the effect.
+
+The new `workstation-mdns-flow` workflow option retains the entire workstation
+flow and adds `--require-mdns`: a short-lived `avahi-publish` record on the
+isolated guest, both explicit-provider and normal `getent ahostsv4` lookups, and
+absence of the original Avahi startup warnings. The publisher is terminated on
+success, lookup failure or timeout. This tests the local daemon/NSS path; external
+LAN discovery and administrator-custom resolver profiles remain separate gates.
+
+COSMIC's [first-run program](https://github.com/pop-os/cosmic-initial-setup/blob/master/src/main.rs)
+intentionally runs until its own Finish action records completion. Earlier tests
+left that window open. The new probe captures its actual locale/environment and
+uses unique visible Next/Finish controls; it requires the native completion marker
+and process exit. It never writes the marker, masks autostart or resets preferences.
+Its expected first-run UI is not itself a failure. Upstream
+[session teardown](https://github.com/pop-os/cosmic-session/blob/master/src/main.rs)
+stops compositor work before its deferred systemd target stop; warnings from
+clients losing Wayland need actual lifecycle evidence before a downstream fix.
+
+Rendering capture retains the original 1280×800 software virtio GPU. Each COSMIC
+stage captures repeated unmodified QMP frames before and after onboarding and
+requests a native noninteractive portal screenshot through the real user-manager
+environment. Missing portal captures are reported explicitly; they do not become
+rendering passes. These two capture paths share the same guest rendering stack
+and are not independent physical GPU qualification. No renderer/driver setting
+or warning suppression is introduced.
+
+[Native rebuild 39905610863](https://github.com/Pelagians/Current/actions/runs/39905610863)
+is running at `2592911a` with the existing signature, NVIDIA and full shared-index
+gates. ISO/runtime content is unchanged from `6d27cf9a`; its receipts are reused.
+Local validation passes 80 runtime and 99 image tests, plus Actionlint and diff
+checks. Baseline investigation runs
+[39905046419](https://github.com/Pelagians/Current/actions/runs/39905046419) and
+[39905053393](https://github.com/Pelagians/Current/actions/runs/39905053393) use
+unchanged `3bdfcaa1` images and harness `c8f9c554`; they do not test the Avahi fix.
+Fresh current-image mDNS flows remain required after publication.
