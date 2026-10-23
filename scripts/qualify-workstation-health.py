@@ -10,6 +10,15 @@ import subprocess
 import time
 
 
+def check_avahi_startup(read=subprocess.check_output):
+    """Read the complete native unit journal, including on non-desktop images."""
+    log = read(['journalctl', '-b', '-u', 'avahi-daemon.service', '--no-pager', '-o', 'cat'], text=True)
+    for warning in ('No NSS support for mDNS', 'Failed to open /etc/resolv.conf', 'chroot.c: open() failed'):
+        if warning in log:
+            raise RuntimeError('Avahi startup warning remains: ' + warning)
+    return {'avahi_startup_warnings': 0, 'avahi_journal': log}
+
+
 def check_labels(paths, get_context=lambda path: os.getxattr(path, 'security.selinux'),
                  expected_context=lambda path: subprocess.check_output(['matchpathcon', '-n', str(path)])):
     results = []
@@ -112,22 +121,21 @@ def main(labels_only=False, require_icc=False, require_mdns=False):
     result['colord_denials_source'] = 'current-boot kernel journal'
     if require_mdns:
         result['mdns'] = check_mdns()
-        avahi_log = subprocess.check_output(['journalctl', '-b', '-u', 'avahi-daemon.service', '--no-pager', '-o', 'cat'], text=True)
-        for warning in ('No NSS support for mDNS', 'Failed to open /etc/resolv.conf', 'chroot.c: open() failed'):
-            if warning in avahi_log:
-                raise RuntimeError('Avahi startup warning remains: ' + warning)
-        result['avahi_startup_warnings'] = 0
+        result.update(check_avahi_startup())
     print(json.dumps(result, indent=2))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--avahi-only', action='store_true')
     parser.add_argument('--labels-only', action='store_true')
     parser.add_argument('--require-icc', action='store_true')
     parser.add_argument('--require-mdns', action='store_true')
     parser.add_argument('--installer-diagnostics', action='store_true')
     args = parser.parse_args()
-    if args.installer_diagnostics:
+    if args.avahi_only:
+        print(json.dumps(check_avahi_startup(), indent=2))
+    elif args.installer_diagnostics:
         installer_diagnostics()
     else:
         main(args.labels_only, args.require_icc, args.require_mdns)

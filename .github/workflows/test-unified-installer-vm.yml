@@ -94,9 +94,9 @@ jobs:
         run: |
           extra=()
           scenario="$SCENARIO"
-          if [[ "$scenario" == workstation-mdns-flow ]]; then scenario=workstation-flow; extra+=(--require-mdns --expect-locale en_US.UTF-8); fi
-          if [[ "$scenario" == bootstrap-locale-reboot ]]; then scenario=bootstrap-reboot; extra+=(--expect-locale en_US.UTF-8); fi
-          if [[ "$scenario" == rebase-locale-flow ]]; then scenario=rebase-flow; extra+=(--expect-locale en_US.UTF-8); fi
+          if [[ "$scenario" == workstation-mdns-flow ]]; then scenario=workstation-flow; extra+=(--require-mdns --expect-locale en_US.UTF-8 --require-clean-avahi); fi
+          if [[ "$scenario" == bootstrap-locale-reboot ]]; then scenario=bootstrap-reboot; extra+=(--expect-locale en_US.UTF-8 --require-clean-avahi); fi
+          if [[ "$scenario" == rebase-locale-flow ]]; then scenario=rebase-flow; extra+=(--expect-locale en_US.UTF-8 --require-clean-avahi); fi
           if [[ "$TARGET_DISTRIBUTION" != none ]]; then extra+=(--target-distribution "$TARGET_DISTRIBUTION"); fi
           if [[ "$TARGET_DESKTOP" != auto ]]; then extra+=(--target-desktop "$TARGET_DESKTOP"); fi
           if [[ -n "$TARGET_CHANNEL" ]]; then extra+=(--target-channel "$TARGET_CHANNEL"); fi

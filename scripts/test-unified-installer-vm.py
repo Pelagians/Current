@@ -47,7 +47,7 @@ def allowed_evidence_path(path):
              '/storage-rejected.log', '/bootstrap-account-labels.log',
              '/installer-account-diagnostics.log'}
     return path in fixed or re.fullmatch(
-        r'/(?:bootstrap|source|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health)\.log',
+        r'/(?:bootstrap|source|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health|avahi-startup)\.log',
         path) is not None or re.fullmatch(
         r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-(?:before|after)-portal\.png', path) is not None or re.fullmatch(
         r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-before-workstation-health\.log', path) is not None
@@ -393,7 +393,7 @@ def run(args):
     evidence.mkdir()
     report = {'iso_sha256': digest, 'inputs': receipt, 'harness_revision': subprocess.check_output(
         ['git', 'rev-parse', 'HEAD'], text=True).strip(), 'distribution': args.distribution,
-        'channel': args.channel, 'scenario': args.scenario, 'require_mdns': args.require_mdns, 'expect_locale': args.expect_locale,
+        'channel': args.channel, 'scenario': args.scenario, 'require_mdns': args.require_mdns, 'expect_locale': args.expect_locale, 'require_clean_avahi': args.require_clean_avahi,
               'desktop': args.desktop if args.scenario == 'workstation-flow' else None,
               'target_distribution': args.target_distribution, 'target_desktop': args.target_desktop,
               'target_channel': args.target_channel, 'image_revision': args.image_revision, 'milestones': [], 'status': 'running'}
@@ -626,6 +626,10 @@ def run(args):
                                f'locale.setlocale(locale.LC_ALL, {args.expect_locale!r})\n'
                                f'print("LOCALE_QUALIFIED="+{args.expect_locale!r})\n')
                     output.write(command('python3 -c ' + shlex.quote(program)))
+                if args.require_clean_avahi:
+                    name = stage + '-avahi-startup.log'
+                    command('sudo python3 ~/.local/bin/current-vm-workstation-health --avahi-only > ~/current-vm-avahi.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-avahi.json" http://10.0.2.2:' + str(server.server_port) + '/' + name)
+                    report.setdefault('avahi_startup', {})[stage] = name
                 command('systemctl is-active user@$(id -u).service && systemctl --user is-active default.target && systemd-run --user --wait --pipe /usr/bin/true')
                 command('logger -t current-vm-checkpoint ' + stage)
                 checkpoints.append(stage)
@@ -1023,6 +1027,10 @@ def run(args):
     except BaseException as error:
         report['status'] = 'interrupted' if isinstance(error, KeyboardInterrupt) else 'failed'
         report['error'] = str(error).replace(password, '[REDACTED]')
+        if os.environ.get('GITHUB_ACTIONS') == 'true':
+            # Keep a redacted failure reason readable when artifact delivery fails.
+            message = report['error'].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+            print('::error title=Current UEFI qualification::' + message, flush=True)
         try:
             # A misfocused greeter could echo the ephemeral password. Keep the
             # pre-password screenshot and logs instead of uploading that frame.
@@ -1054,6 +1062,7 @@ if __name__ == '__main__':
     parser.add_argument('--image-revision', default='3bdfcaa1f2665051c873f40e30e45b1f49333616')
     parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs', 'bootstrap-reboot', 'workstation-flow', 'rebase-flow'), default='server-flow')
     parser.add_argument('--require-mdns', action='store_true', help='Require native provider/default mDNS lookups and no Avahi startup warnings')
+    parser.add_argument('--require-clean-avahi', action='store_true', help='Reject original Avahi NSS/resolver warnings at every bootstrap and destination checkpoint')
     parser.add_argument('--expect-locale', help='Require this selected locale in native configuration, libc and graphical sessions')
     args = parser.parse_args()
     if not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.channel):

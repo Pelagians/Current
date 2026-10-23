@@ -26,10 +26,14 @@ policy_spec.loader.exec_module(policy)
 class UnifiedISO(unittest.TestCase):
     def test_health_receipts_are_allowed_at_source_and_each_reboot_stage(self):
         for stage in ('source', 'rebase-target', 'rebase-target-reboot', 'rebase-rollback'):
+            self.assertTrue(vm.allowed_evidence_path('/' + stage + '-avahi-startup.log'))
             self.assertTrue(vm.allowed_evidence_path('/' + stage + '-workstation-health.log'))
             self.assertTrue(vm.allowed_evidence_path('/' + stage + '-before-workstation-health.log'))
             for phase in ('before', 'after'):
                 self.assertTrue(vm.allowed_evidence_path('/' + stage + '-' + phase + '-portal.png'))
+        for stage in ('bootstrap', 'bootstrap-reboot', 'destination', 'destination-reboot', 'rollback', 'recovery-bootstrap', 'journal-final'):
+            self.assertTrue(vm.allowed_evidence_path('/' + stage + '-avahi-startup.log'))
+        self.assertFalse(vm.allowed_evidence_path('/unknown-avahi-startup.log'))
         for path in ('/bootstrap-account-labels.log', '/installer-account-diagnostics.log'):
             self.assertTrue(vm.allowed_evidence_path(path))
         for path in ('/etc/shadow', '/../source-workstation-health.log',

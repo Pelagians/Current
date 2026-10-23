@@ -18,6 +18,15 @@ health_spec.loader.exec_module(health)
 
 
 class Accounts(unittest.TestCase):
+    def test_avahi_native_journal_rejects_original_warnings_and_reader_failure(self):
+        for log in ('Server startup complete.', '-- No entries --'):
+            self.assertEqual(health.check_avahi_startup(Mock(return_value=log))['avahi_startup_warnings'], 0)
+        for warning in ('No NSS support for mDNS detected', 'Failed to open /etc/resolv.conf', 'chroot.c: open() failed'):
+            with self.assertRaisesRegex(RuntimeError, 'Avahi startup warning remains'):
+                health.check_avahi_startup(Mock(return_value=warning))
+        with self.assertRaises(subprocess.CalledProcessError):
+            health.check_avahi_startup(Mock(side_effect=subprocess.CalledProcessError(1, 'journalctl')))
+
     def test_mdns_requires_provider_and_default_lookup_and_cleans_publisher(self):
         publisher = Mock()
         publisher.poll.return_value = 0
