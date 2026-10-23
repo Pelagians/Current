@@ -20,7 +20,7 @@ on:
         default: br-codex_unified-installer
       scenario:
         type: choice
-        options: [server-flow, reject-btrfs, bootstrap-reboot, bootstrap-locale-reboot, workstation-flow, workstation-mdns-flow, rebase-flow, rebase-locale-flow]
+        options: [server-flow, reject-btrfs, bootstrap-reboot, bootstrap-locale-reboot, workstation-flow, workstation-mdns-flow, rebase-flow, rebase-locale-flow, cosmic-data-audit]
         default: server-flow
       desktop:
         type: choice
@@ -56,7 +56,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  cosmic-data-audit:
+    if: ${{ inputs.scenario == 'cosmic-data-audit' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: sigstore/cosign-installer@v4.1.2
+      - name: Inspect locale registry data in the signed native image
+        env:
+          DISTRIBUTION: ${{ inputs.distribution }}
+          CHANNEL: ${{ inputs.channel }}
+          IMAGE_REVISION: ${{ inputs.image_revision }}
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          case "$DISTRIBUTION" in fedora|alma9|alma10) ;; *) exit 2;; esac
+          [[ "$CHANNEL" =~ ^br-[A-Za-z0-9_.-]+$ ]]
+          repo="ghcr.io/pelagians/${DISTRIBUTION}-cosmic"
+          cosign verify --key cosign.pub "${repo}:${CHANNEL}" > signature.json
+          digest=$(python3 -c 'import json; print(json.load(open("signature.json"))[0]["critical"]["image"]["docker-manifest-digest"])')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          pinned="${repo}@${digest}"
+          docker pull "$pinned"
+          docker image inspect "$pinned" > image.json
+          python3 -c 'import json,os; i=json.load(open("image.json"))[0]; assert i["Architecture"]=="amd64"; assert i["Config"]["Labels"]["org.opencontainers.image.revision"]==os.environ["IMAGE_REVISION"]'
+          docker run --rm -i --read-only --network none --cap-drop ALL --security-opt no-new-privileges --entrypoint /usr/bin/python3 "$pinned" <<'PY_AUDIT'
+          import json, os, subprocess
+          from pathlib import Path
+          package = subprocess.run(['rpm', '-q', 'iso-codes'], text=True, capture_output=True)
+          report = {'package': package.stdout.strip(), 'container_xdg_data_dirs': os.environ.get('XDG_DATA_DIRS'), 'files': {}}
+          for name in ('iso_3166-1.json', 'iso_639-2.json', 'iso_639-3.json'):
+              path = Path('/usr/share/iso-codes/json') / name
+              try:
+                  data = json.loads(path.read_text())
+                  report['files'][name] = {'present': True, 'keys': list(data)}
+              except (OSError, ValueError) as error:
+                  report['files'][name] = {'present': False, 'error': str(error)}
+          print('::notice title=Current COSMIC locale inventory::' + json.dumps(report), flush=True)
+          if package.returncode or not all(info['present'] for info in report['files'].values()):
+              raise SystemExit('COSMIC locale registry package/data is absent; this is a read-only inventory, not boot qualification')
+          PY_AUDIT
+
   uefi:
+    if: ${{ inputs.scenario != 'cosmic-data-audit' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
