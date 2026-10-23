@@ -95,12 +95,12 @@ jobs:
           repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/current-cosmic-repairs"
           for kind in sources runtime; do
             reference="$repository:${kind}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            docker build --file "bundle/$kind/Containerfile" --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" \
               --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
               --tag "$reference" "bundle/$kind"
             docker push "$reference"
             digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$reference")
-            cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$digest"
+            cosign sign --yes --key env://COSIGN_PRIVATE_KEY --new-bundle-format=false --use-signing-config=false "$digest"
             cosign verify --key cosign.pub "$digest" > "$kind-signature.json"
             printf '%s\n' "$digest" > "$kind-reference.txt"
           done
@@ -159,13 +159,13 @@ jobs:
           sudo podman push --digestfile native-digest.txt "$native"
           digest=$(cat native-digest.txt)
           sudo podman image inspect "$native" > candidate-build.json
-          cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$repository@$digest"
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY --new-bundle-format=false --use-signing-config=false "$repository@$digest"
           # The setup API resolves an index to its native child. This isolated
           # test index intentionally contains only x86_64; it is not an ARM claim.
           sudo podman manifest create "$repository:$channel" "docker://$repository@$digest"
           sudo podman manifest push --all --digestfile index-digest.txt "$repository:$channel" "docker://$repository:$channel"
           index_digest=$(cat index-digest.txt)
-          cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$repository@$index_digest"
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY --new-bundle-format=false --use-signing-config=false "$repository@$index_digest"
           cosign verify --key cosign.pub "$repository@$digest" > candidate-signature.json
           python3 - "$repository" "$channel" "$digest" "$index_digest" <<'PY'
           import json, os, sys

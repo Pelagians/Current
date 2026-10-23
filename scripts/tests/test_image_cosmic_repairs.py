@@ -21,9 +21,60 @@ def module(name, script):
 
 build = module('cosmic_repair_build', 'build-cosmic-repairs.py')
 candidate = module('cosmic_repair_candidate', 'prepare-cosmic-repair-candidate.py')
+installer = module('cosmic_repair_installer', '../files/scripts/install-cosmic-repairs.py')
 
 
 class NativeRepairs(unittest.TestCase):
+    def test_native_installation_checks_all_inputs_before_dnf_and_preserves_arm(self):
+        with patch.object(installer, 'rpm', return_value='aarch64'), patch.object(installer.subprocess, 'run') as command:
+            installer.install(Path('/absent'), 'alma9', Path('/unused'))
+            command.assert_not_called()
+        for mutation in ('none', 'bytes', 'native-version', 'rpm-metadata', 'install-failure'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                artifacts = root / 'artifacts'
+                artifacts.mkdir()
+                self.artifacts(artifacts)
+                candidate.prepare('alma10', artifacts, root / 'alma10')
+                installed = False
+                def rpm(*args):
+                    if args[0] == '--eval':
+                        return 'x86_64'
+                    if args[0] == '-qp':
+                        if mutation == 'rpm-metadata':
+                            return 'wrong architecture aarch64'
+                        name = Path(args[-1]).name.split('-1.11.0-')[0]
+                        return name + ' 1.11.0-1.el10.current1 x86_64'
+                    if mutation == 'native-version':
+                        return '1.12.0-1.el10'
+                    return '1.11.0-1.el10' + ('.current1' if installed else '')
+                def run(*args, **kwargs):
+                    nonlocal installed
+                    if mutation == 'install-failure':
+                        raise installer.subprocess.CalledProcessError(1, args[0])
+                    installed = True
+                if mutation == 'bytes':
+                    next((root / 'alma10/rpms').iterdir()).write_bytes(b'bad')
+                with patch.object(installer, 'rpm', side_effect=rpm), patch.object(installer.subprocess, 'run', side_effect=run) as command:
+                    if mutation == 'none':
+                        installer.install(root, 'alma10', root / 'installed-receipts')
+                        self.assertEqual(len(list((root / 'installed-receipts').iterdir())), 2)
+                        self.assertIn('--disablerepo=*', command.call_args.args[0])
+                    else:
+                        with self.assertRaises((ValueError, installer.subprocess.CalledProcessError)):
+                            installer.install(root, 'alma10', root / 'installed-receipts')
+                        self.assertFalse((root / 'installed-receipts').exists())
+                        if mutation != 'install-failure':
+                            command.assert_not_called()
+
+    def test_installer_distribution_identity(self):
+        self.assertEqual(installer.distribution('ID=fedora\nVERSION_ID=44'), 'fedora')
+        self.assertEqual(installer.distribution('ID="almalinux"\nVERSION_ID="9.8"'), 'alma9')
+        self.assertEqual(installer.distribution('ID=almalinux\nVERSION_ID="10.2"'), 'alma10')
+        for release in ('ID=unknown', 'ID=almalinux\nVERSION_ID=8'):
+            with self.assertRaises(ValueError):
+                installer.distribution(release)
+
     def test_seed_reuses_only_present_unexpired_artifacts_from_same_branch_builder(self):
         previous = dict(status='completed', head_branch='codex/unified-installer',
                         head_sha='a' * 40,
