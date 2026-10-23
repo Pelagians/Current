@@ -1262,3 +1262,11 @@ pixels. This is bounded evidence for the full-repaint change, alongside the
 original intermittent corrupted control. Repeated final-image captures and
 physical GPU/performance testing remain distinct requirements. XFS, signature
 policy, user preferences, and ARM package selection remain unchanged.
+
+Review of the remaining candidate frames reproduced the same streaks on Alma
+9's still-unpatched panel in `40012836730`: 931 changed outer-margin pixels,
+maximum channel difference 229, with identical corrupted decoded QMP/portal
+frames. Its reboot was clean. The native 1.9 rendering source accepts the same
+full-repaint patch without offsets; the repair catalogue now includes the exact
+Alma 9 panel source RPM as well. This is additional evidence of the affected
+scope, not a claim that the prior Alma 10-only panel repair covered Alma 9.

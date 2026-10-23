@@ -12,6 +12,12 @@
         "url": "https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/epel-9-x86_64/Packages/x/xdg-desktop-portal-cosmic-1.9.0-1.el9.src.rpm",
         "sha256": "73472006d24c898434eaf0061c11c98cfc53d492ed9be4649c57cf6a8d40ef77",
         "patch": "portal-disconnect.patch"
+      },
+      "cosmic-panel": {
+        "version": "1.9.0-1.el9",
+        "url": "https://download.copr.fedorainfracloud.org/results/ligenix/enterprise-cosmic/epel-9-x86_64/Packages/c/cosmic-panel-1.9.0-1.el9.src.rpm",
+        "sha256": "67591d4d482c0c5eb5120d18a53734ffd1787d6f464b294a006e18ce77844c47",
+        "patch": "panel-transparent-repaint.patch"
       }
     },
     "base": "ghcr.io/pelagians/alma9-cosmic@sha256:34e78d7a75fd4267693b581bccd6ed95ab86b45868866a7c8efddb08ebe01fbd",
