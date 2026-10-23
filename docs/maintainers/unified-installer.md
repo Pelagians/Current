@@ -207,16 +207,21 @@ snapshot package repositories and pin the module/tool versions as well.
 ## Qualification gates
 
 The current ISOs use source `480b323e`; [both native builds](https://github.com/Pelagians/Current/actions/runs/39917099704)
-passed, with x86_64 checksum `f8e20767...`. The
-[native destination/publication rebuild](https://github.com/Pelagians/Current/actions/runs/39920333623)
-is running at `dc78334d`. These include the inherited Fedora bootstrap/server NSS
-correction; later differences are qualification-only. The strict fresh
+passed, with x86_64 checksum `f8e20767...`. The strict fresh
 [bootstrap control](https://github.com/Pelagians/Current/actions/runs/39919245213)
-passed locale, native Avahi journal, account/authentication, reboot and shutdown
-checks. Corrected COSMIC flows remain under qualification at this checkpoint. See the [warning follow-up](workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
-for exact receipts, diagnostic failures and remaining gates. Later test-only
-commits reuse the product revision; they do not change installed payload recipes or runtime sources.
+passed locale, complete native Avahi journal, account/authentication, reboot and
+shutdown checks. Five amended server/GNOME flows at `dc78334d` passed with this
+ISO. All 45 native `dc78334d` image jobs passed, but its publisher was cancelled
+as superseded; shared references still match the prior complete `809c0fc3` build.
 
+The final [destination/publication rebuild](https://github.com/Pelagians/Current/actions/runs/39932122029)
+at `782560bf` adds only the measured COSMIC country-data compatibility correction.
+Fresh Alma 9 first-run, three COSMIC transitions and complete shared publication
+remain required. The current installer payload is unchanged. See the
+[warning follow-up](workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
+for exact receipts, completed flows, diagnostic failures and remaining gates.
+Test-only commits reuse the recorded product revision; they do not change the
+installed payload.
 The preceding `3bdfcaa1` product / `6d27cf9a` installer baseline passed both ISOs,
 all 51 native/publication jobs, 45 native receipts, 24 shared indexes and 21 ARM
 compatibility references, plus fourteen complete workstation flows. The
@@ -243,8 +248,8 @@ Alma 9's unsupported Fedora archives must pass the final bootstrap reader.
 | Transition / hardware | Status |
 | --- | --- |
 | Fresh x86_64 bootstrap | Current ISO passed native labels, English locale, Avahi startup, authenticated setup resume and reboot |
-| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Three strict GNOME flows passed at 809c0fc3; three COSMIC probe failures retained, corrected reruns pending; amended destinations require qualification |
-| Server and same-distro desktop switches | Two complete server locale controls passed at 809c0fc3; amended Fedora NSS correction requires destination reruns; same-distro desktop switches not repeated |
+| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Three strict GNOME flows passed at dc78334d; Fedora→Alma 10 COSMIC native onboarding/rollback passed at 809c0fc3; final COSMIC country-data fix requires fresh flows |
+| Server and same-distro desktop switches | Two complete strict server rebases passed at dc78334d with the Fedora NSS correction; same-distro desktop switches not repeated |
 | Generic ARM64 UEFI | Current native ISO assembly passed; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations/build gates only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |

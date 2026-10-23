@@ -35,18 +35,30 @@ Avahi account provisioning and an Alma 9 Homebrew setup correction. Their fourte
 recorded cross-distro GNOME/COSMIC flows passed native home/ICC type, Avahi account,
 real Homebrew execution, graphical-login, reboot and rollback checks.
 
-Current ISO source `480b323e` and the destination rebuild additionally supply the native workstation
-mDNS packages, orders Avahi after network startup, and includes minimal English
-locale data in bootstrap and destination images. The older payload lacked the
-selected English locale, so Anaconda used its C.UTF-8 fallback. This correction
-supplies locale data without forcing LANG/LC_ALL or resetting user preferences.
-Other languages and deliberately selected C locales remain separate qualification
-work. The current ISO passed its bootstrap locale/Avahi/authentication/reboot checks.
-Destination and [warning/first-run checks](../maintainers/workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
-are pending; prior results do not count as current-revision passes. These checks
-do not qualify all applications, Brew packages, external LAN discovery or physical
-GPUs. Keep testing disposable; the evidence retains exact runs and failures.
+Current ISO source `480b323e` supplies native mDNS support, orders Avahi after
+network startup, and includes minimal English locale data. Destination images
+retain that English support across distributions. The older payload lacked the
+selected locale, so Anaconda used its C.UTF-8 fallback. This correction supplies
+data without forcing LANG/LC_ALL or resetting user preferences. Other languages
+and deliberately selected C locales remain separate qualification work.
 
+The current ISO passed strict bootstrap locale/Avahi/authentication/reboot checks.
+Five amended server/GNOME flows passed with destination source `dc78334d`.
+A corrected Fedora→Alma 10 COSMIC flow also completed real native onboarding,
+login, reboot and rollback on preceding `809c0fc3` images. The final COSMIC rebuild
+`782560bf` addresses an older Alma 9 country-data schema that left its language
+page empty; fresh first-run and cross-distro results remain required. It supplies
+missing flag fields from existing native country codes without changing names,
+identities or per-user settings. See the
+[warning/first-run evidence](../maintainers/workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
+for exact receipts and remaining shutdown/rendering warnings. These tests do not
+qualify all applications, Brew packages, external LAN discovery or physical GPUs.
+Keep testing disposable; prior image results do not qualify a replacement.
+
+If an earlier COSMIC image has an empty language page, use a console login to
+inspect the journal and `sudo bootc status`, then recover through the prior
+boot-menu deployment if needed. Do not create the native first-run completion
+marker or reset your home to bypass the failure.
 The added installer relabel hook excludes reused homes. Earlier draft installs
 with incorrect labels need administrator review; use a fresh disposable install
 for qualification. There is no automatic recursive repair of existing homes.

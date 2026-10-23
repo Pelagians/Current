@@ -828,334 +828,194 @@ color accuracy, LAN discovery or arbitrary package compatibility.
 
 ### Avahi, COSMIC onboarding and rendering follow-up
 
-The fourteen completed flows above describe product `3bdfcaa1` and installer
-`6d27cf9a`. The following work does not retroactively qualify a newer image.
+The fourteen completed flows above are historical results for product `3bdfcaa1`
+and installer `6d27cf9a`. This follow-up retains separate installer, destination
+and harness receipts; passing an earlier image does not qualify its replacement.
+XFS remains the default, with Alma 9-compatible features. All tests below use
+fresh disposable x86_64 UEFI/KVM disks, enforcing SELinux, standard images and
+software virtio graphics, with Secure Boot disabled.
 
-Avahi's upstream [NSS check](https://github.com/avahi/avahi/blob/master/avahi-client/check-nss.c)
-tries to load an mDNS library; a quiet log alone does not prove that the machine's
-`hosts:` chain uses it. All captured distributions lacked that library. The
-sporadic resolver/chroot warnings occur on early boots and disappear on ordinary
-reboots. Upstream [issue 153](https://github.com/avahi/avahi/issues/153) describes
-the same NetworkManager volatile-resolver startup race. Native resolver symlink,
-DNS, dependency and timestamp diagnostics are now captured before choosing any
-additional policy change.
+#### Current receipts and completed flows
 
-Product `2592911a` adds the native `nss-mdns` and `avahi-tools` packages to the
-shared workstation substrate and an immutable Avahi drop-in with
-`Wants=network-online.target` and `After=network-online.target`. It retains chroot,
-NetworkManager and the distribution packages' NSS integration; it does not write
-a static resolver file, force an authselect profile, rewrite live hosts/PAM
-chains, or create empty resolver targets. The
-[NetworkManager wait-online contract](https://networkmanager.dev/docs/api/latest/NetworkManager-wait-online.service.html)
-waits for startup to complete, not internet availability, and can delay offline
-boot depending on connection profiles. Existing workstation Brew setup already
-requests this target; native VM dependency/timing captures must verify the effect.
+Both [native ISO builds 39917099704](https://github.com/Pelagians/Current/actions/runs/39917099704)
+passed at source `480b323e`. Later COSMIC data and probe changes do not change the
+bootstrap payload or installer runtime.
 
-The new `workstation-mdns-flow` workflow option retains the entire workstation
-flow and adds `--require-mdns`: a short-lived `avahi-publish` record on the
-isolated guest, both explicit-provider and normal `getent ahostsv4` lookups, and
-absence of the original Avahi startup warnings. The publisher is terminated on
-success, lookup failure or timeout. This tests the local daemon/NSS path; external
-LAN discovery and administrator-custom resolver profiles remain separate gates.
+| Architecture | Artifact | ISO SHA-256 | Bootstrap manifest digest |
+| --- | --- | --- | --- |
+| x86_64 | `12486396307` | `f8e20767b4b3d7d1dffc11a37e9cb7192d15e966d920e94da5ac0205378055ef` | `sha256:55397bb2b78a3d0d620af38f84b43ae70804744ca600606fa052a8f1801a5926` |
+| aarch64 | `12486225521` | `62b20b75ad1cc1ae37ab60bf00bf77d679831b051c4dce122cd787303a5152d3` | `sha256:ab3feaaeae6cda5fe50ec52a782d202bde208482df5b51ae9614d3cff84a6f01` |
 
-COSMIC's [first-run program](https://github.com/pop-os/cosmic-initial-setup/blob/master/src/main.rs)
-intentionally runs until its own Finish action records completion. Earlier tests
-left that window open. The new probe captures its actual locale/environment and
-uses unique visible Next/Finish controls; it requires the native completion marker
-and process exit. It never writes the marker, masks autostart or resets preferences.
-Its expected first-run UI is not itself a failure. Upstream
-[session teardown](https://github.com/pop-os/cosmic-session/blob/master/src/main.rs)
-stops compositor work before its deferred systemd target stop; warnings from
-clients losing Wayland need actual lifecycle evidence before a downstream fix.
+The strict [bootstrap control 39919245213](https://github.com/Pelagians/Current/actions/runs/39919245213)
+passed native home/account labels, English locale, complete native Avahi startup
+journals, authenticated setup/resume, retained networking, ordinary reboot and
+shutdown. ARM ISO assembly does not qualify ARM boot or Secure Boot.
 
-Rendering capture retains the original 1280×800 software virtio GPU. Each COSMIC
-stage captures repeated unmodified QMP frames before and after onboarding and
-requests a native noninteractive portal screenshot through the real user-manager
-environment. Missing portal captures are reported explicitly; they do not become
-rendering passes. These two capture paths share the same guest rendering stack
-and are not independent physical GPU qualification. No renderer/driver setting
-or warning suppression is introduced.
+The final [native rebuild 39932122029](https://github.com/Pelagians/Current/actions/runs/39932122029)
+at `782560bf` is running. Its three COSMIC flows, fresh Alma 9 welcome interaction,
+and complete signed shared publication remain required. Its native ARM64 Alma 9
+COSMIC job passed and records the compatibility helper adding 249 flag fields;
+this is build evidence only.
 
-[Native rebuild 39905610863](https://github.com/Pelagians/Current/actions/runs/39905610863)
-is running at `2592911a` with the existing signature, NVIDIA and full shared-index
-gates. ISO/runtime content is unchanged from `6d27cf9a`; its receipts are reused.
-Local validation passes 80 runtime and 99 image tests, plus Actionlint and diff
-checks. Baseline investigation runs
-[39905046419](https://github.com/Pelagians/Current/actions/runs/39905046419) and
-[39905053393](https://github.com/Pelagians/Current/actions/runs/39905053393) use
-unchanged `3bdfcaa1` images and harness `c8f9c554`; they do not test the Avahi fix.
-Fresh current-image mDNS flows remain required after publication.
+The preceding amended build `dc78334d` passed all 45 native image jobs. Its
+publisher was cancelled as superseded by the measured country-schema fix.
+Independent checks after cancellation still matched all 24 shared references and
+21 ARM aliases to the preceding complete `809c0fc3` publication
+([39909852390](https://github.com/Pelagians/Current/actions/runs/39909852390), all
+51 jobs). No partial publication is advertised.
 
-The first two controls (`39905046419`, `39905053393`) both stopped at the new
-onboarding gate. Retained Fedora frames prove the capture probe itself opened
-COSMIC's normal “Allow Apps to Take Screenshots?” permission dialog, which remained
-over the first-run page after the blocking request timed out. These are probe
-failures, not evidence that Next/Finish is broken. Harness `4c077165` makes that
-request asynchronous, recognizes the exact visible permission title and a unique
-Allow control, and records normal GUI consent in the disposable user's session.
-No permission-store edit, portal bypass or product policy change is made. Sparse
-text OCR handles small footer controls; missing/ambiguous controls still fail.
-The early native pilot `39907117956` was cancelled during tool setup because it
-retained the confirmed probe defect; replacement
-[39908306518](https://github.com/Pelagians/Current/actions/runs/39908306518) uses
-the corrected probe and individually verified signed `2592911a` candidates.
+These five complete amended flows use the current ISO and exact signed native
+`dc78334d` candidates. Each passed five shutdown pivots, target reboot,
+exact-source rollback and final bootstrap verification of all retained archives.
+They test the NSS/locale correction; the later country-data change is COSMIC-only.
 
-The Fedora control also captures `LANG=C.UTF-8` in both the real graphical session
-and system locale, despite the English Kickstart answer. This is a valid POSIX
-locale; COSMIC's locale parser warnings do not make it corrupt. Upstream
-[Anaconda language installation](https://github.com/rhinstaller/anaconda/blob/main/pyanaconda/modules/localization/installation.py)
-falls back to `C.UTF-8` when the installed payload cannot support the selected
-locale. A fresh
-[bootstrap locale control 39908189677](https://github.com/Pelagians/Current/actions/runs/39908189677)
-collects installed locale packages and final Anaconda language logs before a
-payload change is chosen. No forced LANG/LC_ALL override is introduced. Local
-checks now pass 80 runtime and 100 image tests, including title-guarded screenshot
-consent and rejection of ambiguous controls.
+| Source → destination | Run | Final closed archives |
+| --- | --- | ---: |
+| Fedora server → Alma 9 server | [39923105988](https://github.com/Pelagians/Current/actions/runs/39923105988) | 20 |
+| Alma 10 server → Fedora server | [39924899585](https://github.com/Pelagians/Current/actions/runs/39924899585) | 14 |
+| Fedora GNOME → Alma 9 GNOME | [39925741875](https://github.com/Pelagians/Current/actions/runs/39925741875) | 18 |
+| Alma 9 GNOME → Alma 10 GNOME | [39925752932](https://github.com/Pelagians/Current/actions/runs/39925752932) | 23 |
+| Alma 10 GNOME → Fedora GNOME | [39925761838](https://github.com/Pelagians/Current/actions/runs/39925761838) | 14 |
 
-The bootstrap locale control passed its ordinary label/authentication/reboot gates
-and confirmed the missing support: `glibc-minimal-langpack` was installed,
-`glibc-langpack-en` and `glibc-all-langpacks` were absent, and `locale -a` listed
-only `C`, `C.utf8`, `POSIX`. The final Anaconda journal explicitly records
-`en_US.UTF-8` matching no installed locale, the unsupported-locale decision,
-and writing `C.UTF-8` as its fallback. This is a payload-content issue rather
-than an invented greeter-language override.
+All checkpoints passed complete native Avahi unit-journal and English-locale
+assertions. Each GNOME flow passed four real greeter/password logins, native
+home/ICC/account types, zero captured colord denials, Avahi account resolution,
+both provider/default mDNS lookups and actual non-root Homebrew version/prefix
+checks. These do not establish arbitrary Homebrew package ABI compatibility.
 
-Revision `809c0fc3` adds `glibc-langpack-en` to the minimal bootstrap and common
-OS layer. The latter keeps the installer's English choice available on server
-as well as workstation destinations. This adds locale data, not a desktop or
-persistent environment override. Anaconda still selects the locale. Other
-bootstrap languages remain limited to installed support; broad multilingual
-setup and deliberately selected C locales are not qualified by this correction.
+The corrected [Fedora COSMIC → Alma 10 flow 39925428329](https://github.com/Pelagians/Current/actions/runs/39925428329)
+passed on this ISO with exact signed `809c0fc3` candidates: native source
+Next/timezone/Finish interaction, completion marker and process exit, four real
+logins/health checks, eight native portal captures, 24 original QMP frames,
+target reboot, exact rollback, five shutdown pivots and 14 final archives. Later
+sessions correctly reuse the source's native completion marker; this is not a
+fresh Alma 10 welcome test or final `782560bf` image qualification.
 
-The Avahi-only build `39905610863` was intentionally cancelled as superseded.
-Its shared-publisher job executed no steps; partial native successes are not a
-complete publication pass. The individually signed `2592911a` pilot remains a
-diagnostic of that earlier content. The coherent rebuilds are now
-[native images 39909852390](https://github.com/Pelagians/Current/actions/runs/39909852390)
-and [both ISOs 39909853781](https://github.com/Pelagians/Current/actions/runs/39909853781),
-with all existing signature/NVIDIA/shared-index gates retained. These builds
-must pass before the new revision is called qualified.
+#### Avahi and locale corrections
 
-Strict workstation mDNS, bootstrap-locale and server rebase-locale scenarios now
-require the selected English locale in `/etc/locale.conf` and native libc; real
-graphical-session captures must retain it too. They do not set LANG/LC_ALL to make
-an assertion pass. Fresh current-ISO flows must repeat native home/ICC, accounts,
-mDNS, first-run completion, password login, reboot, exact-source rollback and
-full final journal/shutdown gates. The earlier fourteen-flow matrix remains
-historical evidence for `3bdfcaa1` / `6d27cf9a`.
+Avahi's [NSS check](https://github.com/avahi/avahi/blob/master/avahi-client/check-nss.c)
+loads an mDNS library; absence of its warning alone does not prove that the
+normal resolver chain uses that library. Earlier images lacked the native
+module. Early resolver/chroot warnings match the NetworkManager volatile-file
+startup race described in [upstream issue 153](https://github.com/avahi/avahi/issues/153).
 
-The Avahi-only native pilot `39908306518` passed its source Alma 9 mDNS checks:
-both explicit `mdns4` and ordinary NSS returned the temporary published address,
-and the captured Avahi startup-warning count was zero. Its full flow failed at
-onboarding because default OCR omitted the visibly present Next control; it is
-not a completed transition. Original PNGs remain unchanged. Local calibration
-against that exact frame found Tesseract's adaptive thresholding recognizes Next
-at 93% confidence; harness `cfbb3b76` uses that standard OCR option, retains the
-unique-control gate, and accepts both observed screenshot-permission titles
-(“Allow Apps…” and “Allow Applications…”). It still requires upstream's own
-completion marker and process exit. No guessed coordinate or fabricated state
-replaces the UI.
+Shared workstation layers now install native `nss-mdns` and `avahi-tools`.
+Fedora bootstrap/server images also receive `nss-mdns` because their base already
+runs Avahi. The vendor drop-in requests and orders after `network-online.target`;
+Alma servers do not acquire an unnecessary daemon. Chroot, NetworkManager and the
+distro RPMs' NSS integration remain enabled. There is no static resolver file,
+forced authselect/PAM rewrite or empty resolver target. The
+[wait-online contract](https://networkmanager.dev/docs/api/latest/NetworkManager-wait-online.service.html)
+can delay offline startup; it establishes startup completion, not internet access.
 
-Both `809c0fc3` ISO jobs passed. Small receipt reads bind x86_64 artifact
-`12483430069` to ISO SHA-256
-`8d1457e8d86d922c8a2796a8c4f532314469bf7985bb3892d47e5783dee3f356`
-and bootstrap digest
-`sha256:93a1b1ca7d56574b940cb6882fb94d2e29b3f5e2c8db89a08dc944e13828ccfc`.
-The native ARM64 artifact `12482603287` has ISO SHA-256
-`c25fd94cd7e18cff89365698d9a438305e021358817114b09278c85c1928fd40`
-and bootstrap digest
-`sha256:87e1006462b5214dcc0922eb27ee7f5dc1948074e297fa21fe1dad03f76f25c6`.
-Native ARM assembly is not ARM boot qualification. The x86_64 locale control
-[39911888427](https://github.com/Pelagians/Current/actions/runs/39911888427)
-uses this new ISO. The native image rebuild is still pending at this checkpoint;
-individually signed native candidates can be tested before publication, but the
-complete publication and shared-index checks remain mandatory and separate.
+`--require-clean-avahi` saves the complete native current-boot Avahi unit journal
+at every checkpoint and rejects the three original NSS/resolver/chroot warnings.
+Read failure fails qualification. Missing Avahi on an Alma server does not start
+it. Workstation `--require-mdns` additionally requires an active daemon and
+short-lived isolated `avahi-publish` record, resolved through both explicit
+`mdns4` and normal `getent ahostsv4`. Cleanup is bounded on success/failure.
+This qualifies local daemon/NSS integration, not external LAN discovery or
+administrator-custom resolver profiles.
 
-The first three pending COSMIC runs (`39912392568`, `39912482280`, `39912488784`)
-were cancelled before VM qualification as superseded: the longer Alma screenshot
-permission title wraps, and actual TSV inserts blank hierarchy rows between its
-words. Harness `36884f41` collapses OCR whitespace before matching either observed
-title, with a wrapped-word fixture; it still requires one visible Allow control.
-Replacement COSMIC runs are `39912696556`, `39912702689`, `39912710312`.
-The final representative matrix uses exact signed native candidate tags from
-`39909852390`; shared publication/architecture/index receipts are independently
-qualified afterward. Native-candidate runs are not evidence that a partial
-publication succeeded.
+The earlier bootstrap contained only `glibc-minimal-langpack`; `locale -a` listed
+C, C.utf8 and POSIX. Native Anaconda logs explicitly rejected the selected
+`en_US.UTF-8` as absent and used its valid C.UTF-8 fallback, consistent with
+[upstream installation logic](https://github.com/rhinstaller/anaconda/blob/main/pyanaconda/modules/localization/installation.py).
+Minimal `glibc-langpack-en` in bootstrap and the common OS layer preserves the
+actual English choice across distributions. No LANG/LC_ALL or per-user override
+is introduced. Strict tests require native libc support, system configuration
+and real graphical-session LANG. Other languages and intentional C locales
+remain unqualified.
 
-Both new `809c0fc3` server locale controls passed the entire rebase/reboot/rollback
-flow: Fedora→Alma 9 (`39912020799`, 18 final archives) and Alma 10→Fedora
-(`39912031177`, 14 archives), with five clean shutdown pivots each. Their native
-locale assertions passed at every stage. The warning review nevertheless found
-`No NSS support for mDNS` in the Fedora bootstrap/server boots: those already
-inherit a running Avahi from the Fedora bootc base, outside the workstation
-substrate. Revision `dd43ff64` supplies `nss-mdns` in bootstrap and the Fedora distro
-core layer too. It does not enable a new service or add Alma server dependencies.
-These server passes remain exact-revision diagnostic evidence; the amended
-payload requires new ISO/image builds and affected-flow reruns.
+#### Measured Alma 9 COSMIC first-run incompatibility
 
-The existing vendor Avahi network-online drop-in is shared through the base
-runtime files and explicitly included in the minimal bootstrap. Its content is
-unchanged; workstation, inherited Fedora server and bootstrap Avahi use one
-ordering policy. No persistent service mask, resolver file or chroot exception
-is introduced. Alma servers without Avahi are not given a new daemon. Ordinary
-DNS/locale/rebase checks are distinct from the workstation's temporary-record
-mDNS qualification.
+[Native session journal 39927020805](https://github.com/Pelagians/Current/actions/runs/39927020805)
+explains the empty language page: `json parsing error: missing field flag at
+line 8 column 5`. System/session English and compiled locales were valid. The
+[signed read-only Podman inventory 39925412874](https://github.com/Pelagians/Current/actions/runs/39925412874)
+proved that `iso-codes-4.6.0-3.el9.noarch` and all three required JSON documents
+already existed and parsed. Merely installing that package would not fix the
+client-schema mismatch.
 
-Artifact retrieval then returned HTTP 503, “Egress is over the account limit,”
-including a bounded range request for only the failed COSMIC result JSON.
-[Azure's error reference](https://learn.microsoft.com/rest/api/storageservices/common-rest-api-error-codes)
-classifies that as `ServerBusy`; it is not by itself evidence of billing or
-permission failure. The completed Alma 9 COSMIC→Fedora COSMIC run `39912696556`
-failed its VM step, but its actual error/captures could not yet be retrieved.
-The normal job-log connector also failed, and the CLI's redirected log endpoint
-returned 403. No root cause or compatibility pass is inferred from missing logs.
-Artifact retries use backoff; automatic dispatch of the amended build was held
-while this failure was investigated. Existing VM jobs remain observed.
+The [exact 1.9 registry dependency](https://github.com/AerynOS/locales-rs/blob/e5b66fbe3a55182174caf6aec171ff4ae8285626/src/iso_3166.rs)
+requires a string `flag` in every country record. The 1.11 dependency differs
+only in repository funding metadata, not runtime code. Shared COSMIC builds now
+explicitly require iso-codes and run `cosmic-locale-compat.sh` after desktop and
+Flatpak layers. It adds only absent flag strings as
+[Unicode regional-indicator pairs](https://unicode.org/reports/tr51/#Flags)
+derived from existing native `alpha_2` codes. No countries, identifiers, names
+or existing flag values are replaced. Compatible files remain byte-identical;
+malformed metadata fails before writing.
 
-The new `--require-clean-avahi` qualification mode shares the native journal
-checker with workstation mDNS health, saves complete current-boot unit output
-through the existing bounded HTTP evidence collector, and applies at every
-bootstrap/server/workstation checkpoint. Missing/failed journal reads fail;
-absence of an Avahi unit on an Alma server does not start one. The workstation's
-separate active-service and provider/default lookup checks remain mandatory.
-Local validation now passes 80 runtime and 101 image tests.
+This build-time compatibility step deliberately changes a package-owned data
+file: `rpm -V iso-codes` can report that expected modification. Current's image
+signature authenticates the resulting bytes; native package provenance/license
+remain. There is no second catalogue, per-user environment override or forged
+first-run marker. Three fixture tests cover identity/data/mode preservation,
+idempotence, compatible bytes and fail-before-write. All 185 local tests pass
+(80 runtime, 105 image), plus Actionlint and diff checks. Native GUI completion
+on the new image remains the acceptance gate.
 
-Artifact service access recovered. The complete `809c0fc3` native publisher passed
-all 51 jobs; independent checks matched all 45 native receipts, 24 shared indexes
-and 21 ARM compatibility aliases. The earlier six-of-nine representative results
-are: bootstrap, both server rebases and all three GNOME transitions passed; all
-three COSMIC controls stopped in the UI probe, not in a qualified complete flow.
-The failed Fedora frame retains a native screenshot-permission modal; the
-adaptive whole-frame OCR omitted its white title/Allow label. The Alma 9 frame
-reached “Get connected,” but the hand cursor covered Next. The Alma 10 frame
-retains its permission modal after the screenshot request failed, so it did not
-test onboarding beyond that obstacle.
+COSMIC's [native Finish action](https://github.com/pop-os/cosmic-initial-setup/blob/master/src/main.rs)
+records completion. The probe requires that action, its marker and process exit;
+it never writes the marker, resets preferences or masks autostart. It uses
+recognized unique visible controls, real screenshot consent, optional Wi-Fi Skip
+only on the explicit no-networks page, and the native timezone search/Enter for
+Dakar (UTC), an ordinary disposable-user preference. Wired networking is checked
+separately; wireless setup is not qualified.
 
-Harness `dc78334d` reads the unmodified full frame plus small OCR-only control
-interiors derived from bounded cyan regions, requires the real title and unique
-recognized control, and moves the pointer away after releasing a click. Raw QMP
-and portal images are retained. The later confidence filter excludes the actual
-low-confidence icon OCR between Alma's wrapped title words; local calibration
-recognizes Allow on both saved permission frames and Next on the saved first-run
-frame. The optional native Wi-Fi page's visible Skip control is used only with
-“No networks have been found”; these guests have already passed wired networking
-checks. No Wi-Fi, preference reset or fabricated first-run completion is implied.
-Native Finish/marker/process-exit gates remain mandatory.
+#### Warning and rendering limits
 
-Both amended ISO jobs
-[39917099704](https://github.com/Pelagians/Current/actions/runs/39917099704) passed
-at source `480b323e`; the later probe changes do not alter installed payloads.
-The x86_64 artifact `12486396307` has ISO SHA-256
-`f8e20767b4b3d7d1dffc11a37e9cb7192d15e966d920e94da5ac0205378055ef`
-and bootstrap digest
-`sha256:55397bb2b78a3d0d620af38f84b43ae70804744ca600606fa052a8f1801a5926`.
-ARM64 artifact `12486225521` has ISO SHA-256
-`62b20b75ad1cc1ae37ab60bf00bf77d679831b051c4dce122cd787303a5152d3`
-and bootstrap digest
-`sha256:ab3feaaeae6cda5fe50ec52a782d202bde208482df5b51ae9614d3cff84a6f01`.
-The fresh strict bootstrap control
-[39919245213](https://github.com/Pelagians/Current/actions/runs/39919245213)
-passed native Avahi warning/English-locale assertions, authenticated setup,
-persistence, reboot and shutdown. Native ARM assembly still does not qualify
-ARM boot or Secure Boot.
+The completed Fedora→Alma 10 COSMIC flow has no captured locale-parser or
+first-run Broken-pipe/crash warning after native onboarding completion. Other
+COSMIC/portal clients still emit Wayland Broken-pipe messages during shutdown;
+the serial capture contains 2,939 matching lines across the flow, not 2,939
+independent failures. Bounded diagnostic snapshots overlap, so their counts must
+not be summed. All five shutdown initramfs pivots and final journal checks passed.
+[Upstream session ordering](https://github.com/pop-os/cosmic-session/blob/master/src/main.rs)
+stops compositor work before deferred target teardown; that is consistent with
+client disconnects, not proof that every message is harmless. No speculative
+session backport, service mask, log suppression or renderer override is applied.
+Fresh-session missing configuration/cache, UTC geodata and virtual-GPU Mesa
+warnings remain recorded; general application behavior is not qualified.
 
-The amended full native matrix
-[39920333623](https://github.com/Pelagians/Current/actions/runs/39920333623) is
-running at `dc78334d`. The corrected UI pilot
-[39919462672](https://github.com/Pelagians/Current/actions/runs/39919462672)
-uses the amended `480b323e` ISO and exact signed `809c0fc3` Alma 9/Fedora COSMIC
-candidates. That isolates the probe/NSS-bootstrap changes; it is not evidence
-that the amended destination matrix has passed. Local checks pass 80 runtime
-and 102 image tests, plus Actionlint and diff checks. XFS is unchanged.
+The earlier Alma 10 COSMIC rollback `39901294471` retained colored horizontal
+streaks at the bottom edge of `rebase-rollback-session.png`. The completed newer
+Alma 10 target sample `39925428329/rebase-target-after-render-2.png` is visibly
+clean. It is a different transition checkpoint, so this does not establish an
+artifact fix. Final Alma 10 rollback samples remain required.
 
-The corrected `39919462672` Alma 9 source got past the cursor obstacle and exposed
-an empty native “Select a language” page. `locale -a`, system locale and real
-session LANG are valid English; no completion marker was created. The native
-1.9.0 [language page](https://github.com/pop-os/cosmic-initial-setup/blob/epoch-1.9.0/src/page/language.rs)
-initializes a locale registry before listing languages. Its
-[registry](https://github.com/AerynOS/locales-rs/blob/main/src/registry.rs) loads
-`iso_3166-1.json`, `iso_639-2.json`, `iso_639-3.json` from iso-codes data. Missing
-package/data, XDG search paths and native session errors must be distinguished
-before choosing a product fix. The new `cosmic-data-audit` mode verifies Current's
-signature and exact architecture/revision, then queries package/files in an
-isolated read-only container without network or added capabilities; it is not a
-boot qualification.
+Each COSMIC login retains three unmodified QMP frames three seconds apart before
+and after onboarding, plus a native portal screenshot through the actual user
+manager. These capture paths share the guest graphics stack and do not provide
+independent physical-GPU evidence. Crops/contrast changes exist only in separately
+named OCR diagnostics; original evidence is never altered. Missing portal output
+or nonzero exit fails before any onboarding/rendering claim.
 
-The first inventory `39922866183` stopped in Docker with “max depth exceeded”
-before reading package/data. It establishes no locale result. The replacement
-`39925412874` uses Podman, as the existing ISO tooling does. Subsequent onboarding
-probes retain the native user journal on failure and completion, plus locale
-package/XDG diagnostics. No package fix is guessed from an empty menu alone.
+#### Retained diagnostic failures
 
-Fedora source `39921099634` passed its language page and stopped at the populated
-native timezone list, which requires an explicit city choice. This is expected
-questionnaire interaction, distinct from the empty Alma list. Harness `8527ec0f`
-uses the real search field and native Enter selection for Dakar, a UTC time
-preference for this disposable install, then requires ordinary Finish/marker/exit.
-It changes no product locale/timezone policy and does not claim wireless setup.
-The new Fedora→Alma 10 probe is `39925428329`.
+Earlier probe failures are retained instead of being promoted to compatibility
+passes. Artifact service 503/redirect failures temporarily prevented inspection;
+access recovered. No conclusion was inferred from inaccessible evidence.
 
-Amended native Fedora server→Alma 9 `39923105988` passed the entire strict flow
-at destination source `dc78334d` / ISO source `480b323e`, including the native
-Avahi unit-journal assertions, target reboot, exact rollback and final recovery.
-The amended Alma 10→Fedora server and three GNOME cases are now running with the
-same receipts; the full native publisher remains a separate gate.
+| Run(s) | Result and subsequent action |
+| --- | --- |
+| `39905046419`, `39905053393` | Original-image controls exposed a blocking screenshot-consent probe; changed to asynchronous native consent |
+| `39907117956`, `39912392568`, `39912482280`, `39912488784` | Cancelled as superseded before qualification |
+| `39908306518` | Native signed Avahi pilot stopped in OCR; not a complete flow |
+| `39908189677` | Bootstrap control confirmed absent English locale and Anaconda fallback |
+| `39905610863` | Avahi-only build cancelled; publisher executed no steps |
+| `39911888427`, `39912020799`, `39912031177`, `39911974392`, `39912956615`, `39912963968` | Six complete bootstrap/server/GNOME controls at `809c0fc3`; inherited Fedora NSS warning subsequently corrected |
+| `39912696556`, `39912702689`, `39912710312` | COSMIC probes stopped on cursor-occluded Next or unrecognized permission modal; original frames retained |
+| `39919462672`, `39927020805` | Corrected Alma 9 probe reached actual empty language page; latter retained exact schema error |
+| `39921090622`, `39921099634` | Populated timezone page required ordinary city selection; harness corrected |
+| `39922866183` | Docker inventory failed with max-depth before reading data; Podman inventory subsequently passed |
 
-The signed read-only Podman inventory `39925412874` passed: the exact Alma 9
-`809c0fc3` image already contains `iso-codes-4.6.0-3.el9.noarch`, and all three
-required JSON files are present and parse with their expected document keys.
-No missing-package fix is justified by that result. The live session path and
-native registry/D-Bus error are now the remaining diagnostic gates; a new Alma 9
-probe retains those journals instead of replacing user state or bypassing its
-empty page. Fedora's populated timezone page receives a normal visible search
-and Enter selection in the corrected probe. The earlier Docker inventory failure
-remains a tooling limitation, not a product-data result.
-
-The new native Alma 9 journal `39927020805` identifies the exact error:
-`json parsing error: missing field flag at line 8 column 5`. The
-[vendored 1.9 registry schema](https://github.com/AerynOS/locales-rs/blob/e5b66fbe3a55182174caf6aec171ff4ae8285626/src/iso_3166.rs)
-requires a string flag in every territory record. The 1.11 registry revision has
-identical runtime code; the upstream comparison changes only repository funding
-metadata. The installed older distro data schema, not a missing locale package,
-is therefore the measured incompatibility.
-
-The shared COSMIC image build now explicitly requires iso-codes and runs
-`cosmic-locale-compat.sh` after its desktop/Flatpak layers. It adds only absent
-flag strings as Unicode regional-indicator pairs derived from each existing
-native alpha_2 code; it adds no territories and changes no identifiers, names or
-existing flag values. Compatible files remain byte-identical. Malformed metadata
-fails before writing. This is a build-time change to the package-owned data file,
-so RPM file verification can report that deliberate modification; Current's image
-signature authenticates the resulting payload. The native package's provenance
-and license remain in place. There is no per-user locale/environment override,
-new data catalogue or forged first-run state. Fixtures cover identity preservation,
-mode, idempotence, compatible bytes and rejection before write. All 185 local
-tests pass (80 runtime, 105 image), plus Actionlint and diff checks. Fresh native
-Alma 9 first-run and cross-distro tests are still required before qualifying it.
-
-The `dc78334d` rebuild's 45 native image jobs passed, but its publisher was
-cancelled as superseded for the measured country-schema fix. Read-only checks
-again matched all 24 shared references and 21 ARM aliases to the previous complete
-`809c0fc3` publication after cancellation. No partial publication is advertised.
-The final country-compatible native rebuild
-[39932122029](https://github.com/Pelagians/Current/actions/runs/39932122029) runs
-at `782560bf`; the tested `480b323e` installer payload is unchanged.
-
-All five amended native-candidate server/GNOME flows at `dc78334d` passed complete
-machine receipt checks with strict native Avahi journals and English locale:
-Fedora server→Alma 9 (`39923105988`, 20 archives), Alma 10 server→Fedora
-(`39924899585`, 14), Fedora GNOME→Alma 9 (`39925741875`, 18), Alma 9 GNOME→Alma 10
-(`39925752932`, 23), Alma 10 GNOME→Fedora (`39925761838`, 14). Each passed five
-shutdown pivots and exact-source rollback; GNOME cases passed all four real
-password logins, provider/default mDNS paths, native home/ICC/Brew checks.
-
-The corrected Fedora COSMIC→Alma 10 flow `39925428329` passed its complete
-recorded flow on ISO `480b323e` with signed `809c0fc3` candidates: real source
-Next/timezone/Finish interaction, the native completion marker and process exit,
-four password logins/health checks, eight native portal captures, repeated raw
-frames, target reboot, exact rollback, five shutdown pivots and 14 final archives.
-The destination reuses the native completion marker, as it should; this is not a
-fresh Alma 10 welcome test or a pass for final `782560bf` destinations. The final
-three COSMIC transitions still require fresh results. The country flag fields
-are derived [Unicode regional-indicator sequences](https://unicode.org/reports/tr51/#Flags)
-from native codes; they are not new country identities or hardware qualification.
+The corrected OCR probe combines original whole-frame OCR with OCR-only interiors
+of bounded cyan controls, requires high-confidence exact title/unique label, and
+parks the released pointer away from the next button. Native marker/process exit,
+real PAM login, signed immutable image validation, native health, closed-journal
+and shutdown gates remain mandatory. No test failure is bypassed by creating user
+state. Final qualification still excludes physical GPUs, Secure Boot enabled,
+ARM boot/Apple Silicon, reused/encrypted/separate homes, custom IDs, arbitrary
+applications/Brew packages and external LAN discovery.
