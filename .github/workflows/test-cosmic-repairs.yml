@@ -3,9 +3,14 @@ name: Qualify native COSMIC repairs
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      seed_run:
+        type: string
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   matrix:
@@ -15,7 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: matrix
-        run: echo "packages=$(python3 scripts/build-cosmic-repairs.py matrix)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEED_RUN: ${{ inputs.seed_run }}
+        run: echo "packages=$(python3 scripts/build-cosmic-repairs.py matrix --seed-run "$SEED_RUN")" >> "$GITHUB_OUTPUT"
 
   packages:
     needs: matrix
@@ -32,6 +40,7 @@ jobs:
           BASE: ${{ matrix.base }}
         run: cosign verify --key cosign.pub "$BASE" > parent-signature.json
       - name: Rebuild patched native RPM with vendored dependencies
+        if: ${{ matrix.seed_run == '' }}
         env:
           BASE: ${{ matrix.base }}
           DISTRO: ${{ matrix.distribution }}
@@ -46,6 +55,13 @@ jobs:
             -v "$PWD:/work:ro" -v "$RUNNER_TEMP/cosmic-rpms:/out" \
             "$BASE" /work/scripts/build-cosmic-repairs.py build \
             --distribution "$DISTRO" --package "$PACKAGE" --output /out
+      - uses: actions/download-artifact@v4
+        if: ${{ matrix.seed_run != '' }}
+        with:
+          name: cosmic-repair-${{ matrix.distribution }}-${{ matrix.package }}
+          path: ${{ runner.temp }}/cosmic-rpms
+          run-id: ${{ matrix.seed_run }}
+          github-token: ${{ github.token }}
       - uses: actions/upload-artifact@v4
         with:
           name: cosmic-repair-${{ matrix.distribution }}-${{ matrix.package }}

@@ -13,6 +13,10 @@ on:
         description: Build isolated COSMIC repair candidates without publishing normal image tags
         type: boolean
         default: false
+      cosmic_repairs_seed_run:
+        description: Optional completed repair run with reusable matching native RPM artifacts
+        type: string
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -23,8 +27,11 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.cosmic_repairs_only }}
     permissions:
       contents: read
+      actions: read
       packages: write
     uses: ./.github/workflows/test-cosmic-repairs.yml
+    with:
+      seed_run: ${{ inputs.cosmic_repairs_seed_run }}
     secrets: inherit
 
   validate-runtime-artifacts:

@@ -2,9 +2,11 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -21,6 +23,28 @@ candidate = module('cosmic_repair_candidate', 'prepare-cosmic-repair-candidate.p
 
 
 class NativeRepairs(unittest.TestCase):
+    def test_seed_reuses_only_present_unexpired_artifacts_from_same_branch_builder(self):
+        previous = dict(status='completed', head_branch='codex/unified-installer',
+                        head_repository=dict(full_name='Pelagians/Current'),
+                        path='.github/workflows/build.yml', event='workflow_dispatch')
+        artifacts = dict(total_count=2, artifacts=[
+            dict(name='cosmic-repair-alma10-cosmic-panel', expired=False),
+            dict(name='cosmic-repair-alma9-cosmic-initial-setup', expired=True)])
+        with patch.dict(os.environ, GITHUB_REPOSITORY='Pelagians/Current', GITHUB_REF_NAME='codex/unified-installer'):
+            with patch.object(build.subprocess, 'check_output', side_effect=[json.dumps(previous), json.dumps(artifacts)]):
+                rows = build.matrix('123')['include']
+                self.assertEqual([(row['distribution'], row['package']) for row in rows if row['seed_run']], [('alma10', 'cosmic-panel')])
+            for changed in (dict(previous, status='in_progress'), dict(previous, head_branch='other'),
+                            dict(previous, path='unrelated.yml'), dict(previous, event='pull_request'),
+                            dict(previous, head_repository=dict(full_name='Other/Repository'))):
+                with self.subTest(changed=changed), patch.object(build.subprocess, 'check_output', return_value=json.dumps(changed)):
+                    with self.assertRaises(ValueError):
+                        build.matrix('123')
+        with patch.object(build.subprocess, 'check_output') as command:
+            with self.assertRaises(ValueError):
+                build.matrix('../123')
+            command.assert_not_called()
+
     def test_spec_preserves_native_tests_dependencies_and_install(self):
         native = ('Name: cosmic-panel\nRelease: %autorelease\nSource2: vendor.toml\n'
                   'BuildRequires: cargo\n%prep\n%autosetup -n cosmic-panel -p1 -a1\n'
@@ -31,9 +55,11 @@ class NativeRepairs(unittest.TestCase):
         self.assertIn('Patch900: current-repair.patch\n', result)
         self.assertIn(native[native.index('BuildRequires:'):native.index('%changelog')], result)
         self.assertNotIn('%autochangelog', result)
+        static = native.replace('%autochangelog', '* Thu Oct 22 2026 Vendor\n- Native history.')
+        self.assertIn('* Thu Oct 22 2026 Vendor\n- Native history.', build.patch_spec(static, '1.el10'))
         for invalid in (native.replace('Source2:', 'Source3:'),
                         native.replace('%autosetup ', '%setup '),
-                        native + 'Release: another\n', native.replace('%autochangelog', ''), result):
+                        native + 'Release: another\n', native + '%autochangelog\n', result):
             with self.subTest(invalid=invalid):
                 with self.assertRaises(ValueError):
                     build.patch_spec(invalid, '1.el10')

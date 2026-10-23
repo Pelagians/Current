@@ -40,3 +40,10 @@ graphical login, cross-distribution staging and exact rollback. Original
 1280×800 software virtio rendering, enforcing SELinux and XFS stay unchanged.
 An absent panic alone does not establish clean session teardown. A clean frame
 alone does not establish absence of an intermittent rendering defect.
+
+For a retry after a builder-only change, `cosmic_repairs_seed_run` may identify a
+completed repair run on the same repository/branch. Only present, unexpired RPM
+artifacts are reused. The assembler rechecks every native source, parent,
+patch and binary checksum against the current catalogue before building or
+signing anything; it never reuses assembled candidate images. A changed repair
+patch or source must be rebuilt rather than seeded with a mismatching receipt.

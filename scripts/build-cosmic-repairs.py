@@ -40,7 +40,7 @@ def patch_spec(text, release):
     # SRPMs have no packaging Git history. Fedora 44 also no longer publishes
     # the old standalone rpmautospec macro package. Record this local rebuild
     # explicitly rather than requiring the source packager's Git automation.
-    if text.count('%autochangelog') != 1:
+    if text.count('%autochangelog') > 1:
         raise ValueError('Unexpected native changelog structure')
     text = text.replace('%autochangelog', '* Fri Oct 23 2026 Current Project\n'
                         '- Apply the pinned Current COSMIC repair.')
@@ -59,6 +59,7 @@ def build(distribution, package, output):
     # bootc /opt points into /var; installed-OS tmpfiles have not run in this
     # disposable build container. Native EL9 GCC toolsets install below /opt/rh.
     Path('/var/opt').mkdir(parents=True, exist_ok=True)
+    Path('/var/roothome').mkdir(parents=True, exist_ok=True)
     dnf = shutil.which('dnf4') or shutil.which('dnf')
     run(dnf, '-y', 'install', 'dnf-plugins-core', 'rpm-build', 'rpmdevtools')
     with tempfile.TemporaryDirectory(prefix='cosmic-rpm-') as directory:
@@ -78,6 +79,7 @@ def build(distribution, package, output):
         # The SRPM contains vendored Cargo inputs. Refuse registry/Git updates.
         os.environ['CARGO_NET_OFFLINE'] = 'true'
         os.environ['CARGO_BUILD_JOBS'] = '2'
+        os.environ['CARGO_HOME'] = str(top / 'cargo-home')
         run('rpmbuild', '-ba', '--define', f'_topdir {top}',
             '--define', 'debug_package %{nil}', str(spec))
         rpms = list((top / 'RPMS').glob('*/' + package + '-[0-9]*.rpm'))
@@ -97,17 +99,41 @@ def build(distribution, package, output):
         (output / (package + '.json')).write_text(json.dumps(receipt, indent=2) + '\n')
 
 
+def matrix(seed_run):
+    available = set()
+    if seed_run:
+        if not re.fullmatch(r'[0-9]+', seed_run):
+            raise ValueError('Invalid seed run identity')
+        repository = os.environ['GITHUB_REPOSITORY']
+        endpoint = f'repos/{repository}/actions/runs/{seed_run}'
+        previous = json.loads(subprocess.check_output(['gh', 'api', endpoint], text=True))
+        if (previous.get('status') != 'completed' or previous.get('head_branch') != os.environ['GITHUB_REF_NAME']
+                or previous.get('head_repository', {}).get('full_name') != repository
+                or previous.get('path') != '.github/workflows/build.yml'
+                or previous.get('event') != 'workflow_dispatch'):
+            raise ValueError('Seed must be a completed builder run from this repository and branch')
+        artifacts = json.loads(subprocess.check_output(['gh', 'api', endpoint + '/artifacts?per_page=100'], text=True))
+        if artifacts['total_count'] > 100:
+            raise ValueError('Unexpected repair artifact count')
+        available = {item['name'] for item in artifacts['artifacts'] if not item['expired']}
+    config = json.loads((INPUTS / 'sources.json').read_text())
+    # The assembler validates every reused source/base/patch/binary hash before
+    # building or signing a candidate. A seed never reuses assembled images.
+    return {'include': [dict(distribution=distro, package=package, base=row['base'],
+                             seed_run=seed_run if 'cosmic-repair-' + distro + '-' + package in available else '')
+                        for distro, row in config.items() for package in row['packages']]}
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('mode', choices=['matrix', 'build'])
     parser.add_argument('--distribution', choices=['fedora', 'alma9', 'alma10'])
     parser.add_argument('--package')
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--seed-run', default='')
     args = parser.parse_args()
     if args.mode == 'matrix':
-        config = json.loads((INPUTS / 'sources.json').read_text())
-        print(json.dumps({'include': [dict(distribution=distro, package=package, base=row['base'])
-                                      for distro, row in config.items() for package in row['packages']]}))
+        print(json.dumps(matrix(args.seed_run)))
     else:
         if not all((args.distribution, args.package, args.output)):
             parser.error('build requires distribution, package and output')
