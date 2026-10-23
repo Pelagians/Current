@@ -56,7 +56,7 @@ def allowed_evidence_path(path):
 def visible_footer_button(tsv, width, height, labels=('next', 'finish'), required_phrase=None):
     """Only act on a unique visible control in the expected UI, never guess."""
     if required_phrase:
-        words = ' '.join(line.split('\t')[-1] for line in tsv.splitlines()[1:])
+        words = ' '.join(' '.join(line.split('\t')[-1] for line in tsv.splitlines()[1:]).split())
         phrases = (required_phrase,) if isinstance(required_phrase, str) else required_phrase
         if not any(phrase.lower() in words.lower() for phrase in phrases):
             return None

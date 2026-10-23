@@ -54,6 +54,11 @@ class UnifiedISO(unittest.TestCase):
         options = dict(labels=('allow',), required_phrase=('Allow Apps to Take Screenshots', 'Allow Applications to Take Screenshots'))
         for observed in (title, title.replace('Apps', 'Applications')):
             self.assertEqual(vm.visible_footer_button(header + observed + allow, 1280, 800, **options), ('Allow', 867, 470))
+        # Actual TSV separates words and inserts empty hierarchy rows at a wrap.
+        wrapped = ''.join(f'5\t1\t1\t1\t1\t{i}\t450\t280\t50\t25\t95\t{word}\n' +
+                          ('4\t1\t1\t1\t2\t0\t450\t310\t400\t25\t-1\t\n' if word == 'Take' else '')
+                          for i, word in enumerate('Allow Applications to Take Screenshots?'.split(), 1))
+        self.assertEqual(vm.visible_footer_button(header + wrapped + allow, 1280, 800, **options), ('Allow', 867, 470))
         for rows in (allow, title, title + allow + allow, title.replace('Screenshots', 'Files') + allow):
             self.assertIsNone(vm.visible_footer_button(header + rows, 1280, 800, **options))
 
