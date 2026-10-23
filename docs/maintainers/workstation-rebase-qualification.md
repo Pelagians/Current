@@ -1202,3 +1202,16 @@ bundle read-only. It verifies RPM bytes, metadata and native versions before
 an offline install, retains receipts, and leaves source archives/build tools
 out of the payload. CI verifies the bundle's Current signature. ARM retains
 its upstream native RPMs, explicitly outside these x86_64 repairs.
+
+Normal-build attempt `40012841673` verified the bundle signature but exposed a
+helper invocation error on ARM Alma 9: BuildKit RUN does not create Docker/Podman
+runtime marker files. The helper stopped before RPM installation. Source
+`677ff269` requires the recipe's explicit `--image-build` argument instead of
+that marker heuristic. The obsolete full build was cancelled because its
+COSMIC integration could not pass, including unrelated jobs still running;
+this was not a compiler hang. Replacement full build `40014464072` tests the
+corrected normal integration. The five already compiled repair RPMs are reused
+unchanged. The data-only bundle's amd64 platform warning during an ARM mount
+is not an ARM executable installation: the installer explicitly returns before
+package reads or mutation on aarch64. Normal ARM payload/boot claims remain
+separate from x86_64 repairs.
