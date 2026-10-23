@@ -1119,7 +1119,10 @@ def run(args):
             # replayed diagnostic history or a bounded tail hiding failures.
             for completed_stage in cosmic_stages:
                 name = completed_stage + '-cosmic-shutdown.log'
-                command('sudo journalctl --boot="$(cat ~/current-vm-cosmic-' + completed_stage + '.boot)" --no-pager -o json _UID=$(id -u) + COREDUMP_UID=$(id -u) > ~/current-vm-cosmic-shutdown.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-cosmic-shutdown.json" http://10.0.2.2:' + str(server.server_port) + '/' + name)
+                # Preserve long native messages; journalctl otherwise replaces
+                # large JSON values with null. Keep core metadata, not memory
+                # blobs or process environments, in the bounded evidence upload.
+                command('sudo journalctl --boot="$(cat ~/current-vm-cosmic-' + completed_stage + '.boot)" --all --no-pager -o json --output-fields=MESSAGE,_BOOT_ID,__REALTIME_TIMESTAMP,SYSLOG_IDENTIFIER,_EXE,_PID,_UID,_COMM,PRIORITY,_SYSTEMD_USER_UNIT,COREDUMP_EXE,COREDUMP_UID,COREDUMP_SIGNAL,COREDUMP_FILENAME _UID=$(id -u) + COREDUMP_UID=$(id -u) > ~/current-vm-cosmic-shutdown.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-cosmic-shutdown.json" http://10.0.2.2:' + str(server.server_port) + '/' + name)
                 summary = cosmic_shutdown_summary((evidence / name).read_text())
                 report.setdefault('cosmic_shutdown', {})[completed_stage] = dict(summary, journal=name)
             if any(not summary['passed'] for summary in report.get('cosmic_shutdown', {}).values()):
