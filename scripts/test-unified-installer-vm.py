@@ -100,7 +100,29 @@ def visible_control(tsv, width, height, labels=('next', 'finish'), required_phra
         words = ' '.join(' '.join(row[11] for row in fields if len(row) == 12
                                  and row[0] == '5' and float(row[10]) >= 60).split())
         phrases = (required_phrase,) if isinstance(required_phrase, str) else required_phrase
-        if not any(phrase.lower() in words.lower() for phrase in phrases):
+        def present(phrase):
+            if phrase.lower() in words.lower():
+                return True
+            # Full-frame OCR can interleave small text behind a modal between
+            # its wrapped heading lines. Keep the exact high-confidence phrase
+            # within the heading's column, font size and nearby lines instead.
+            confident = [row for row in fields if len(row) == 12 and row[0] == '5'
+                         and float(row[10]) >= 60]
+            for anchor in confident:
+                if anchor[11].lower() != phrase.split()[0].lower():
+                    continue
+                left, top, _, size = map(int, anchor[6:10])
+                column = []
+                for row in confident:
+                    x, y, w, h = map(int, row[6:10])
+                    if (0 <= x < x + w <= width and 0 <= y < y + h <= height
+                            and x >= left - 2 and top - 2 <= y
+                            and y + h <= top + 4 * size and .75 * size <= h <= 1.5 * size):
+                        column.append(row[11])
+                if phrase.lower() in ' '.join(column).lower():
+                    return True
+            return False
+        if not any(present(phrase) for phrase in phrases):
             return None
     buttons = []
     minimum_y = height / 2 if minimum_y is None else minimum_y

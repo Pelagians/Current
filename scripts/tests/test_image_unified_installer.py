@@ -143,6 +143,12 @@ class UnifiedISO(unittest.TestCase):
         icon = '5\t1\t1\t1\t1\t9\t383\t270\t56\t44\t18\t||\n'
         wrapped_with_icon = wrapped.replace('5\t1\t1\t1\t1\t5', icon + '5\t1\t1\t1\t1\t5')
         self.assertEqual(vm.visible_control(header + wrapped_with_icon + allow, 1280, 800, **options), ('Allow', 867, 470))
+        observed = (ROOT / 'scripts/tests/fixtures/cosmic-welcome/portal-consent-alma10.tsv').read_text()
+        self.assertEqual(vm.visible_control(observed, 1280, 800, **options), ('Allow', 867, 483))
+        self.assertIsNone(vm.visible_control(observed.replace('Screenshots?', 'Files?'), 1280, 800, **options))
+        displaced = observed.replace('\t460\t301\t155\t18\t', '\t10\t301\t155\t18\t')
+        self.assertNotEqual(observed, displaced)
+        self.assertIsNone(vm.visible_control(displaced, 1280, 800, **options))
         for rows in (allow, title, title + allow + allow, title.replace('Screenshots', 'Files') + allow):
             self.assertIsNone(vm.visible_control(header + rows, 1280, 800, **options))
 

@@ -1338,3 +1338,13 @@ fixture. A threshold of 45 applies only to that known field under the exact
 native request; unique controls and actual timezone verification remain
 mandatory. Alma 10-source run `40030259820` instead stopped at native portal
 capture before onboarding and requires its own diagnostic review.
+
+Alma 10's portal returned `Other` with its actual consent dialog still visible
+and no recorded Allow click. Original OCR recognized every heading word and the
+button at high confidence but interleaved a small `su` fragment from behind the
+modal between `Take` and `Screenshots?`. The guard therefore never consented.
+The harness now recognizes the exact wrapped phrase within the heading's own
+column, font size and nearby lines. Original-frame tests retain the confidence,
+request-type, unique-button and spatial checks; a wrong or displaced request
+fails. This is a capture-interaction correction, not a native portal runtime
+pass. The unchanged Alma 10 candidate requires a complete-flow retry.
