@@ -206,7 +206,12 @@ snapshot package repositories and pin the module/tool versions as well.
 
 ## Qualification gates
 
-The current x86_64 ISO (`6f48c731`, checksum `f37441b3...`) passed complete
+The latest rebuilt ISOs use source `7eae0d4b` (x86_64 checksum `b301fe88...`)
+and the new signed native image publication uses product source `e8fc3698`.
+See [current workstation and cross-distro VM evidence](workstation-rebase-qualification.md#rebuilt-iso-and-signed-native-candidates)
+for exact receipts, tested digests, completed runs and remaining gates.
+
+The previous x86_64 ISO (`6f48c731`, checksum `f37441b3...`) passed complete
 Fedora, Alma 10 and Alma 9 server flows in disposable UEFI/KVM VMs, using the
 shipped XFS defaults and enforcing SELinux on bootstrap and destination. The
 rebuilt images restore the shutdown initramfs and unmount the old root on every

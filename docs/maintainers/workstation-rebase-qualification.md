@@ -323,8 +323,7 @@ Positive installs use the shipped XFS profile, with parent pointers and atomic
 extent exchange disabled for Alma 9 compatibility.
 
 Native candidate receipts from run `39866965417`, attempt 1, all name product
-source `e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7`. Before shared publication
-finishes, tests use the signed run-specific native tags:
+source `e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7`. The initial rebuilt-image tests use the signed run-specific native tags:
 `br-codex_unified-installer-run-39866965417-1-amd64-<version>`, where version is
 `44`, `9`, or `10`. Independent source/target channel inputs select the proper
 distro versions without modifying matrix inventory or publication gates. Every
@@ -372,6 +371,43 @@ as a complete pass. Journal assertions now transfer unchanged file bytes through
 the existing bounded HTTP evidence collector; raw serial diagnostics remain.
 These checker changes require VM reruns, not new product images.
 
+The Alma 9 → Alma 10 [attempt 39871054202](https://github.com/Pelagians/Current/actions/runs/39871054202)
+resolved and staged the correct signed Alma 10 digest, then timed out at a normal
+sudo password prompt before any reboot: the large pull had expired sudo's cached
+authentication. The harness now runs `sudo -v` through its existing password
+handler immediately before every reboot. It does not add passwordless sudo or
+change authentication timeout policy. The incomplete attempt is retained and a
+fresh full flow is required.
+
+The Alma 10 COSMIC [attempt 39871077641](https://github.com/Pelagians/Current/actions/runs/39871077641)
+also rendered the real authenticated COSMIC desktop, then hit the same missing
+session-variable checker failure. Fedora GNOME [attempt 39870389579](https://github.com/Pelagians/Current/actions/runs/39870389579)
+and Alma 10 GNOME [attempt 39871071643](https://github.com/Pelagians/Current/actions/runs/39871071643)
+and Alma 9 COSMIC [attempt 39871067688](https://github.com/Pelagians/Current/actions/runs/39871067688)
+did not produce completed autostart proof under the earlier harness. These remain
+failed attempts, pending corrected runs. A greeter screenshot alone is insufficient.
+
+The corrected Fedora COSMIC [attempt 39873480173](https://github.com/Pelagians/Current/actions/runs/39873480173)
+passed real COSMIC login, signed GNOME staging and real GNOME login, with active
+logind sessions matching inherited Wayland environments. After the ordinary
+GNOME reboot, GDM remained active but no authenticated graphical session or new
+autostart receipt appeared. The pre-password screenshot showed the actual GDM
+password entry. Focus/timing remains under investigation; the harness now focuses
+that entry, allows PAM initialization to settle, paces input and records native
+manager/PAM/AVC diagnostics. This is not a complete rollback qualification.
+
+The corrected Alma 9 GNOME [attempt 39873485350](https://github.com/Pelagians/Current/actions/runs/39873485350)
+passed its real graphical login and staged COSMIC, then hit the already identified
+expired-sudo prompt before reboot. The fixed handler is used for its next full run.
+GNOME screenshots also show SELinux troubleshooting notifications; these are
+retained and require audit-event investigation rather than blanket policy changes.
+
+Cross-distro staging logs retain unknown target SELinux-context warnings under
+the source policy. The recorded passing cases still require enforcing target
+boot, successful finalization, reboot and rollback. Those observations do not
+qualify other policy/package combinations, and no policy bypass is applied.
+
+
 ### Completed rebuilt-image flows
 
 [Fedora → Alma 10 run 39871048295](https://github.com/Pelagians/Current/actions/runs/39871048295)
@@ -386,9 +422,21 @@ and target digests match the receipts above. [Alma 10 → Alma 9 run 39871060957
 also passed the full sequence using the same ISO and harness, with all five
 shutdown pivots and all 18 retained archives verified. The older kernel mounted
 the installer-created XFS and its repair tool accepted the clean test filesystem.
-Other directed pairs and all full workstation switch/rollback cases remain
-pending their completed reruns.
+[Alma 10 → Fedora run 39871057506](https://github.com/Pelagians/Current/actions/runs/39871057506)
+and [Fedora → Alma 9 run 39871045283](https://github.com/Pelagians/Current/actions/runs/39871045283)
+also passed the complete flow, each with five shutdown pivots and exact-source
+rollback. Their final archive counts were 14 and 22 respectively. The two Alma 9
+source pairs and full workstation switch/rollback cases remain pending their
+corrected runs.
 
-Current local validation passes **166 tests (80 runtime, 86 image)**, Bash syntax,
+Current local validation passes **167 tests (80 runtime, 87 image)**, Bash syntax,
 Actionlint for both installer workflows and `git diff --check`. These checks do
 not promote any failed or incomplete VM attempt.
+
+
+[Native build and publication 39866965417](https://github.com/Pelagians/Current/actions/runs/39866965417)
+completed successfully with all **51 jobs** passing: 45 native images,
+prerequisites and the unmodified signed index publisher. Post-publication registry inspection matched all 24 shared indexes to the exact
+45 native children and verified all 21 ARM compatibility digests. Representative
+full flows now exercise the normal shared channel. Run-specific candidate tests do not advance
+that channel or bypass its validation/signature gates.
