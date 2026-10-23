@@ -83,7 +83,9 @@ def accent_footer_regions(width, height, pixel):
 def visible_footer_button(tsv, width, height, labels=('next', 'finish'), required_phrase=None):
     """Only act on a unique visible control in the expected UI, never guess."""
     if required_phrase:
-        words = ' '.join(' '.join(line.split('\t')[-1] for line in tsv.splitlines()[1:]).split())
+        fields = [line.split('\t') for line in tsv.splitlines()[1:]]
+        words = ' '.join(' '.join(row[11] for row in fields if len(row) == 12
+                                 and row[0] == '5' and float(row[10]) >= 60).split())
         phrases = (required_phrase,) if isinstance(required_phrase, str) else required_phrase
         if not any(phrase.lower() in words.lower() for phrase in phrases):
             return None
@@ -757,7 +759,12 @@ def run(args):
                 vm.screenshot(name)
                 tsv = control_ocr(name)
                 width, height = Image.open(evidence / (name + '.png')).size
-                button = visible_footer_button(tsv, width, height)
+                # The guest has verified wired networking and no virtual Wi-Fi.
+                # Use the native optional page's explicit Skip control when it
+                # reports no networks; do not manufacture connectivity or state.
+                button = visible_footer_button(tsv, width, height, labels=('skip',), required_phrase='No networks have been found')
+                if not button:
+                    button = visible_footer_button(tsv, width, height)
                 if button:
                     label, x, y = button
                     vm.qmp.click(x, y, width, height)

@@ -57,6 +57,10 @@ class UnifiedISO(unittest.TestCase):
             return f'5\t1\t1\t1\t1\t1\t{x}\t{y}\t60\t20\t{confidence}\t{text}\n'
         self.assertEqual(vm.visible_footer_button(header + word(), 1280, 800), ('Next', 930, 730))
         self.assertEqual(vm.visible_footer_button(header + word('Finish'), 1280, 800), ('Finish', 930, 730))
+        network_page = word('No networks have been found', x=300, y=300)
+        options = dict(labels=('skip',), required_phrase='No networks have been found')
+        self.assertEqual(vm.visible_footer_button(header + network_page + word('Skip'), 1280, 800, **options), ('Skip', 930, 730))
+        self.assertIsNone(vm.visible_footer_button(header + word('Skip'), 1280, 800, **options))
         for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),
                      word('Skip'), word() + word('Finish', x=1000), ''):
             self.assertIsNone(vm.visible_footer_button(header + rows, 1280, 800))
@@ -73,6 +77,9 @@ class UnifiedISO(unittest.TestCase):
                           ('4\t1\t1\t1\t2\t0\t450\t310\t400\t25\t-1\t\n' if word == 'Take' else '')
                           for i, word in enumerate('Allow Applications to Take Screenshots?'.split(), 1))
         self.assertEqual(vm.visible_footer_button(header + wrapped + allow, 1280, 800, **options), ('Allow', 867, 470))
+        icon = '5\t1\t1\t1\t1\t9\t383\t270\t56\t44\t18\t||\n'
+        wrapped_with_icon = wrapped.replace('5\t1\t1\t1\t1\t5', icon + '5\t1\t1\t1\t1\t5')
+        self.assertEqual(vm.visible_footer_button(header + wrapped_with_icon + allow, 1280, 800, **options), ('Allow', 867, 470))
         for rows in (allow, title, title + allow + allow, title.replace('Screenshots', 'Files') + allow):
             self.assertIsNone(vm.visible_footer_button(header + rows, 1280, 800, **options))
 
