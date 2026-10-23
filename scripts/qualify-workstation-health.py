@@ -57,11 +57,10 @@ def main(labels_only=False, require_icc=False):
     result['brew_uid'] = brew.stat().st_uid
     if result['brew_uid'] != 1000:
         raise RuntimeError('Homebrew prefix lost its user ownership')
-    avcs = subprocess.run(['ausearch', '-m', 'AVC', '-ts', 'boot', '--raw'], text=True, capture_output=True)
-    if avcs.returncode not in (0, 1):
-        raise RuntimeError('Cannot inspect native AVC records: ' + avcs.stderr)
-    check_avcs(avcs.stdout)
+    avcs = subprocess.check_output(['journalctl', '-k', '-b', '--no-pager', '-o', 'cat'], text=True)
+    check_avcs(avcs)
     result['colord_denials'] = 0
+    result['colord_denials_source'] = 'current-boot kernel journal'
     print(json.dumps(result, indent=2))
 
 
