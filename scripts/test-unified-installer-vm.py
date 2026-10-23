@@ -693,6 +693,10 @@ def run(args):
                         command('test "$(cat /var/home/linuxbrew/.linuxbrew/current-vm-sentinel)" = retained-brew-data')
                     report.setdefault('graphical_logins', []).append({'stage': stage, 'desktop': desktop, 'proof': stage + '-graphical-session.log', 'health_proof': stage + '-workstation-health.log'})
                     record(stage + ': real greeter password login and desktop-session ownership checks passed')
+                    if stage == 'source' and os.environ.get('GITHUB_ACTIONS') == 'true':
+                        print('::notice title=Current workstation source health::Source health passed: '
+                              + args.distribution + ' ' + desktop
+                              + '; destination reboot and rollback remain pending', flush=True)
                     return
                 time.sleep(5)
             graphical_diagnostics(stage)
