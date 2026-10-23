@@ -24,10 +24,11 @@ import threading
 import time
 
 
-# Kernel audit text can arrive after the status digit but before printf's final
-# newline. A zero status is complete at that digit; nonzero statuses still fail.
-# The leading newline prevents an echoed printf format from matching.
-COMMAND_RC = r'\r?\nVM_RC=([0-9]+)'
+# Kernel audit records can split printf's marker between any two characters.
+# Accept only complete timestamped audit lines there; unrelated text or a
+# truncated record must still fail. The leading newline excludes command echo.
+_AUDIT_INSERTION = r'(?:\[\s*[0-9]+\.[0-9]+\] audit: [^\r\n]*\r?\n)*'
+COMMAND_RC = r'\r?\n' + _AUDIT_INSERTION.join(map(re.escape, 'VM_RC=')) + _AUDIT_INSERTION + r'([0-9]+)'
 
 
 def workstation_target(distribution, desktop, target_distribution=None, target_desktop=None):

@@ -75,6 +75,14 @@ class UnifiedISO(unittest.TestCase):
             self.assertEqual(re.search(vm.COMMAND_RC, '\r\nVM_RC=0' + suffix)[1], '0')
             self.assertNotEqual(re.search(vm.COMMAND_RC, '\r\nVM_RC=127' + suffix)[1], '0')
         self.assertIsNone(re.search(vm.COMMAND_RC, "printf '\\nVM_RC=%s\\n' \"$?\"\r\n"))
+        audit = '[   53.041425] audit: type=1104 session closed\r\n'
+        for offset in range(1, len('VM_RC=') + 1):
+            for status in ('0', '127'):
+                marker = 'VM_RC=' + status
+                split = '\r\n' + marker[:offset] + audit + marker[offset:] + '\r\n'
+                self.assertEqual(re.search(vm.COMMAND_RC, split)[1], status)
+        for inserted in ('unrelated\r\n', '[53.04] audit: truncated', '[53.04] other: message\r\n'):
+            self.assertIsNone(re.search(vm.COMMAND_RC, '\r\nVM' + inserted + '_RC=0\r\n'))
 
     def test_vm_console_login_recovers_only_before_password(self):
         serial = SimpleNamespace(sendline=Mock(),
