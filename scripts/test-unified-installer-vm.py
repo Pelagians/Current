@@ -566,9 +566,12 @@ def run(args):
                 'systemctl cat dracut-shutdown.service; sudo cat /usr/lib/dracut/dracut-initramfs-restore',
                 # Include prior boots: restore runs in ExecStop, after the
                 # preceding checkpoint, and its errors may not reach serial.
-                'sudo journalctl -u dracut-shutdown.service -u systemd-journald.service -u user@$(id -u).service --no-pager',
+                # Bound observational history: a desktop exiting at shutdown
+                # can produce thousands of repeated Wayland errors. Closed
+                # archive verification and shutdown acceptance below stay full.
+                'sudo journalctl -n 1000 -u dracut-shutdown.service -u systemd-journald.service -u user@$(id -u).service --no-pager',
                 'sudo journalctl --header --no-pager',
-                'sudo journalctl -b -p warning --no-pager',
+                'sudo journalctl -b -p warning -n 1000 --no-pager',
                 # Online verification is diagnostic only: concurrent journald
                 # writes can yield false corruption (systemd issue #27532).
                 'sudo journalctl --verify',
