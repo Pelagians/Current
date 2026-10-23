@@ -425,11 +425,10 @@ the installer-created XFS and its repair tool accepted the clean test filesystem
 [Alma 10 → Fedora run 39871057506](https://github.com/Pelagians/Current/actions/runs/39871057506)
 and [Fedora → Alma 9 run 39871045283](https://github.com/Pelagians/Current/actions/runs/39871045283)
 also passed the complete flow, each with five shutdown pivots and exact-source
-rollback. Their final archive counts were 14 and 22 respectively. The two Alma 9
-source pairs and full workstation switch/rollback cases remain pending their
-corrected runs.
+rollback. Their final archive counts were 14 and 22 respectively. Subsequent source-pair and workstation results are recorded in the current
+complete-flow matrix below.
 
-Current local validation passes **167 tests (80 runtime, 87 image)**, Bash syntax,
+Current local validation passes **168 tests (80 runtime, 88 image)**, Bash syntax,
 Actionlint for both installer workflows and `git diff --check`. These checks do
 not promote any failed or incomplete VM attempt.
 
@@ -440,3 +439,122 @@ prerequisites and the unmodified signed index publisher. Post-publication regist
 45 native children and verified all 21 ARM compatibility digests. Representative
 full flows now exercise the normal shared channel. Run-specific candidate tests do not advance
 that channel or bypass its validation/signature gates.
+
+
+### First complete workstation flows
+
+[Fedora GNOME → COSMIC 39873752449](https://github.com/Pelagians/Current/actions/runs/39873752449)
+(harness `9a3a941b`) and [Alma 10 GNOME → COSMIC 39875275268](https://github.com/Pelagians/Current/actions/runs/39875275268)
+(harness `3059a1ee`) passed the complete flow on the new ISO and the exact signed
+native candidates above. Each recorded four real greeter password logins:
+GNOME source, COSMIC destination, COSMIC after an ordinary reboot, and the exact
+GNOME source after rollback. Each session had the intended inherited desktop,
+Wayland environment, logind UID 1000, matching type and active state. All eight
+greeter/session screenshot pairs are retained; session images were visually
+inspected. Both flows retained UID/home/network, kept SELinux enforcing, passed
+all five shutdown pivots and verified all 14 final journal archives.
+
+GNOME sessions displayed SELinux troubleshooting notifications. Alma 9's earlier
+source diagnostics also recorded failed `avahi-daemon.service` (missing `avahi`
+user) and `brew-setup.service`, while authenticated login and user services worked.
+These are outstanding workstation service/application and policy investigations,
+not a claim of complete desktop health. No daemon account, UID, permissive policy
+or masked unit is fabricated to silence them. Current native PAM/AVC diagnostics
+are being collected separately. Physical GPU/rendering, application behavior and
+contaminated session state remain unqualified even for these passing VM flows.
+
+
+### Shared-reference confirmation
+
+[Fedora → Alma 10 39876032534](https://github.com/Pelagians/Current/actions/runs/39876032534)
+passed the same complete rebase flow through `br-codex_unified-installer` after
+full publication. Its source and target native digests match the run-specific
+candidate receipts exactly. All five shutdowns released the old root, and final
+closed-archive verification passed. This supplements the complete 24-index / 45-child
+/ 21-ARM-alias mapping check without repeating every identical child solely for
+a different tag spelling. Remaining shared workstation runs are recorded separately.
+
+
+### Additional measured failure paths
+
+- [39874003674](https://github.com/Pelagians/Current/actions/runs/39874003674)
+  (Alma 9 COSMIC) and [39874842757](https://github.com/Pelagians/Current/actions/runs/39874842757)
+  (Alma 9 → Alma 10 repeat) saw a fresh serial getty prompt discard the first
+  username before requesting any password. The bounded handler retries a username
+  only after that fresh prompt; password authentication remains mandatory.
+- [39874091349](https://github.com/Pelagians/Current/actions/runs/39874091349)
+  (Alma 10 COSMIC) authenticated its desktop and staged GNOME, then stopped at an
+  expired sudo prompt before reboot. It requires the same fixed reauthentication
+  handler used by the successful server reruns.
+- [39876868579](https://github.com/Pelagians/Current/actions/runs/39876868579)
+  (Alma 9 GNOME) passed all four graphical logins and exact-source rollback, then
+  timed out during recovery-bootstrap diagnostics: kernel audit output interrupted
+  the newline after the actual `VM_RC=0`. The framing matcher now accepts that
+  complete zero status while still rejecting nonzero statuses and echoed formats.
+  The incomplete attempt is not counted as a full journal/shutdown pass.
+- [39876036036](https://github.com/Pelagians/Current/actions/runs/39876036036)
+  (shared Fedora GNOME) produced no source autostart receipt with the earlier
+  keyboard handler. The paced/focused rerun is recorded separately. The same
+  pacing change already passed the complete shared Fedora COSMIC → GNOME flow.
+
+### SELinux audit evidence and remaining health gates
+
+The Alma 9 COSMIC → GNOME passing run's native audit capture identifies two
+separate events. Its `chcon` invocation uses the exact
+`invalid_bootcinstall_testlabel_t` argument from
+[bootc 1.16.4's install-domain capability probe](https://github.com/bootc-dev/bootc/blob/v1.16.4/crates/lib/src/lsm.rs).
+That code deliberately tests labels unknown to the loaded policy and can re-exec
+in the install domain. The captured denial is retained; it does not justify
+permissive mode or a new broad allow rule.
+
+The later `colord_t` denial is substantive: reading the user's ICC profile under
+`/var/home/currenttest/.local/share/icc` was denied while the file and home tree
+carried `var_t`. The record includes UID, contexts, path and native audit event;
+all four graphical logins nevertheless passed. This is a separate home-labeling
+and color-management release gate. Read-only `matchpathcon` and
+`restorecon -nRv` diagnostics compare native policy expectations without changing
+labels. Service-account/NSS and Homebrew unit diagnostics are collected alongside
+that repeat. A safe correction needs to establish installer-versus-native-policy
+responsibility and preserve administrator contexts, accounts and user data.
+No recursive relabel, guessed UID, policy exception or warning suppression is
+applied on the strength of an unverified assumption.
+
+
+### Current complete-flow matrix
+
+All entries use ISO `39867706688` / source `7eae0d4b`, the shipped XFS profile,
+UEFI/KVM with Secure Boot disabled, and signed native images at product source
+`e8fc3698`. Native candidate and shared-reference digests were matched after
+publication. A passed row requires the complete journal/shutdown and exact-source
+rollback checks; partial graphical observations above do not count as full passes.
+
+Server distro pairs:
+
+| Case | Run | Reference | Result |
+| --- | --- | --- | --- |
+| Fedora → Alma 9 | [39871045283](https://github.com/Pelagians/Current/actions/runs/39871045283) | Native | Passed; 5 shutdowns, 22 final archives |
+| Fedora → Alma 10 | [39876032534](https://github.com/Pelagians/Current/actions/runs/39876032534) | Shared | Passed; 5 shutdowns, 14 final archives |
+| Alma 9 → Fedora | [39873495754](https://github.com/Pelagians/Current/actions/runs/39873495754) | Native | Passed; 5 shutdowns, 22 final archives |
+| Alma 9 → Alma 10 | [39877251418](https://github.com/Pelagians/Current/actions/runs/39877251418) | Shared | Passed; 5 shutdowns, 22 final archives |
+| Alma 10 → Fedora | [39871057506](https://github.com/Pelagians/Current/actions/runs/39871057506) | Native | Passed; 5 shutdowns, 14 final archives |
+| Alma 10 → Alma 9 | [39871060957](https://github.com/Pelagians/Current/actions/runs/39871060957) | Native | Passed; 5 shutdowns, 18 final archives |
+
+Workstation desktop pairs:
+
+| Case | Run | Reference | Result |
+| --- | --- | --- | --- |
+| Fedora GNOME → COSMIC | [39878271136](https://github.com/Pelagians/Current/actions/runs/39878271136) | Shared | Passed; 5 shutdowns, 14 final archives; 4 graphical logins |
+| Fedora COSMIC → GNOME | [39876398617](https://github.com/Pelagians/Current/actions/runs/39876398617) | Shared | Passed; 5 shutdowns, 14 final archives; 4 graphical logins |
+| Alma 9 GNOME → COSMIC | [39880235197](https://github.com/Pelagians/Current/actions/runs/39880235197) | Shared | In progress; unqualified |
+| Alma 9 COSMIC → GNOME | [39877182333](https://github.com/Pelagians/Current/actions/runs/39877182333) | Shared | Passed; 5 shutdowns, 18 final archives; 4 graphical logins |
+| Alma 10 GNOME → COSMIC | [39875275268](https://github.com/Pelagians/Current/actions/runs/39875275268) | Native | Passed; 5 shutdowns, 14 final archives; 4 graphical logins |
+| Alma 10 COSMIC → GNOME | [39877933996](https://github.com/Pelagians/Current/actions/runs/39877933996) | Shared | Passed; 5 shutdowns, 16 final archives; 4 graphical logins |
+
+Each workstation pass contains four authenticated Wayland/logind checks: source,
+destination, destination after an ordinary reboot, and original source after
+rollback. Greeter and session screenshots are retained alongside the probe logs.
+A final return to the original bootstrap verifies every deferred archive after
+actual source rollback. No physical GPU, ARM boot, Secure Boot enabled, encrypted
+layout, crash/corruption, or cross-distro workstation qualification follows from
+these standard x86_64 VM cases. Desktop policy/service/account health remains
+gated by the native audit evidence described above.
