@@ -1348,3 +1348,44 @@ column, font size and nearby lines. Original-frame tests retain the confidence,
 request-type, unique-button and spatial checks; a wrong or displaced request
 fails. This is a capture-interaction correction, not a native portal runtime
 pass. The unchanged Alma 10 candidate requires a complete-flow retry.
+
+### Nine-package candidate acceptance (2026-10-23)
+
+All three corrected signed-candidate flows passed at image source
+`09f7af10a6df2d1260af26b8b51b8cee0df1dccc`:
+
+| Source → target (COSMIC) | Complete UEFI run | Harness | Native onboarding actions |
+| --- | --- | --- | --- |
+| Fedora → Alma 10 | [40032986805](https://github.com/Pelagians/Current/actions/runs/40032986805) | `22790160` | 15 |
+| Alma 10 → Alma 9 | [40033499901](https://github.com/Pelagians/Current/actions/runs/40033499901) | `037c597f` | 13 |
+| Alma 9 → Fedora | [40032349029](https://github.com/Pelagians/Current/actions/runs/40032349029) | `69eaf874` | 12 |
+
+Independent review matched booted source/target digests to the anonymously
+resolved candidate receipts and exact rollback/reboot digests. Twelve raw,
+completed-boot journals contain 12,304 records with zero COSMIC panics, cores
+or keymap-load errors. All fifteen shutdown pivots unmounted the old root
+without finalization failure. Portal disconnect errors remain visible, two per
+boot; this establishes removal of the panic, not a successful disconnect status.
+
+Each source completed its own welcome marker and exited after actual UI
+interaction, including native authentication and verified `Africa/Dakar`.
+Original startup frames show all scale controls within the bounded welcome
+window on 1.9 and 1.11. The first failed attempts remain interrupted evidence,
+not completed boot or rollback passes.
+
+The 96 original primary rendering frames include 24 native portal captures.
+Fixed outer dock margins cover 38,400 pixels per frame. Comparisons grouped by
+image, with the initial welcome window in its own phase, found zero changed
+margin pixels in every group. Full-frame representatives of source, target,
+ordinary target reboot and exact rollback were visually reviewed and are clean.
+The original corrupted controls remain the negative evidence; duplicate frames
+and two capture APIs do not constitute independent hardware samples. No image
+normalization, renderer override or preference reset was used.
+
+This qualifies the tested software-virtio x86_64 UEFI paths. Physical GPU
+behavior, repaint cost, extended application/resize sessions, arbitrary display
+scaling and actual touch/on-screen input remain unqualified. Normal recipe
+integration uses the separately pinned bundle at `243ebb2b`; its 45 native
+images have built successfully in `40030261198`, with final shared publication
+and its three new normal-image UEFI flows tracked separately below. Keep XFS
+and draft status; this is not ARM or Secure Boot-enabled qualification.
