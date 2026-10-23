@@ -18,6 +18,15 @@ def run(*command):
     subprocess.run(command, check=True)
 
 
+def file_hash(path):
+    # EL9's native Python is 3.9, before hashlib.file_digest was introduced.
+    digest = hashlib.sha256()
+    with path.open('rb') as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def patch_spec(text, release):
     # Native autosetup already applies all declared patches with -p1. Keep the
     # vendor's build, install, test, dependency and license handling intact.
@@ -46,7 +55,7 @@ def build(distribution, package, output):
         archive = top / 'source.src.rpm'
         with urllib.request.urlopen(source['url'], timeout=120) as response, archive.open('wb') as handle:
             shutil.copyfileobj(response, handle)
-        digest = hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest()
+        digest = file_hash(archive)
         if digest != source['sha256']:
             raise ValueError('Source RPM checksum mismatch')
         run('rpm', '-i', '--define', f'_topdir {top}', str(archive))
@@ -73,7 +82,7 @@ def build(distribution, package, output):
         receipt = dict(distribution=distribution, package=package, native_version=native,
                        source=source, base=configuration['base'], base_revision=configuration['base_revision'],
                        patch_sha256=hashlib.sha256(patch.read_bytes()).hexdigest(),
-                       rpm=rpm.name, rpm_sha256=hashlib.file_digest(rpm.open('rb'), 'sha256').hexdigest())
+                       rpm=rpm.name, rpm_sha256=file_hash(rpm))
         (output / (package + '.json')).write_text(json.dumps(receipt, indent=2) + '\n')
 
 
