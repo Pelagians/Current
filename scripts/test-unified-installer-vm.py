@@ -392,7 +392,7 @@ def run(args):
     evidence.mkdir()
     report = {'iso_sha256': digest, 'inputs': receipt, 'harness_revision': subprocess.check_output(
         ['git', 'rev-parse', 'HEAD'], text=True).strip(), 'distribution': args.distribution,
-        'channel': args.channel, 'scenario': args.scenario, 'require_mdns': args.require_mdns,
+        'channel': args.channel, 'scenario': args.scenario, 'require_mdns': args.require_mdns, 'expect_locale': args.expect_locale,
               'desktop': args.desktop if args.scenario == 'workstation-flow' else None,
               'target_distribution': args.target_distribution, 'target_desktop': args.target_desktop,
               'target_channel': args.target_channel, 'image_revision': args.image_revision, 'milestones': [], 'status': 'running'}
@@ -618,6 +618,13 @@ def run(args):
                 for probe in probes:
                     output.write('$ ' + probe + '\n')
                     output.write(command('(' + probe + "); rc=$?; printf '\\nPROBE_RC=%s\\n' \"$rc\"; true", timeout=180))
+                if args.expect_locale:
+                    program = ('import locale, shlex\nfrom pathlib import Path\n'
+                               'values=dict(item.split("=",1) for item in shlex.split(Path("/etc/locale.conf").read_text(), comments=True) if "=" in item)\n'
+                               f'assert values.get("LANG")=={args.expect_locale!r}, values\n'
+                               f'locale.setlocale(locale.LC_ALL, {args.expect_locale!r})\n'
+                               f'print("LOCALE_QUALIFIED="+{args.expect_locale!r})\n')
+                    output.write(command('python3 -c ' + shlex.quote(program)))
                 command('systemctl is-active user@$(id -u).service && systemctl --user is-active default.target && systemd-run --user --wait --pipe /usr/bin/true')
                 command('logger -t current-vm-checkpoint ' + stage)
                 checkpoints.append(stage)
@@ -795,6 +802,8 @@ def run(args):
                         raise RuntimeError('Graphical session qualification failed: ' + proof)
                     if ('DESKTOP=' + desktop.upper()) not in proof.upper():
                         raise RuntimeError('Autostart reported the wrong desktop')
+                    if args.expect_locale and ('LANG=' + args.expect_locale) not in proof:
+                        raise RuntimeError('Graphical session did not retain the installer locale')
                     command('sudo systemctl start avahi-daemon.service')
                     if desktop == 'cosmic':
                         (evidence / (stage + '-session.png')).rename(evidence / (stage + '-session-initial.png'))
@@ -1044,6 +1053,7 @@ if __name__ == '__main__':
     parser.add_argument('--image-revision', default='3bdfcaa1f2665051c873f40e30e45b1f49333616')
     parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs', 'bootstrap-reboot', 'workstation-flow', 'rebase-flow'), default='server-flow')
     parser.add_argument('--require-mdns', action='store_true', help='Require native provider/default mDNS lookups and no Avahi startup warnings')
+    parser.add_argument('--expect-locale', help='Require this selected locale in native configuration, libc and graphical sessions')
     args = parser.parse_args()
     if not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.channel):
         parser.error('Invalid destination channel')

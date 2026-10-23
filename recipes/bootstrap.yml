@@ -13,6 +13,9 @@ modules:
       install-weak-deps: false
       packages:
         - bootc
+        # Anaconda falls back to C.UTF-8 unless the selected locale is present.
+        # Keep the English installer/TUI path supported without desktop payloads.
+        - glibc-langpack-en
         - NetworkManager
         - NetworkManager-tui
         - NetworkManager-wifi

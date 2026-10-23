@@ -20,7 +20,7 @@ on:
         default: br-codex_unified-installer
       scenario:
         type: choice
-        options: [server-flow, reject-btrfs, bootstrap-reboot, workstation-flow, workstation-mdns-flow, rebase-flow]
+        options: [server-flow, reject-btrfs, bootstrap-reboot, bootstrap-locale-reboot, workstation-flow, workstation-mdns-flow, rebase-flow, rebase-locale-flow]
         default: server-flow
       desktop:
         type: choice
@@ -94,7 +94,9 @@ jobs:
         run: |
           extra=()
           scenario="$SCENARIO"
-          if [[ "$scenario" == workstation-mdns-flow ]]; then scenario=workstation-flow; extra+=(--require-mdns); fi
+          if [[ "$scenario" == workstation-mdns-flow ]]; then scenario=workstation-flow; extra+=(--require-mdns --expect-locale en_US.UTF-8); fi
+          if [[ "$scenario" == bootstrap-locale-reboot ]]; then scenario=bootstrap-reboot; extra+=(--expect-locale en_US.UTF-8); fi
+          if [[ "$scenario" == rebase-locale-flow ]]; then scenario=rebase-flow; extra+=(--expect-locale en_US.UTF-8); fi
           if [[ "$TARGET_DISTRIBUTION" != none ]]; then extra+=(--target-distribution "$TARGET_DISTRIBUTION"); fi
           if [[ "$TARGET_DESKTOP" != auto ]]; then extra+=(--target-desktop "$TARGET_DESKTOP"); fi
           if [[ -n "$TARGET_CHANNEL" ]]; then extra+=(--target-channel "$TARGET_CHANNEL"); fi

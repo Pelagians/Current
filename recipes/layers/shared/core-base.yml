@@ -19,6 +19,8 @@ modules:
         - e2fsprogs
         - filesystem
         - glibc
+        # Retain the installer's English locale across every destination role.
+        - glibc-langpack-en
         - ca-certificates
         - hostname
         - irqbalance
