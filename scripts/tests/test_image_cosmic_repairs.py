@@ -122,3 +122,39 @@ class NativeRepairs(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     candidate.prepare('alma10', root, root / 'context')
                 self.assertFalse((root / 'context').exists())
+
+    def test_bundle_separates_corresponding_sources_and_rejects_corrupt_runtime(self):
+        for corrupt in (False, True):
+            with self.subTest(corrupt=corrupt), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                inputs = root / 'inputs'
+                inputs.mkdir()
+                config = json.loads((build.INPUTS / 'sources.json').read_text())
+                (inputs / 'sources.json').write_text(json.dumps({'alma10': config['alma10']}))
+                import shutil
+                shutil.copytree(build.INPUTS / 'patches', inputs / 'patches')
+                fixture = root / 'fixture'
+                fixture.mkdir()
+                self.artifacts(fixture)
+                artifacts = root / 'artifacts'
+                for package, source in config['alma10']['packages'].items():
+                    directory = artifacts / ('cosmic-repair-alma10-' + package)
+                    directory.mkdir(parents=True)
+                    shutil.copyfile(fixture / (package + '.json'), directory / (package + '.json'))
+                    receipt = json.loads((fixture / (package + '.json')).read_text())
+                    shutil.copyfile(fixture / receipt['rpm'], directory / receipt['rpm'])
+                    (directory / (package + '-' + source['version'] + '.current1.src.rpm')).write_bytes(b'patched native source')
+                    if corrupt:
+                        (directory / receipt['rpm']).write_bytes(b'corrupt')
+                with patch.object(candidate, 'INPUTS', inputs):
+                    if corrupt:
+                        with self.assertRaises(ValueError):
+                            candidate.prepare_bundle(artifacts, root / 'bundle')
+                        continue
+                    candidate.prepare_bundle(artifacts, root / 'bundle')
+                self.assertEqual(len(list((root / 'bundle/runtime').rglob('*.x86_64.rpm'))), 2)
+                self.assertFalse(list((root / 'bundle/runtime').rglob('*.src.rpm')))
+                hashes = json.loads((root / 'bundle/sources/sha256.json').read_text())
+                self.assertEqual(len(hashes), 2)
+                for name, digest in hashes.items():
+                    self.assertEqual(hashlib.sha256((root / 'bundle/sources' / name).read_bytes()).hexdigest(), digest)

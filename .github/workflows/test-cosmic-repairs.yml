@@ -70,6 +70,51 @@ jobs:
           retention-days: 7
           overwrite: true
 
+  bundle:
+    needs: packages
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cosmic-repair-*
+          path: repair-artifacts
+      - uses: sigstore/cosign-installer@v4.1.2
+      - name: Publish verified runtime and corresponding source bundles
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+          COSIGN_PASSWORD: ""
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+          python3 scripts/prepare-cosmic-repair-candidate.py --bundle repair-artifacts bundle
+          repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/current-cosmic-repairs"
+          for kind in sources runtime; do
+            reference="$repository:${kind}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+              --tag "$reference" "bundle/$kind"
+            docker push "$reference"
+            digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$reference")
+            cosign sign --yes --key env://COSIGN_PRIVATE_KEY "$digest"
+            cosign verify --key cosign.pub "$digest" > "$kind-signature.json"
+            printf '%s\n' "$digest" > "$kind-reference.txt"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cosmic-repair-bundle
+          path: |
+            *-reference.txt
+            *-signature.json
+            bundle/sources/sha256.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+
   candidates:
     needs: packages
     runs-on: ubuntu-24.04

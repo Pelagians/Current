@@ -48,7 +48,41 @@ COPY receipts/ /usr/share/current/cosmic-repairs/
 ''')
 
 
+def prepare_bundle(artifacts, destination):
+    """Preserve matching source RPMs separately from the small runtime bundle."""
+    config = json.loads((INPUTS / 'sources.json').read_text())
+    destination.mkdir()
+    runtime, sources = destination / 'runtime', destination / 'sources'
+    runtime.mkdir()
+    sources.mkdir()
+    for distribution, row in config.items():
+        merged = destination / (distribution + '-inputs')
+        merged.mkdir()
+        for package, source in row['packages'].items():
+            directory = artifacts / ('cosmic-repair-' + distribution + '-' + package)
+            for path in directory.iterdir():
+                if path.name in {package + '.json', package + '-' + source['version'] + '.current1.x86_64.rpm'}:
+                    shutil.copyfile(path, merged / path.name)
+            name = package + '-' + source['version'] + '.current1.src.rpm'
+            target = sources / distribution / name
+            target.parent.mkdir(exist_ok=True)
+            shutil.copyfile(directory / name, target)
+        prepare(distribution, merged, runtime / distribution)
+        (runtime / distribution / 'Containerfile').unlink()
+        shutil.rmtree(merged)
+    shutil.copyfile(INPUTS / 'sources.json', sources / 'sources.json')
+    shutil.copytree(INPUTS / 'patches', sources / 'patches')
+    hashes = {str(p.relative_to(sources)): hashlib.sha256(p.read_bytes()).hexdigest()
+              for p in sources.rglob('*.src.rpm')}
+    (sources / 'sha256.json').write_text(json.dumps(hashes, indent=2) + '\n')
+    for path in (runtime, sources):
+        (path / 'Containerfile').write_text('FROM scratch\nCOPY . /\n')
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 4:
-        raise SystemExit('usage: prepare-cosmic-repair-candidate.py DISTRIBUTION ARTIFACTS DESTINATION')
-    prepare(sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3]))
+        raise SystemExit('usage: prepare-cosmic-repair-candidate.py DISTRIBUTION|--bundle ARTIFACTS DESTINATION')
+    if sys.argv[1] == '--bundle':
+        prepare_bundle(Path(sys.argv[2]), Path(sys.argv[3]))
+    else:
+        prepare(sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3]))
