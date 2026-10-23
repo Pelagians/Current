@@ -71,6 +71,8 @@ jobs:
         run: |
           set -euo pipefail
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends podman
           case "$DISTRIBUTION" in fedora|alma9|alma10) ;; *) exit 2;; esac
           [[ "$CHANNEL" =~ ^br-[A-Za-z0-9_.-]+$ ]]
           repo="ghcr.io/pelagians/${DISTRIBUTION}-cosmic"
@@ -78,10 +80,10 @@ jobs:
           digest=$(python3 -c 'import json; print(json.load(open("signature.json"))[0]["critical"]["image"]["docker-manifest-digest"])')
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           pinned="${repo}@${digest}"
-          docker pull "$pinned"
-          docker image inspect "$pinned" > image.json
+          sudo podman pull "$pinned"
+          sudo podman image inspect "$pinned" > image.json
           python3 -c 'import json,os; i=json.load(open("image.json"))[0]; assert i["Architecture"]=="amd64"; assert i["Config"]["Labels"]["org.opencontainers.image.revision"]==os.environ["IMAGE_REVISION"]'
-          docker run --rm -i --read-only --network none --cap-drop ALL --security-opt no-new-privileges --entrypoint /usr/bin/python3 "$pinned" <<'PY_AUDIT'
+          sudo podman run --rm -i --read-only --network none --cap-drop ALL --security-opt no-new-privileges --entrypoint /usr/bin/python3 "$pinned" <<'PY_AUDIT'
           import json, os, subprocess
           from pathlib import Path
           package = subprocess.run(['rpm', '-q', 'iso-codes'], text=True, capture_output=True)

@@ -55,15 +55,19 @@ class UnifiedISO(unittest.TestCase):
         header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
         def word(text='Next', x=900, y=720, confidence=95):
             return f'5\t1\t1\t1\t1\t1\t{x}\t{y}\t60\t20\t{confidence}\t{text}\n'
-        self.assertEqual(vm.visible_footer_button(header + word(), 1280, 800), ('Next', 930, 730))
-        self.assertEqual(vm.visible_footer_button(header + word('Finish'), 1280, 800), ('Finish', 930, 730))
+        self.assertEqual(vm.visible_control(header + word(), 1280, 800), ('Next', 930, 730))
+        self.assertEqual(vm.visible_control(header + word('Finish'), 1280, 800), ('Finish', 930, 730))
         network_page = word('No networks have been found', x=300, y=300)
         options = dict(labels=('skip',), required_phrase='No networks have been found')
-        self.assertEqual(vm.visible_footer_button(header + network_page + word('Skip'), 1280, 800, **options), ('Skip', 930, 730))
-        self.assertIsNone(vm.visible_footer_button(header + word('Skip'), 1280, 800, **options))
+        self.assertEqual(vm.visible_control(header + network_page + word('Skip'), 1280, 800, **options), ('Skip', 930, 730))
+        self.assertIsNone(vm.visible_control(header + word('Skip'), 1280, 800, **options))
+        location = word('Timezone and location', x=300, y=100) + word('Closest', x=340, y=250)
+        search_options = dict(labels=('closest',), required_phrase='Timezone and location', minimum_y=0)
+        self.assertEqual(vm.visible_control(header + location, 1280, 800, **search_options), ('Closest', 370, 260))
+        self.assertIsNone(vm.visible_control(header + word('Closest', x=340, y=250), 1280, 800, **search_options))
         for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),
                      word('Skip'), word() + word('Finish', x=1000), ''):
-            self.assertIsNone(vm.visible_footer_button(header + rows, 1280, 800))
+            self.assertIsNone(vm.visible_control(header + rows, 1280, 800))
 
     def test_portal_consent_requires_the_observed_title_and_one_allow_control(self):
         header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
@@ -71,17 +75,17 @@ class UnifiedISO(unittest.TestCase):
         allow = '5\t1\t2\t1\t1\t1\t835\t460\t65\t20\t95\tAllow\n'
         options = dict(labels=('allow',), required_phrase=('Allow Apps to Take Screenshots', 'Allow Applications to Take Screenshots'))
         for observed in (title, title.replace('Apps', 'Applications')):
-            self.assertEqual(vm.visible_footer_button(header + observed + allow, 1280, 800, **options), ('Allow', 867, 470))
+            self.assertEqual(vm.visible_control(header + observed + allow, 1280, 800, **options), ('Allow', 867, 470))
         # Actual TSV separates words and inserts empty hierarchy rows at a wrap.
         wrapped = ''.join(f'5\t1\t1\t1\t1\t{i}\t450\t280\t50\t25\t95\t{word}\n' +
                           ('4\t1\t1\t1\t2\t0\t450\t310\t400\t25\t-1\t\n' if word == 'Take' else '')
                           for i, word in enumerate('Allow Applications to Take Screenshots?'.split(), 1))
-        self.assertEqual(vm.visible_footer_button(header + wrapped + allow, 1280, 800, **options), ('Allow', 867, 470))
+        self.assertEqual(vm.visible_control(header + wrapped + allow, 1280, 800, **options), ('Allow', 867, 470))
         icon = '5\t1\t1\t1\t1\t9\t383\t270\t56\t44\t18\t||\n'
         wrapped_with_icon = wrapped.replace('5\t1\t1\t1\t1\t5', icon + '5\t1\t1\t1\t1\t5')
-        self.assertEqual(vm.visible_footer_button(header + wrapped_with_icon + allow, 1280, 800, **options), ('Allow', 867, 470))
+        self.assertEqual(vm.visible_control(header + wrapped_with_icon + allow, 1280, 800, **options), ('Allow', 867, 470))
         for rows in (allow, title, title + allow + allow, title.replace('Screenshots', 'Files') + allow):
-            self.assertIsNone(vm.visible_footer_button(header + rows, 1280, 800, **options))
+            self.assertIsNone(vm.visible_control(header + rows, 1280, 800, **options))
 
     def test_cross_distro_workstations_keep_desktop_unless_explicitly_selected(self):
         for source in ('fedora', 'alma9', 'alma10'):

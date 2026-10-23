@@ -80,7 +80,7 @@ def accent_footer_regions(width, height, pixel):
     return sorted(regions)
 
 
-def visible_footer_button(tsv, width, height, labels=('next', 'finish'), required_phrase=None):
+def visible_control(tsv, width, height, labels=('next', 'finish'), required_phrase=None, minimum_y=None):
     """Only act on a unique visible control in the expected UI, never guess."""
     if required_phrase:
         fields = [line.split('\t') for line in tsv.splitlines()[1:]]
@@ -90,13 +90,14 @@ def visible_footer_button(tsv, width, height, labels=('next', 'finish'), require
         if not any(phrase.lower() in words.lower() for phrase in phrases):
             return None
     buttons = []
+    minimum_y = height / 2 if minimum_y is None else minimum_y
     for line in tsv.splitlines()[1:]:
         fields = line.split('\t')
         if len(fields) != 12 or fields[11].lower() not in labels:
             continue
         x, y, w, h = map(int, fields[6:10])
         if (float(fields[10]) >= 60 and 0 <= x < x + w <= width
-                and height / 2 < y < y + h <= height):
+                and minimum_y < y < y + h <= height):
             buttons.append((fields[11], x + w // 2, y + h // 2))
     return buttons[0] if len(buttons) == 1 else None
 
@@ -748,36 +749,52 @@ def run(args):
             # preferences to make shutdown quieter.
             from PIL import Image
             actions = []
+            entry = {'stage': stage, 'actions': actions, 'completed': False}
+            report.setdefault('cosmic_onboarding', []).append(entry)
+            timezone_searched = False
             for attempt in range(24):
                 state = command("printf '\\nONBOARDING_DONE=%s\\n' \"$(if test -f ~/.config/cosmic-initial-setup-done; then printf 1; else printf 0; fi)\"")
                 if re.search(r'^ONBOARDING_DONE=1\r?$', terminal_text(state), re.MULTILINE):
                     command("(for attempt in $(seq 1 20); do if ! pgrep -u $(id -u) -f '^(/usr/bin/)?cosmic-initial-setup($| )' >/dev/null; then exit 0; fi; sleep 1; done; exit 1)")
-                    report.setdefault('cosmic_onboarding', []).append({'stage': stage, 'actions': actions, 'completed': True})
+                    entry['completed'] = True
+                    (evidence / (stage + '-first-run-journal.log')).write_text(command('sudo journalctl -b _UID=$(id -u) --no-pager -n 1000; timedatectl status'))
                     record(stage + ': COSMIC first-run completion marker and process exit passed after real UI interaction')
                     return
                 name = stage + '-first-run-' + str(attempt)
                 vm.screenshot(name)
                 tsv = control_ocr(name)
                 width, height = Image.open(evidence / (name + '.png')).size
+                search = visible_control(tsv, width, height, labels=('closest',), required_phrase='Timezone and location', minimum_y=0)
+                if search and not timezone_searched:
+                    _, x, y = search
+                    vm.qmp.click(x, y, width, height)
+                    # A real native city choice; Dakar observes UTC year-round,
+                    # matching this disposable install's UTC time preference.
+                    vm.qmp.keys('Dakar\n')
+                    actions.append({'screenshot': name + '.png', 'field': 'timezone', 'search': 'Dakar', 'selection': 'native first search result via Enter'})
+                    timezone_searched = True
+                    time.sleep(3)
+                    continue
                 # The guest has verified wired networking and no virtual Wi-Fi.
                 # Use the native optional page's explicit Skip control when it
                 # reports no networks; do not manufacture connectivity or state.
-                button = visible_footer_button(tsv, width, height, labels=('skip',), required_phrase='No networks have been found')
+                button = visible_control(tsv, width, height, labels=('skip',), required_phrase='No networks have been found')
                 if not button:
-                    button = visible_footer_button(tsv, width, height)
+                    button = visible_control(tsv, width, height)
                 if button:
                     label, x, y = button
                     vm.qmp.click(x, y, width, height)
                     actions.append({'screenshot': name + '.png', 'button': label, 'x': x, 'y': y})
                 time.sleep(3)
-            raise RuntimeError('COSMIC first-run UI did not complete; inspect retained pages/controls; no marker was manufactured')
+            (evidence / (stage + '-first-run-journal.log')).write_text(command('sudo journalctl -b _UID=$(id -u) --no-pager -n 1000'))
+            raise RuntimeError('COSMIC first-run UI did not complete; inspect retained pages/controls and native journal; no marker was manufactured')
 
         def cosmic_rendering(stage, phase):
             # Keep the original software GPU and resolution. Capture more than
             # one QMP frame, plus a native portal image as a second capture path.
             # Consent uses the real GUI; no display variables are manufactured.
             stage = stage + '-' + phase
-            diagnostics = command("rpm -q cosmic-initial-setup cosmic-comp cosmic-session cosmic-screenshot mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; cosmic-screenshot --help; true")
+            diagnostics = command("rpm -q iso-codes cosmic-initial-setup cosmic-comp cosmic-session cosmic-screenshot mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE|XDG_DATA_DIRS)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; cosmic-screenshot --help; true")
             (evidence / (stage + '-rendering-diagnostics.log')).write_text(diagnostics)
             for index in range(3):
                 time.sleep(3)
@@ -796,7 +813,7 @@ def run(args):
                 tsv = control_ocr(name)
                 from PIL import Image
                 width, height = Image.open(evidence / (name + '.png')).size
-                button = visible_footer_button(tsv, width, height, labels=('allow',), required_phrase=('Allow Apps to Take Screenshots', 'Allow Applications to Take Screenshots'))
+                button = visible_control(tsv, width, height, labels=('allow',), required_phrase=('Allow Apps to Take Screenshots', 'Allow Applications to Take Screenshots'))
                 if button:
                     label, x, y = button
                     vm.qmp.click(x, y, width, height)
