@@ -50,7 +50,7 @@ def allowed_evidence_path(path):
         r'/(?:bootstrap|source|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health|avahi-startup)\.log',
         path) is not None or re.fullmatch(
         r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-(?:before|after)-portal\.png', path) is not None or re.fullmatch(
-        r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-before-workstation-health\.log', path) is not None
+        r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-(?:before-workstation-health|cosmic-shutdown)\.log', path) is not None
 
 
 def accent_footer_regions(width, height, pixel):
@@ -140,6 +140,34 @@ def shutdown_summary(output, expected_reboots):
     return {'expected_reboots': expected_reboots, 'initrd_pivots': pivots,
             'oldroot_unmounts': unmounted, 'finalization_failures': failures,
             'passed': not failures and pivots >= expected_reboots and unmounted == pivots}
+
+
+def cosmic_shutdown_summary(text):
+    """Read native, non-replayed journal JSON from one completed session boot."""
+    events = [json.loads(line) for line in text.splitlines() if line.strip()]
+    if not events or any(not isinstance(event, dict) for event in events):
+        raise RuntimeError('Missing or malformed native COSMIC shutdown journal')
+    boots = {event.get('_BOOT_ID') for event in events}
+    if len(boots) != 1 or not re.fullmatch(r'[0-9a-f]{32}', next(iter(boots)) or ''):
+        raise RuntimeError('COSMIC shutdown journal spans missing or inconsistent boots')
+    panics, cores, disconnects = [], [], 0
+    for event in events:
+        message = event.get('MESSAGE', '')
+        if isinstance(message, list):
+            message = bytes(message).decode('utf-8', errors='replace')
+        if not isinstance(message, str):
+            raise RuntimeError('Malformed native journal message')
+        identity = str(event.get('SYSLOG_IDENTIFIER', '')) + ' ' + str(event.get('_EXE', ''))
+        if 'cosmic' in identity.lower():
+            if 'panicked at' in message:
+                panics.append(dict(timestamp=event.get('__REALTIME_TIMESTAMP'), message=message))
+            if 'wayland dispatch:' in message:
+                disconnects += 1
+        if event.get('COREDUMP_EXE') and 'cosmic' in str(event['COREDUMP_EXE']).lower():
+            cores.append(dict(executable=event['COREDUMP_EXE'], signal=event.get('COREDUMP_SIGNAL'),
+                              timestamp=event.get('__REALTIME_TIMESTAMP')))
+    return dict(boot_id=next(iter(boots)), records=len(events), panics=panics, coredumps=cores,
+                wayland_dispatch_errors=disconnects, passed=not panics and not cores)
 
 
 def bootc_document(output):
@@ -477,6 +505,7 @@ def run(args):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     vm = VM(root, evidence, iso, accel)
     graphical_password_pending = False
+    cosmic_stages = []
     try:
         vm.start('original-iso')
         for seconds in range(1, 5):
@@ -794,7 +823,7 @@ def run(args):
             # one QMP frame, plus a native portal image as a second capture path.
             # Consent uses the real GUI; no display variables are manufactured.
             stage = stage + '-' + phase
-            diagnostics = command("rpm -q iso-codes cosmic-initial-setup cosmic-comp cosmic-session cosmic-screenshot mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE|XDG_DATA_DIRS)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; cosmic-screenshot --help; true")
+            diagnostics = command("rpm -q iso-codes cosmic-initial-setup cosmic-comp cosmic-panel cosmic-session cosmic-screenshot xdg-desktop-portal-cosmic libxkbcommon mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; if test -d /usr/share/current/cosmic-repairs; then cat /usr/share/current/cosmic-repairs/*.json; fi; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE|XDG_DATA_DIRS)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; systemctl --user show org.freedesktop.impl.portal.desktop.cosmic.service -p ActiveState -p Result -p ExecMainCode -p ExecMainStatus -p NRestarts; cosmic-screenshot --help; true")
             (evidence / (stage + '-rendering-diagnostics.log')).write_text(diagnostics)
             for index in range(3):
                 time.sleep(3)
@@ -834,6 +863,9 @@ def run(args):
 
         def graphical_login(stage, desktop):
             nonlocal graphical_password_pending
+            if desktop == 'cosmic':
+                command('cat /proc/sys/kernel/random/boot_id > ~/current-vm-cosmic-' + stage + '.boot')
+                cosmic_stages.append(stage)
             from PIL import Image
             command('printf %s ' + shlex.quote(stage) + ' > ~/current-vm-stage')
             ownership = command('bash ~/.local/bin/current-vm-qualify-workstation --system-only')
@@ -1081,6 +1113,17 @@ def run(args):
             command('sudo bootc switch --enforce-container-sigpolicy --retain ' + shlex.quote(receipt['payload']), timeout=1800)
             reboot_to('recovery-bootstrap', 'fedora', bootstrap_image)
             diagnostics('journal-final', 'fedora', verify_deferred=True)
+            # Read with the original bootstrap's newer systemd. An EL9 reader
+            # cannot reliably read every Fedora journal format. Exact native
+            # boot IDs select complete sessions including shutdown, without
+            # replayed diagnostic history or a bounded tail hiding failures.
+            for completed_stage in cosmic_stages:
+                name = completed_stage + '-cosmic-shutdown.log'
+                command('sudo journalctl --boot="$(cat ~/current-vm-cosmic-' + completed_stage + '.boot)" --no-pager -o json _UID=$(id -u) + COREDUMP_UID=$(id -u) > ~/current-vm-cosmic-shutdown.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-cosmic-shutdown.json" http://10.0.2.2:' + str(server.server_port) + '/' + name)
+                summary = cosmic_shutdown_summary((evidence / name).read_text())
+                report.setdefault('cosmic_shutdown', {})[completed_stage] = dict(summary, journal=name)
+            if any(not summary['passed'] for summary in report.get('cosmic_shutdown', {}).values()):
+                raise RuntimeError('Native COSMIC panic or coredump in a completed session boot; inspect cosmic-shutdown journals')
             vm.serial.logfile_read.flush()
             serial = (evidence / 'installation-serial.log').read_bytes()[shutdown_start:].decode('utf-8', errors='replace')
             report['shutdown'] = shutdown_summary(serial, 5)

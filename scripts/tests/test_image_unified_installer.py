@@ -29,6 +29,7 @@ class UnifiedISO(unittest.TestCase):
             self.assertTrue(vm.allowed_evidence_path('/' + stage + '-avahi-startup.log'))
             self.assertTrue(vm.allowed_evidence_path('/' + stage + '-workstation-health.log'))
             self.assertTrue(vm.allowed_evidence_path('/' + stage + '-before-workstation-health.log'))
+            self.assertTrue(vm.allowed_evidence_path('/' + stage + '-cosmic-shutdown.log'))
             for phase in ('before', 'after'):
                 self.assertTrue(vm.allowed_evidence_path('/' + stage + '-' + phase + '-portal.png'))
         for stage in ('bootstrap', 'bootstrap-reboot', 'destination', 'destination-reboot', 'rollback', 'recovery-bootstrap', 'journal-final'):
@@ -40,6 +41,26 @@ class UnifiedISO(unittest.TestCase):
                      '/source-workstation-health.log/../../result.json', '/result.json',
                      '/source-before-portal.png/../result.json', '/bootstrap-before-portal.png', '/source-after-portal.jpg'):
             self.assertFalse(vm.allowed_evidence_path(path))
+
+    def test_completed_cosmic_boots_require_original_journal_identity_and_no_panics_or_cores(self):
+        event = dict(_BOOT_ID='a' * 32, SYSLOG_IDENTIFIER='xdg-desktop-portal-cosmic',
+                     MESSAGE='wayland dispatch: Broken pipe; terminating portal')
+        def native(*events):
+            return '\n'.join(json.dumps(event) for event in events)
+        result = vm.cosmic_shutdown_summary(native(event))
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['wayland_dispatch_errors'], 1)
+        panic = dict(event, MESSAGE="thread '<unnamed>' panicked at 'wayland dispatch: Broken pipe'")
+        self.assertFalse(vm.cosmic_shutdown_summary(native(event, panic))['passed'])
+        core = dict(event, SYSLOG_IDENTIFIER='systemd-coredump',
+                    COREDUMP_EXE='/usr/bin/cosmic-panel', COREDUMP_SIGNAL='6')
+        self.assertFalse(vm.cosmic_shutdown_summary(native(core))['passed'])
+        unrelated = dict(core, COREDUMP_EXE='/usr/bin/unrelated')
+        self.assertTrue(vm.cosmic_shutdown_summary(native(unrelated))['passed'])
+        for text in ('', '[]', native(dict(event, _BOOT_ID=None)),
+                     native(event, dict(event, _BOOT_ID='b' * 32))):
+            with self.subTest(text=text), self.assertRaises(RuntimeError):
+                vm.cosmic_shutdown_summary(text)
 
     def test_accent_ocr_regions_exclude_headers_edges_grey_and_large_shapes(self):
         def pixel(x, y):
