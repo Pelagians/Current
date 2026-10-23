@@ -24,6 +24,13 @@ policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_welcome_layout_distinguishes_actual_repaired_and_clipped_vm_frames(self):
+        fixtures = ROOT / 'scripts/tests/fixtures/cosmic-welcome'
+        self.assertTrue(vm.welcome_layout_review((fixtures / 'repaired-alma9.tsv').read_text()))
+        with self.assertRaisesRegex(RuntimeError, 'clips or obscures'):
+            vm.welcome_layout_review((fixtures / 'clipped-fedora.tsv').read_text())
+        self.assertFalse(vm.welcome_layout_review(''))
+
     def test_health_receipts_are_allowed_at_source_and_each_reboot_stage(self):
         for stage in ('source', 'rebase-target', 'rebase-target-reboot', 'rebase-rollback'):
             self.assertTrue(vm.allowed_evidence_path('/' + stage + '-avahi-startup.log'))
@@ -62,6 +69,11 @@ class UnifiedISO(unittest.TestCase):
         self.assertEqual(result['wayland_dispatch_errors'], 1)
         panic = dict(event, MESSAGE="thread '<unnamed>' panicked at 'wayland dispatch: Broken pipe'")
         self.assertFalse(vm.cosmic_shutdown_summary(native(event, panic))['passed'])
+        keyboard = dict(event, SYSLOG_IDENTIFIER='cosmic-session',
+                        MESSAGE='Cannot enable EI keyboard: native XKB library rejected EI keymap')
+        result = vm.cosmic_shutdown_summary(native(keyboard))
+        self.assertFalse(result['passed'])
+        self.assertEqual(len(result['keyboard_errors']), 1)
         core = dict(event, SYSLOG_IDENTIFIER='systemd-coredump',
                     COREDUMP_EXE='/usr/bin/cosmic-panel', COREDUMP_SIGNAL='6')
         self.assertFalse(vm.cosmic_shutdown_summary(native(core))['passed'])
@@ -96,12 +108,14 @@ class UnifiedISO(unittest.TestCase):
         search_options = dict(labels=('closest',), required_phrase='Timezone and location', minimum_y=0)
         self.assertEqual(vm.visible_control(header + location, 1280, 800, **search_options), ('Closest', 370, 260))
         self.assertIsNone(vm.visible_control(header + word('Closest', x=340, y=250), 1280, 800, **search_options))
-        auth_options = dict(labels=('password',), required_phrase='Authentication is required to set system timezone', minimum_y=0)
-        prompt = word('Authentication is required to set system timezone', x=450, y=330)
+        auth_options = dict(labels=('password',), required_phrase='Authentication is required to set the system timezone', minimum_y=0, control_confidence=50)
+        prompt = word('Authentication is required to set the system timezone', x=450, y=330)
         field = word('Password', x=480, y=365)
         self.assertEqual(vm.visible_control(header + prompt + field, 1280, 800, **auth_options), ('Password', 510, 375))
         for invalid in (field, prompt, prompt + field + word('Password', x=500, y=400)):
             self.assertIsNone(vm.visible_control(header + invalid, 1280, 800, **auth_options))
+        observed = (ROOT / 'scripts/tests/fixtures/cosmic-welcome/timezone-authentication.tsv').read_text()
+        self.assertEqual(vm.visible_control(observed, 1280, 800, **auth_options), ('Password', 538, 373))
         for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),
                      word('Skip'), word() + word('Finish', x=1000), ''):
             self.assertIsNone(vm.visible_control(header + rows, 1280, 800))

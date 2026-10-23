@@ -81,7 +81,19 @@ def accent_footer_regions(width, height, pixel):
     return sorted(regions)
 
 
-def visible_control(tsv, width, height, labels=('next', 'finish'), required_phrase=None, minimum_y=None):
+def welcome_layout_review(tsv):
+    """Reject the reproduced clipped accessibility page at the VM's fixed size."""
+    fields = [line.split('\t') for line in tsv.splitlines()[1:]]
+    words = ' '.join(' '.join(row[11] for row in fields if len(row) == 12
+                             and row[0] == '5' and float(row[10]) >= 60).lower().split())
+    if 'accessibility setup' not in words:
+        return False
+    if 'additional scale options' not in words:
+        raise RuntimeError('COSMIC accessibility page clips or obscures scale controls; inspect original frame')
+    return True
+
+
+def visible_control(tsv, width, height, labels=('next', 'finish'), required_phrase=None, minimum_y=None, control_confidence=60):
     """Only act on a unique visible control in the expected UI, never guess."""
     if required_phrase:
         fields = [line.split('\t') for line in tsv.splitlines()[1:]]
@@ -97,7 +109,7 @@ def visible_control(tsv, width, height, labels=('next', 'finish'), required_phra
         if len(fields) != 12 or fields[11].lower() not in labels:
             continue
         x, y, w, h = map(int, fields[6:10])
-        if (float(fields[10]) >= 60 and 0 <= x < x + w <= width
+        if (float(fields[10]) >= control_confidence and 0 <= x < x + w <= width
                 and minimum_y < y < y + h <= height):
             buttons.append((fields[11], x + w // 2, y + h // 2))
     return buttons[0] if len(buttons) == 1 else None
@@ -162,7 +174,7 @@ def cosmic_shutdown_summary(text):
     boots = {event.get('_BOOT_ID') for event in events}
     if len(boots) != 1 or not re.fullmatch(r'[0-9a-f]{32}', next(iter(boots)) or ''):
         raise RuntimeError('COSMIC shutdown journal spans missing or inconsistent boots')
-    panics, cores, disconnects = [], [], 0
+    panics, cores, keyboard_errors, disconnects = [], [], [], 0
     for event in events:
         message = event.get('MESSAGE', '')
         if isinstance(message, list):
@@ -175,11 +187,14 @@ def cosmic_shutdown_summary(text):
                 panics.append(dict(timestamp=event.get('__REALTIME_TIMESTAMP'), message=message))
             if 'wayland dispatch:' in message:
                 disconnects += 1
+            if 'Cannot enable EI keyboard:' in message:
+                keyboard_errors.append(dict(timestamp=event.get('__REALTIME_TIMESTAMP'), message=message))
         if event.get('COREDUMP_EXE') and 'cosmic' in str(event['COREDUMP_EXE']).lower():
             cores.append(dict(executable=event['COREDUMP_EXE'], signal=event.get('COREDUMP_SIGNAL'),
                               timestamp=event.get('__REALTIME_TIMESTAMP')))
     return dict(boot_id=next(iter(boots)), records=len(events), panics=panics, coredumps=cores,
-                wayland_dispatch_errors=disconnects, passed=not panics and not cores)
+                keyboard_errors=keyboard_errors, wayland_dispatch_errors=disconnects,
+                passed=not panics and not cores and not keyboard_errors)
 
 
 def bootc_document(output):
@@ -809,13 +824,16 @@ def run(args):
                 vm.screenshot(name)
                 tsv = control_ocr(name)
                 width, height = Image.open(evidence / (name + '.png')).size
+                if welcome_layout_review(tsv):
+                    entry.setdefault('layout_reviews', []).append(name + '.png')
                 # A real polkit dialog can cover this page while its Next
                 # button remains clickable behind it. Complete authentication
                 # before advancing; never count that obscured UI as a pass.
                 screen_text = ' '.join(line.split('\t')[-1] for line in tsv.splitlines()[1:])
                 if re.search(r'authentication\s+required', screen_text, re.IGNORECASE):
                     field = visible_control(tsv, width, height, labels=('password',),
-                                            required_phrase='Authentication is required to set system timezone', minimum_y=0)
+                                            required_phrase='Authentication is required to set the system timezone',
+                                            minimum_y=0, control_confidence=50)
                     if not timezone_searched or timezone_authenticated or not field:
                         raise RuntimeError('Unexpected authentication dialog during COSMIC onboarding; no password entered')
                     _, x, y = field

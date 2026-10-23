@@ -49,6 +49,53 @@ index 3b7a3c3..ace4e44 100644
                              self.xkb_state = Some(xkb::State::new(&xkb_keymap));
                              self.xkb_keymap = Some(xkb_keymap);
                              return self.update_config();
+diff --git a/src/wayland.rs b/src/wayland.rs
+index 418dfc2..b1242f2 100644
+--- a/src/wayland.rs
++++ b/src/wayland.rs
+@@ -39,8 +39,9 @@ pub fn wayland_task(msg_tx: futures::channel::mpsc::Sender<Message>) {
+         msg_tx,
+         seats: HashMap::new(),
+         imm: None,
++        running: true,
+     };
+-    while let Ok(_) = event_loop.dispatch(None, &mut state) {}
++    while state.running && event_loop.dispatch(None, &mut state).is_ok() {}
+ }
+ 
+ struct Seat {
+@@ -51,6 +52,7 @@ struct Seat {
+ }
+ 
+ struct State {
++    running: bool,
+     msg_tx: futures::channel::mpsc::Sender<Message>,
+     seats: HashMap<u32, Seat>,
+     imm: Option<ZwpInputMethodManagerV2>,
+@@ -154,7 +156,7 @@ impl Dispatch<ZwpInputMethodV2, u32> for State {
+             // Only forward on change.
+             Event::Done if seat.im_active != seat.im_active_sent => {
+                 seat.im_active_sent = seat.im_active;
+-                futures::executor::block_on(async {
++                if futures::executor::block_on(async {
+                     state
+                         .msg_tx
+                         .send(Message::SeatImActive {
+@@ -163,7 +165,13 @@ impl Dispatch<ZwpInputMethodV2, u32> for State {
+                         })
+                         .await
+                 })
+-                .expect("failed to send seat active event")
++                .is_err()
++                {
++                    // The owning UI has gone away; no future event can be
++                    // delivered. Stop the worker instead of panicking or
++                    // waiting forever for another Wayland event.
++                    state.running = false;
++                }
+             }
+             //TODO: handle more events
+             _ => {}
 --- /dev/null
 +++ b/src/keymap_compat.rs
 @@ -0,0 +1,85 @@

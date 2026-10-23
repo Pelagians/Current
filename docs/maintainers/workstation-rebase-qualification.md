@@ -1294,3 +1294,11 @@ check section. The VM also requires the repaired OSK to remain running before
 and after onboarding; swallowing a panic or silently exiting cannot pass.
 Full native x86_64 build, boot/session/shutdown and actual on-screen input remain
 separate from the isolated parser evidence.
+
+The OSK candidate also stops its Wayland worker when the owning UI receiver
+closes, rather than panicking on the next seat event. The complete-boot gate
+rejects the new explicit keymap-error diagnostic even when the OSK process stays
+alive. Recorded original OCR fixtures distinguish the clipped 1.11 page from
+the repaired 1.9 page, and verify the exact native timezone request/field before
+password entry. The fixed-size VM now requires visible Additional scale options
+on the accessibility page before proceeding.
