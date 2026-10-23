@@ -78,7 +78,7 @@ class NativeRepairs(unittest.TestCase):
                 with patch.object(installer, 'rpm', side_effect=rpm), patch.object(installer.subprocess, 'run', side_effect=run) as command:
                     if mutation == 'none':
                         installer.install(root, 'alma10', root / 'installed-receipts')
-                        self.assertEqual(len(list((root / 'installed-receipts').iterdir())), 2)
+                        self.assertEqual(len(list((root / 'installed-receipts').iterdir())), 3)
                         self.assertIn('--disablerepo=*', command.call_args.args[0])
                     else:
                         with self.assertRaises((ValueError, installer.subprocess.CalledProcessError)):
@@ -167,7 +167,7 @@ class NativeRepairs(unittest.TestCase):
             self.artifacts(root)
             (root / 'vendor.src.rpm').write_bytes(b'large source and build dependencies')
             candidate.prepare('alma10', root, root / 'context')
-            self.assertEqual(len(list((root / 'context/rpms').iterdir())), 2)
+            self.assertEqual(len(list((root / 'context/rpms').iterdir())), 3)
             self.assertFalse(list((root / 'context').rglob('*.src.rpm')))
             self.assertEqual((root / 'context/portal-policy.conf').read_bytes(),
                              (ROOT / 'files/cosmic/shared/usr/share/xdg-desktop-portal/cosmic-portals.conf').read_bytes())
@@ -225,9 +225,9 @@ class NativeRepairs(unittest.TestCase):
                             candidate.prepare_bundle(artifacts, root / 'bundle')
                         continue
                     candidate.prepare_bundle(artifacts, root / 'bundle')
-                self.assertEqual(len(list((root / 'bundle/runtime').rglob('*.x86_64.rpm'))), 2)
+                self.assertEqual(len(list((root / 'bundle/runtime').rglob('*.x86_64.rpm'))), 3)
                 self.assertFalse(list((root / 'bundle/runtime').rglob('*.src.rpm')))
                 hashes = json.loads((root / 'bundle/sources/sha256.json').read_text())
-                self.assertEqual(len(hashes), 2)
+                self.assertEqual(len(hashes), 3)
                 for name, digest in hashes.items():
                     self.assertEqual(hashlib.sha256((root / 'bundle/sources' / name).read_bytes()).hexdigest(), digest)

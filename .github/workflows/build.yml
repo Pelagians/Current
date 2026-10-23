@@ -19,7 +19,7 @@ on:
         default: ''
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.cosmic_repairs_only && 'cosmic-repairs' || 'images' }}
   cancel-in-progress: true
 
 jobs:
