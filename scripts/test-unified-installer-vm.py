@@ -598,6 +598,8 @@ def run(args):
         def graphical_diagnostics(stage):
             output = command("loginctl list-sessions --no-pager; sudo journalctl -b --no-pager -u gdm.service -u cosmic-greeter.service -u cosmic-greeter-daemon.service; sudo journalctl -b --no-pager -g 'gdm-password|authentication|avc:|session opened'; sudo ausearch -m AVC,USER_AVC -ts boot -i; sudo ls -ldZ /etc/passwd /etc/shadow /etc/.pwd.lock /var/lib/AccountsService/users /var/home/currenttest; true")
             (evidence / (stage + '-authentication.log')).write_text(output)
+            labels = command("getent passwd currenttest avahi linuxbrew; getent group avahi linuxbrew; grep -E '^(passwd|group):' /etc/nsswitch.conf; sudo matchpathcon /var/home/currenttest /var/home/currenttest/.local/share/icc /etc/.pwd.lock; sudo restorecon -nRv /var/home/currenttest; systemctl cat brew-setup.service avahi-daemon.service; sudo journalctl -b --no-pager -u brew-setup.service -u avahi-daemon.service; true", timeout=180)
+            (evidence / (stage + '-label-account-audit.log')).write_text(labels)
 
         def graphical_login(stage, desktop):
             nonlocal graphical_password_pending
