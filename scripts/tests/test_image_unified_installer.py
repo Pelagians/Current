@@ -3,6 +3,7 @@ import importlib.util
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -51,6 +52,12 @@ class UnifiedISO(unittest.TestCase):
         for point in ((-1, 0), (1280, 0), (0, 800)):
             with self.assertRaises(ValueError):
                 qmp.click(*point, 1280, 800)
+
+    def test_vm_status_accepts_audit_after_status_without_accepting_echo(self):
+        for suffix in ('\r\n', '[   25.26] audit: session closed\r\n'):
+            self.assertEqual(re.search(vm.COMMAND_RC, '\r\nVM_RC=0' + suffix)[1], '0')
+            self.assertNotEqual(re.search(vm.COMMAND_RC, '\r\nVM_RC=127' + suffix)[1], '0')
+        self.assertIsNone(re.search(vm.COMMAND_RC, "printf '\\nVM_RC=%s\\n' \"$?\"\r\n"))
 
     def test_vm_console_login_recovers_only_before_password(self):
         serial = SimpleNamespace(sendline=Mock(),

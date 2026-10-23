@@ -24,6 +24,12 @@ import threading
 import time
 
 
+# Kernel audit text can arrive after the status digit but before printf's final
+# newline. A zero status is complete at that digit; nonzero statuses still fail.
+# The leading newline prevents an echoed printf format from matching.
+COMMAND_RC = r'\r?\nVM_RC=([0-9]+)'
+
+
 def terminal_text(output):
     """Remove terminal framing, retaining the actual guest output for assertions."""
     output = re.sub(r'\x1b\].*?(?:\x07|\x1b\\)', '', output, flags=re.DOTALL)
@@ -504,10 +510,10 @@ def run(args):
             vm.serial.sendline(text + "; printf '\\nVM_RC=%s\\n' \"$?\"")
             # A long pull can outlive sudo's credential cache. Reauthenticate
             # normally instead of adding a passwordless rule to the test image.
-            result = vm.serial.expect([r'\r?\nVM_RC=([0-9]+)\r?\n', r'\[sudo\] password for currenttest:'], timeout=timeout)
+            result = vm.serial.expect([COMMAND_RC, r'\[sudo\] password for currenttest:'], timeout=timeout)
             if result:
                 vm.serial.sendline(password)
-                vm.serial.expect(r'\r?\nVM_RC=([0-9]+)\r?\n', timeout=timeout)
+                vm.serial.expect(COMMAND_RC, timeout=timeout)
             output = vm.serial.before
             if vm.serial.match.group(1) != '0':
                 raise RuntimeError('Guest command failed: ' + text + '\n' + output)
