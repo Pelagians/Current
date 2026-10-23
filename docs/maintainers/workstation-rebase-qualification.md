@@ -1067,3 +1067,95 @@ uses the amended `480b323e` ISO and exact signed `809c0fc3` Alma 9/Fedora COSMIC
 candidates. That isolates the probe/NSS-bootstrap changes; it is not evidence
 that the amended destination matrix has passed. Local checks pass 80 runtime
 and 102 image tests, plus Actionlint and diff checks. XFS is unchanged.
+
+The corrected `39919462672` Alma 9 source got past the cursor obstacle and exposed
+an empty native “Select a language” page. `locale -a`, system locale and real
+session LANG are valid English; no completion marker was created. The native
+1.9.0 [language page](https://github.com/pop-os/cosmic-initial-setup/blob/epoch-1.9.0/src/page/language.rs)
+initializes a locale registry before listing languages. Its
+[registry](https://github.com/AerynOS/locales-rs/blob/main/src/registry.rs) loads
+`iso_3166-1.json`, `iso_639-2.json`, `iso_639-3.json` from iso-codes data. Missing
+package/data, XDG search paths and native session errors must be distinguished
+before choosing a product fix. The new `cosmic-data-audit` mode verifies Current's
+signature and exact architecture/revision, then queries package/files in an
+isolated read-only container without network or added capabilities; it is not a
+boot qualification.
+
+The first inventory `39922866183` stopped in Docker with “max depth exceeded”
+before reading package/data. It establishes no locale result. The replacement
+`39925412874` uses Podman, as the existing ISO tooling does. Subsequent onboarding
+probes retain the native user journal on failure and completion, plus locale
+package/XDG diagnostics. No package fix is guessed from an empty menu alone.
+
+Fedora source `39921099634` passed its language page and stopped at the populated
+native timezone list, which requires an explicit city choice. This is expected
+questionnaire interaction, distinct from the empty Alma list. Harness `8527ec0f`
+uses the real search field and native Enter selection for Dakar, a UTC time
+preference for this disposable install, then requires ordinary Finish/marker/exit.
+It changes no product locale/timezone policy and does not claim wireless setup.
+The new Fedora→Alma 10 probe is `39925428329`.
+
+Amended native Fedora server→Alma 9 `39923105988` passed the entire strict flow
+at destination source `dc78334d` / ISO source `480b323e`, including the native
+Avahi unit-journal assertions, target reboot, exact rollback and final recovery.
+The amended Alma 10→Fedora server and three GNOME cases are now running with the
+same receipts; the full native publisher remains a separate gate.
+
+The signed read-only Podman inventory `39925412874` passed: the exact Alma 9
+`809c0fc3` image already contains `iso-codes-4.6.0-3.el9.noarch`, and all three
+required JSON files are present and parse with their expected document keys.
+No missing-package fix is justified by that result. The live session path and
+native registry/D-Bus error are now the remaining diagnostic gates; a new Alma 9
+probe retains those journals instead of replacing user state or bypassing its
+empty page. Fedora's populated timezone page receives a normal visible search
+and Enter selection in the corrected probe. The earlier Docker inventory failure
+remains a tooling limitation, not a product-data result.
+
+The new native Alma 9 journal `39927020805` identifies the exact error:
+`json parsing error: missing field flag at line 8 column 5`. The
+[vendored 1.9 registry schema](https://github.com/AerynOS/locales-rs/blob/e5b66fbe3a55182174caf6aec171ff4ae8285626/src/iso_3166.rs)
+requires a string flag in every territory record. The 1.11 registry revision has
+identical runtime code; the upstream comparison changes only repository funding
+metadata. The installed older distro data schema, not a missing locale package,
+is therefore the measured incompatibility.
+
+The shared COSMIC image build now explicitly requires iso-codes and runs
+`cosmic-locale-compat.sh` after its desktop/Flatpak layers. It adds only absent
+flag strings as Unicode regional-indicator pairs derived from each existing
+native alpha_2 code; it adds no territories and changes no identifiers, names or
+existing flag values. Compatible files remain byte-identical. Malformed metadata
+fails before writing. This is a build-time change to the package-owned data file,
+so RPM file verification can report that deliberate modification; Current's image
+signature authenticates the resulting payload. The native package's provenance
+and license remain in place. There is no per-user locale/environment override,
+new data catalogue or forged first-run state. Fixtures cover identity preservation,
+mode, idempotence, compatible bytes and rejection before write. All 185 local
+tests pass (80 runtime, 105 image), plus Actionlint and diff checks. Fresh native
+Alma 9 first-run and cross-distro tests are still required before qualifying it.
+
+The `dc78334d` rebuild's 45 native image jobs passed, but its publisher was
+cancelled as superseded for the measured country-schema fix. Read-only checks
+again matched all 24 shared references and 21 ARM aliases to the previous complete
+`809c0fc3` publication after cancellation. No partial publication is advertised.
+The final country-compatible native rebuild
+[39932122029](https://github.com/Pelagians/Current/actions/runs/39932122029) runs
+at `782560bf`; the tested `480b323e` installer payload is unchanged.
+
+All five amended native-candidate server/GNOME flows at `dc78334d` passed complete
+machine receipt checks with strict native Avahi journals and English locale:
+Fedora server→Alma 9 (`39923105988`, 20 archives), Alma 10 server→Fedora
+(`39924899585`, 14), Fedora GNOME→Alma 9 (`39925741875`, 18), Alma 9 GNOME→Alma 10
+(`39925752932`, 23), Alma 10 GNOME→Fedora (`39925761838`, 14). Each passed five
+shutdown pivots and exact-source rollback; GNOME cases passed all four real
+password logins, provider/default mDNS paths, native home/ICC/Brew checks.
+
+The corrected Fedora COSMIC→Alma 10 flow `39925428329` passed its complete
+recorded flow on ISO `480b323e` with signed `809c0fc3` candidates: real source
+Next/timezone/Finish interaction, the native completion marker and process exit,
+four password logins/health checks, eight native portal captures, repeated raw
+frames, target reboot, exact rollback, five shutdown pivots and 14 final archives.
+The destination reuses the native completion marker, as it should; this is not a
+fresh Alma 10 welcome test or a pass for final `782560bf` destinations. The final
+three COSMIC transitions still require fresh results. The country flag fields
+are derived [Unicode regional-indicator sequences](https://unicode.org/reports/tr51/#Flags)
+from native codes; they are not new country identities or hardware qualification.
