@@ -64,6 +64,7 @@ jobs:
         run: |
           python3 -m unittest discover -s scripts/tests -p 'test_runtime_setup.py' -v
           python3 -m unittest discover -s scripts/tests -p 'test_image_unified_installer.py' -v
+          python3 -m unittest discover -s scripts/tests -p 'test_image_account_policy.py' -v
       - name: Prepare isolated bootstrap build
         id: prepare
         env:

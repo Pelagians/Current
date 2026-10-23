@@ -918,7 +918,7 @@ if __name__ == '__main__':
     parser.add_argument('--target-channel', help='Optional independently published destination channel for rebase qualification')
     parser.add_argument('--target-distribution', choices=('fedora', 'alma10', 'alma9'))
     parser.add_argument('--target-desktop', choices=('gnome', 'cosmic'))
-    parser.add_argument('--image-revision', default='e8fc3698f6a6ecf1ec30f4bb8b2a6610bcdd49f7')
+    parser.add_argument('--image-revision', default='3bdfcaa1f2665051c873f40e30e45b1f49333616')
     parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs', 'bootstrap-reboot', 'workstation-flow', 'rebase-flow'), default='server-flow')
     args = parser.parse_args()
     if not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.channel):
