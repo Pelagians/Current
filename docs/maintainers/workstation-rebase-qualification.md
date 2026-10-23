@@ -1170,9 +1170,22 @@ Source `5064b03b` canonicalizes the authenticated kernel UUID to 32 hex digits
 and checks the returned journal's boot identity; a regression fixture includes
 the actual failed UUID. The query retains complete messages and diagnostic/core
 metadata without uploading memory blobs or process environments. Control rerun
-`40007524413` remains the acceptance gate for detecting original native panics.
+`40007524413` completed the same four real PAM sessions and failed on native
+Wayland-dispatch `Broken pipe` panics in all four completed boots. This confirms
+the stricter gate detects the original defect; it is not a repaired-image pass.
 The first control's Alma 10 initial/reboot dock samples are visually clean and
 have zero changes in 38,400 fixed margin pixels. The older reproduced case
 `39938983888` has 1,129 changed pixels in those same margins in both QMP and
 portal captures. That difference reinforces the intermittent nature of the
 artifact; a single clean new sample cannot establish a fix.
+
+Candidate assembly `40008717786` passed all three native image builds and Cosign
+verification, but VM `40009759614` correctly rejected its Alma 9 image before
+staging: `A signature was required, but no signature exists`. The isolated
+publisher omitted Current's existing Cosign v3 legacy-attachment flags. Source
+`d677e809` applies `--new-bundle-format=false --use-signing-config=false`, matching
+the normal publisher. The bootstrap trust policy is unchanged. Build
+`40011318210` reuses the verified native RPMs and reassembles corrected candidates.
+Build `40011004179` also exposed an explicit Containerfile-path omission in the
+new runtime/source bundle job; its obsolete candidate assembly was cancelled
+after all five RPM seed jobs succeeded. No native compiler was cancelled.

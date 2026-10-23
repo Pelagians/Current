@@ -92,11 +92,15 @@ jobs:
           set -euo pipefail
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
           python3 scripts/prepare-cosmic-repair-candidate.py --bundle repair-artifacts bundle
-          repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/current-cosmic-repairs"
+          # Use the existing public COSMIC registry namespace for build inputs.
+          # These data-only tags are deliberately outside bootc's br-/pr-/latest
+          # channels; no package visibility or installer trust changes needed.
+          repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fedora-cosmic"
           for kind in sources runtime; do
-            reference="$repository:${kind}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            reference="$repository:cosmic-repair-${kind}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             docker build --file "bundle/$kind/Containerfile" --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" \
               --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.title=Current COSMIC repair $kind (not bootable)" \
               --tag "$reference" "bundle/$kind"
             docker push "$reference"
             digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$reference")
