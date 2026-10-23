@@ -93,11 +93,13 @@ jobs:
               try:
                   data = json.loads(path.read_text())
                   report['files'][name] = {'present': True, 'keys': list(data)}
+                  if name == 'iso_3166-1.json':
+                      report['files'][name]['missing_flags'] = sum(not isinstance(entry.get('flag'), str) for entry in data['3166-1'])
               except (OSError, ValueError) as error:
                   report['files'][name] = {'present': False, 'error': str(error)}
           print('::notice title=Current COSMIC locale inventory::' + json.dumps(report), flush=True)
-          if package.returncode or not all(info['present'] for info in report['files'].values()):
-              raise SystemExit('COSMIC locale registry package/data is absent; this is a read-only inventory, not boot qualification')
+          if package.returncode or not all(info['present'] and not info.get('missing_flags', 0) for info in report['files'].values()):
+              raise SystemExit('COSMIC locale registry package/data schema did not validate; this inventory is not boot qualification')
           PY_AUDIT
 
   uefi:
