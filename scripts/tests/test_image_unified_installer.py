@@ -27,11 +27,24 @@ class UnifiedISO(unittest.TestCase):
     def test_health_receipts_are_allowed_at_source_and_each_reboot_stage(self):
         for stage in ('source', 'rebase-target', 'rebase-target-reboot', 'rebase-rollback'):
             self.assertTrue(vm.allowed_evidence_path('/' + stage + '-workstation-health.log'))
+            for phase in ('before', 'after'):
+                self.assertTrue(vm.allowed_evidence_path('/' + stage + '-' + phase + '-portal.png'))
         for path in ('/bootstrap-account-labels.log', '/installer-account-diagnostics.log'):
             self.assertTrue(vm.allowed_evidence_path(path))
         for path in ('/etc/shadow', '/../source-workstation-health.log',
-                     '/source-workstation-health.log/../../result.json', '/result.json'):
+                     '/source-workstation-health.log/../../result.json', '/result.json',
+                     '/source-before-portal.png/../result.json', '/bootstrap-before-portal.png', '/source-after-portal.jpg'):
             self.assertFalse(vm.allowed_evidence_path(path))
+
+    def test_cosmic_onboarding_requires_unique_visible_footer_control(self):
+        header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        def word(text='Next', x=900, y=720, confidence=95):
+            return f'5\t1\t1\t1\t1\t1\t{x}\t{y}\t60\t20\t{confidence}\t{text}\n'
+        self.assertEqual(vm.cosmic_setup_button(header + word(), 1280, 800), ('Next', 930, 730))
+        self.assertEqual(vm.cosmic_setup_button(header + word('Finish'), 1280, 800), ('Finish', 930, 730))
+        for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),
+                     word('Skip'), word() + word('Finish', x=1000), ''):
+            self.assertIsNone(vm.cosmic_setup_button(header + rows, 1280, 800))
 
     def test_cross_distro_workstations_keep_desktop_unless_explicitly_selected(self):
         for source in ('fedora', 'alma9', 'alma10'):

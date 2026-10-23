@@ -48,7 +48,22 @@ def allowed_evidence_path(path):
              '/installer-account-diagnostics.log'}
     return path in fixed or re.fullmatch(
         r'/(?:bootstrap|source|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health)\.log',
-        path) is not None
+        path) is not None or re.fullmatch(
+        r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-(?:before|after)-portal\.png', path) is not None
+
+
+def cosmic_setup_button(tsv, width, height):
+    """Only act on a unique visible onboarding footer control, never guess."""
+    buttons = []
+    for line in tsv.splitlines()[1:]:
+        fields = line.split('\t')
+        if len(fields) != 12 or fields[11].lower() not in ('next', 'finish'):
+            continue
+        x, y, w, h = map(int, fields[6:10])
+        if (float(fields[10]) >= 60 and 0 <= x < x + w <= width
+                and height / 2 < y < y + h <= height):
+            buttons.append((fields[11], x + w // 2, y + h // 2))
+    return buttons[0] if len(buttons) == 1 else None
 
 
 def terminal_text(output):
@@ -163,6 +178,7 @@ exec >"$HOME/current-vm-session-$stage.log" 2>&1
   set -eu
   printf 'BOOT_ID=%s\n' "$(cat /proc/sys/kernel/random/boot_id)"
   printf 'SESSION_ID=%s\nDESKTOP=%s\nSESSION_TYPE=%s\nWAYLAND_DISPLAY=%s\nDISPLAY=%s\n' "${XDG_SESSION_ID:-}" "${XDG_CURRENT_DESKTOP:-}" "${XDG_SESSION_TYPE:-}" "${WAYLAND_DISPLAY:-}" "${DISPLAY:-}"
+  printf 'LANG=%s\nLC_ALL=%s\nLANGUAGE=%s\n' "${LANG:-}" "${LC_ALL:-}" "${LANGUAGE:-}"
   test "${XDG_SESSION_TYPE:-}" = wayland || test "${XDG_SESSION_TYPE:-}" = x11
   test -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}"
   loginctl show-user "$(id -u)" -p Display -p Sessions
@@ -403,7 +419,14 @@ def run(args):
             if not 0 <= length <= 32 * 1024**2:
                 self.send_error(413)
                 return
-            (evidence / self.path[1:]).write_bytes(self.rfile.read(length).replace(password.encode(), b'[REDACTED]'))
+            data = self.rfile.read(length)
+            if self.path.endswith('.png'):
+                if not data.startswith(b'\x89PNG\r\n\x1a\n'):
+                    self.send_error(400)
+                    return
+            else:
+                data = data.replace(password.encode(), b'[REDACTED]')
+            (evidence / self.path[1:]).write_bytes(data)
             self.send_response(200)
             self.end_headers()
 
@@ -631,6 +654,49 @@ def run(args):
             (evidence / (stage + '-authentication.log')).write_text(output)
             labels = command("getent passwd currenttest avahi linuxbrew; getent group avahi linuxbrew; grep -E '^(passwd|group):' /etc/nsswitch.conf; sudo matchpathcon /var/home/currenttest /var/home/currenttest/.local/share/icc /etc/.pwd.lock; systemctl cat brew-setup.service avahi-daemon.service; sudo journalctl -b --no-pager -u brew-setup.service -u avahi-daemon.service; sudo restorecon -nv /var/home/currenttest; if test -d /var/home/currenttest/.local/share/icc; then sudo restorecon -nRv /var/home/currenttest/.local/share/icc; fi; true", timeout=180)
             (evidence / (stage + '-label-account-audit.log')).write_text(labels)
+            resolver = command("rpm -q avahi avahi-tools nss-mdns NetworkManager systemd-resolved; grep -E '^(hosts|passwd|group):' /etc/nsswitch.conf; ls -l /etc/resolv.conf; readlink -f /etc/resolv.conf; cat /etc/resolv.conf; nmcli general status; nmcli -g IP4.DNS,IP6.DNS device show; systemctl is-enabled NetworkManager-wait-online.service; systemctl show avahi-daemon.service NetworkManager.service NetworkManager-wait-online.service network-online.target -p After -p Wants -p ActiveEnterTimestampMonotonic -p ExecMainStartTimestampMonotonic; sudo journalctl -b -u avahi-daemon.service -u NetworkManager.service -u NetworkManager-wait-online.service --no-pager -n 500; true")
+            (evidence / (stage + '-resolver-diagnostics.log')).write_text(resolver)
+
+        def cosmic_onboarding(stage):
+            # Exercise the actual first-run UI, including its own completion
+            # marker. Never create that marker, mask autostart, or delete user
+            # preferences to make shutdown quieter.
+            from PIL import Image
+            actions = []
+            for attempt in range(24):
+                state = command("printf '\\nONBOARDING_DONE=%s\\n' \"$(if test -f ~/.config/cosmic-initial-setup-done; then printf 1; else printf 0; fi)\"")
+                if re.search(r'^ONBOARDING_DONE=1\r?$', terminal_text(state), re.MULTILINE):
+                    command("(for attempt in $(seq 1 20); do if ! pgrep -u $(id -u) -f '^(/usr/bin/)?cosmic-initial-setup($| )' >/dev/null; then exit 0; fi; sleep 1; done; exit 1)")
+                    report.setdefault('cosmic_onboarding', []).append({'stage': stage, 'actions': actions, 'completed': True})
+                    record(stage + ': COSMIC first-run completion marker and process exit passed after real UI interaction')
+                    return
+                name = stage + '-first-run-' + str(attempt)
+                vm.screenshot(name)
+                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+                (evidence / (name + '.tsv')).write_text(tsv)
+                width, height = Image.open(evidence / (name + '.png')).size
+                button = cosmic_setup_button(tsv, width, height)
+                if button:
+                    label, x, y = button
+                    vm.qmp.click(x, y, width, height)
+                    actions.append({'screenshot': name + '.png', 'button': label, 'x': x, 'y': y})
+                time.sleep(3)
+            raise RuntimeError('COSMIC first-run UI did not complete; inspect retained pages/controls; no marker was manufactured')
+
+        def cosmic_rendering(stage, phase):
+            # Keep the original software GPU and resolution. Capture more than
+            # one QMP frame, plus an independent native portal image when the
+            # packaged CLI supports it. Neither route invents display variables.
+            stage = stage + '-' + phase
+            diagnostics = command("rpm -q cosmic-initial-setup cosmic-comp cosmic-session cosmic-screenshot mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; cosmic-screenshot --help; true")
+            (evidence / (stage + '-rendering-diagnostics.log')).write_text(diagnostics)
+            for index in range(3):
+                time.sleep(3)
+                vm.screenshot(stage + '-render-' + str(index))
+            directory = '"$HOME/current-vm-portal-' + stage + '"'
+            capture = command('mkdir -p ' + directory + '; systemd-run --user --wait --pipe --collect --property=RuntimeMaxSec=40s cosmic-screenshot --interactive=false --modal=false --notify=false --save-dir ' + directory + '; rc=$?; printf "\\nPORTAL_RC=%s\\n" "$rc"; if test "$rc" = 0; then image=$(find ' + directory + ' -maxdepth 1 -type f -name "*.png" -print -quit); if test -n "$image"; then curl -fsS --max-time 30 --data-binary @"$image" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-portal.png; fi; fi; true', timeout=120)
+            (evidence / (stage + '-portal-capture.log')).write_text(capture)
+            report.setdefault('rendering_captures', []).append({'stage': stage, 'qmp_frames': [stage + '-render-' + str(i) + '.png' for i in range(3)], 'native_portal': (evidence / (stage + '-portal.png')).is_file()})
 
         def graphical_login(stage, desktop):
             nonlocal graphical_password_pending
@@ -696,6 +762,11 @@ def run(args):
                         raise RuntimeError('Graphical session qualification failed: ' + proof)
                     if ('DESKTOP=' + desktop.upper()) not in proof.upper():
                         raise RuntimeError('Autostart reported the wrong desktop')
+                    if desktop == 'cosmic':
+                        cosmic_rendering(stage, 'before')
+                        cosmic_onboarding(stage)
+                        cosmic_rendering(stage, 'after')
+                        vm.screenshot(stage + '-session')
                     command('sudo systemctl start avahi-daemon.service')
                     health_options = ' --require-icc' if desktop == 'gnome' else ''
                     command('sudo python3 ~/.local/bin/current-vm-workstation-health' + health_options + ' > ~/current-vm-workstation-health.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-workstation-health.json" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-workstation-health.log')
