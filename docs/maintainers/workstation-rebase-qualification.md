@@ -556,6 +556,15 @@ destination captures became available and is not counted as a complete pass.
 Harness `2c5e7bc0` bounds the dry-run scan to the home root and ICC subtree, with
 account and unit logs collected first. No guest labels or accounts were changed.
 
+That bounded harness passed
+[39883148573](https://github.com/Pelagians/Current/actions/runs/39883148573): all
+four real graphical logins, exact GNOME source rollback, five shutdown pivots and
+all 20 final journal archives. Its four greeter/session screenshot pairs were
+visually inspected. GNOME's SELinux notifications and COSMIC's initial accessibility
+screen remain visible; desktop applications and completion of COSMIC onboarding
+were not tested. Native account/label captures reproduce the unresolved findings
+above even though the login, user-service and rollback gates pass.
+
 ### Current complete-flow matrix
 
 All entries use ISO `39867706688` / source `7eae0d4b`, the shipped XFS profile,
@@ -581,7 +590,7 @@ Workstation desktop pairs:
 | --- | --- | --- | --- |
 | Fedora GNOME → COSMIC | [39878271136](https://github.com/Pelagians/Current/actions/runs/39878271136) | Shared | Passed; 5 shutdowns, 14 final archives; 4 graphical logins |
 | Fedora COSMIC → GNOME | [39876398617](https://github.com/Pelagians/Current/actions/runs/39876398617) | Shared | Passed; 5 shutdowns, 14 final archives; 4 graphical logins |
-| Alma 9 GNOME → COSMIC | [39883148573](https://github.com/Pelagians/Current/actions/runs/39883148573) | Shared | In progress; unqualified |
+| Alma 9 GNOME → COSMIC | [39883148573](https://github.com/Pelagians/Current/actions/runs/39883148573) | Shared | Passed; 5 shutdowns, 20 final archives; 4 graphical logins |
 | Alma 9 COSMIC → GNOME | [39877182333](https://github.com/Pelagians/Current/actions/runs/39877182333) | Shared | Passed; 5 shutdowns, 18 final archives; 4 graphical logins |
 | Alma 10 GNOME → COSMIC | [39875275268](https://github.com/Pelagians/Current/actions/runs/39875275268) | Native | Passed; 5 shutdowns, 14 final archives; 4 graphical logins |
 | Alma 10 COSMIC → GNOME | [39877933996](https://github.com/Pelagians/Current/actions/runs/39877933996) | Shared | Passed; 5 shutdowns, 16 final archives; 4 graphical logins |

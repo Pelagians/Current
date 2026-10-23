@@ -233,7 +233,7 @@ mutation occurred.
 | Bootstrap Fedora 44 → Alma 10 server | Rebuilt ISO full flow passed, including SELinux finalization; both outgoing distro rebases and exact-source rollback passed |
 | Bootstrap Fedora 44 → Alma 10 GNOME/COSMIC | Recorded authenticated login, desktop switch, target reboot and rollback passed in both directions; policy/service health and physical rendering remain experimental |
 | Bootstrap Fedora 44 → Alma 9 server | Rebuilt ISO full flow passed with parent=0/exchange=0 XFS; both outgoing distro rebases and exact-source rollback passed; deferred archives verified by Fedora |
-| Bootstrap Fedora 44 → Alma 9 GNOME/COSMIC | Authenticated desktop observations and complete-flow results are recorded in the current matrix; native home/ICC labeling and service provisioning remain open gates |
+| Bootstrap Fedora 44 → Alma 9 GNOME/COSMIC | Recorded authenticated login, desktop switch, target reboot and rollback passed in both directions; native home/ICC labeling and service provisioning remain open gates |
 | Generic ARM64 UEFI | Native build path implemented; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations only; physical rendering/module tests required |
 | Apple Silicon/Asahi | Unsupported and rejected |
