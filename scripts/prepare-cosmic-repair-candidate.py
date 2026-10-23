@@ -40,11 +40,17 @@ def prepare(distribution, artifacts, destination):
     for rpm, receipt in verified:
         shutil.copyfile(rpm, destination / 'rpms' / rpm.name)
         shutil.copyfile(artifacts / receipt, destination / 'receipts' / receipt)
+    # The native portal RPM owns this path, so reinstalling it replaces the
+    # parent's Current policy. Reapply the same canonical file as normal recipes.
+    shutil.copyfile(ROOT / 'files/cosmic/shared/usr/share/xdg-desktop-portal/cosmic-portals.conf',
+                    destination / 'portal-policy.conf')
     (destination / 'Containerfile').write_text('''ARG BASE
 FROM ${BASE}
 COPY rpms/ /tmp/current-cosmic-rpms/
-RUN dnf -y --disablerepo='*' install /tmp/current-cosmic-rpms/*.rpm && rm -rf /tmp/current-cosmic-rpms && bootc container lint
+RUN dnf -y --disablerepo='*' install /tmp/current-cosmic-rpms/*.rpm && rm -rf /tmp/current-cosmic-rpms
+COPY portal-policy.conf /usr/share/xdg-desktop-portal/cosmic-portals.conf
 COPY receipts/ /usr/share/current/cosmic-repairs/
+RUN grep -q '^org.freedesktop.impl.portal.Secret=gnome-keyring;' /usr/share/xdg-desktop-portal/cosmic-portals.conf && bootc container lint
 ''')
 
 
@@ -69,6 +75,7 @@ def prepare_bundle(artifacts, destination):
             shutil.copyfile(directory / name, target)
         prepare(distribution, merged, runtime / distribution)
         (runtime / distribution / 'Containerfile').unlink()
+        (runtime / distribution / 'portal-policy.conf').unlink()
         shutil.rmtree(merged)
     shutil.copyfile(INPUTS / 'sources.json', sources / 'sources.json')
     shutil.copytree(INPUTS / 'patches', sources / 'patches')

@@ -36,6 +36,14 @@ class NativeRepairs(unittest.TestCase):
         self.assertIn('from=' + bundle['runtime'] + ',src=/,dst=/tmp/current-cosmic-repairs,ro', layer)
         self.assertIn('install-cosmic-repairs.py --image-build /tmp/current-cosmic-repairs', layer)
         self.assertNotIn(bundle['sources'], layer)
+        # Native RPM replacement must precede Current's owned portal policy;
+        # otherwise it removes the Secret -> gnome-keyring routing override.
+        self.assertLess(layer.index('        - xdg-desktop-portal-cosmic'),
+                        layer.index('install-cosmic-repairs.py --image-build'))
+        self.assertLess(layer.index('install-cosmic-repairs.py --image-build'),
+                        layer.index('      - source: cosmic/shared'))
+        self.assertLess(layer.index('      - source: cosmic/shared'),
+                        layer.index('from-file: layers/shared/flatpak-cosmic.yml'))
 
     def test_native_installation_checks_all_inputs_before_dnf_and_preserves_arm(self):
         with patch.object(installer, 'rpm', return_value='aarch64'), patch.object(installer.subprocess, 'run') as command:
@@ -161,6 +169,8 @@ class NativeRepairs(unittest.TestCase):
             candidate.prepare('alma10', root, root / 'context')
             self.assertEqual(len(list((root / 'context/rpms').iterdir())), 2)
             self.assertFalse(list((root / 'context').rglob('*.src.rpm')))
+            self.assertEqual((root / 'context/portal-policy.conf').read_bytes(),
+                             (ROOT / 'files/cosmic/shared/usr/share/xdg-desktop-portal/cosmic-portals.conf').read_bytes())
             text = (root / 'context/Containerfile').read_text()
             self.assertIn("--disablerepo='*'", text)
             self.assertIn('bootc container lint', text)
