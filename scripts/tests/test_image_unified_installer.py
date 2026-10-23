@@ -69,6 +69,17 @@ class UnifiedISO(unittest.TestCase):
                      word('Skip'), word() + word('Finish', x=1000), ''):
             self.assertIsNone(vm.visible_control(header + rows, 1280, 800))
 
+    def test_oversized_welcome_requires_a_recognized_unique_title_to_focus(self):
+        header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        # Actual EL9 frame: the page title is visible, but Next is offscreen.
+        title = ('5\t1\t16\t1\t1\t1\t594\t160\t171\t29\t96\tAccessibility\n'
+                 '5\t1\t16\t1\t1\t2\t773\t163\t77\t26\t96\tsetup\n')
+        options = dict(labels=('setup',), required_phrase='Accessibility setup', minimum_y=0)
+        self.assertIsNone(vm.visible_control(header + title, 1280, 800))
+        self.assertEqual(vm.visible_control(header + title, 1280, 800, **options), ('setup', 811, 176))
+        for rows in (title.replace('Accessibility', 'Language'), title + title, title.replace('\t96\t', '\t20\t')):
+            self.assertIsNone(vm.visible_control(header + rows, 1280, 800, **options))
+
     def test_portal_consent_requires_the_observed_title_and_one_allow_control(self):
         header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
         title = '5\t1\t1\t1\t1\t1\t450\t280\t400\t25\t95\tAllow Apps to Take Screenshots?\n'
