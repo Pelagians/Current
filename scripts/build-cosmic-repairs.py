@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Rebuild pinned native COSMIC RPMs in disposable containers, never on the host."""
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -101,6 +102,13 @@ def build(distribution, package, output):
 
 def matrix(seed_run):
     available = set()
+    previous_config, previous_patches = {}, {}
+    def previous_file(path):
+        document = json.loads(subprocess.check_output([
+            'gh', 'api', f'repos/{repository}/contents/{path}?ref={previous["head_sha"]}'], text=True))
+        if document.get('encoding') != 'base64' or document.get('size', 0) > 256 * 1024:
+            raise ValueError('Invalid seed source file')
+        return base64.b64decode(document['content'].replace('\n', ''), validate=True)
     if seed_run:
         if not re.fullmatch(r'[0-9]+', seed_run):
             raise ValueError('Invalid seed run identity')
@@ -110,18 +118,32 @@ def matrix(seed_run):
         if (previous.get('status') != 'completed' or previous.get('head_branch') != os.environ['GITHUB_REF_NAME']
                 or previous.get('head_repository', {}).get('full_name') != repository
                 or previous.get('path') != '.github/workflows/build.yml'
-                or previous.get('event') != 'workflow_dispatch'):
+                or previous.get('event') != 'workflow_dispatch'
+                or not re.fullmatch(r'[0-9a-f]{40}', previous.get('head_sha', ''))):
             raise ValueError('Seed must be a completed builder run from this repository and branch')
         artifacts = json.loads(subprocess.check_output(['gh', 'api', endpoint + '/artifacts?per_page=100'], text=True))
         if artifacts['total_count'] > 100:
             raise ValueError('Unexpected repair artifact count')
         available = {item['name'] for item in artifacts['artifacts'] if not item['expired']}
+        previous_config = json.loads(previous_file('packages/cosmic-repairs/sources.json'))
     config = json.loads((INPUTS / 'sources.json').read_text())
     # The assembler validates every reused source/base/patch/binary hash before
     # building or signing a candidate. A seed never reuses assembled images.
-    return {'include': [dict(distribution=distro, package=package, base=row['base'],
-                             seed_run=seed_run if 'cosmic-repair-' + distro + '-' + package in available else '')
-                        for distro, row in config.items() for package in row['packages']]}
+    rows = []
+    for distro, row in config.items():
+        for package, source in row['packages'].items():
+            old = previous_config.get(distro, {})
+            reuse = ('cosmic-repair-' + distro + '-' + package in available
+                     and old.get('base') == row['base'] and old.get('base_revision') == row['base_revision']
+                     and old.get('packages', {}).get(package) == source)
+            if reuse:
+                name = source['patch']
+                if name not in previous_patches:
+                    previous_patches[name] = previous_file('packages/cosmic-repairs/patches/' + name)
+                reuse = previous_patches[name] == (INPUTS / 'patches' / name).read_bytes()
+            rows.append(dict(distribution=distro, package=package, base=row['base'],
+                             seed_run=seed_run if reuse else ''))
+    return {'include': rows}
 
 
 if __name__ == '__main__':

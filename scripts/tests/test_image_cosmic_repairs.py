@@ -1,5 +1,6 @@
 """Reject source drift and corrupt repair artifacts before building a candidate."""
 import hashlib
+import base64
 import importlib.util
 import json
 import os
@@ -25,15 +26,27 @@ candidate = module('cosmic_repair_candidate', 'prepare-cosmic-repair-candidate.p
 class NativeRepairs(unittest.TestCase):
     def test_seed_reuses_only_present_unexpired_artifacts_from_same_branch_builder(self):
         previous = dict(status='completed', head_branch='codex/unified-installer',
+                        head_sha='a' * 40,
                         head_repository=dict(full_name='Pelagians/Current'),
                         path='.github/workflows/build.yml', event='workflow_dispatch')
         artifacts = dict(total_count=2, artifacts=[
             dict(name='cosmic-repair-alma10-cosmic-panel', expired=False),
             dict(name='cosmic-repair-alma9-cosmic-initial-setup', expired=True)])
+        def blob(data):
+            return json.dumps(dict(encoding='base64', size=len(data), content=base64.b64encode(data).decode()))
+        catalogue = (build.INPUTS / 'sources.json').read_bytes()
+        native_patch = (build.INPUTS / 'patches/panel-transparent-repaint.patch').read_bytes()
         with patch.dict(os.environ, GITHUB_REPOSITORY='Pelagians/Current', GITHUB_REF_NAME='codex/unified-installer'):
-            with patch.object(build.subprocess, 'check_output', side_effect=[json.dumps(previous), json.dumps(artifacts)]):
+            with patch.object(build.subprocess, 'check_output', side_effect=[json.dumps(previous), json.dumps(artifacts), blob(catalogue), blob(native_patch)]):
                 rows = build.matrix('123')['include']
                 self.assertEqual([(row['distribution'], row['package']) for row in rows if row['seed_run']], [('alma10', 'cosmic-panel')])
+            for old_patch in (b'different repair', native_patch):
+                old_catalogue = json.loads(catalogue)
+                if old_patch == native_patch:
+                    old_catalogue['alma10']['packages']['cosmic-panel']['sha256'] = 'b' * 64
+                responses = [json.dumps(previous), json.dumps(artifacts), blob(json.dumps(old_catalogue).encode()), blob(old_patch)]
+                with patch.object(build.subprocess, 'check_output', side_effect=responses):
+                    self.assertFalse(any(row['seed_run'] for row in build.matrix('123')['include']))
             for changed in (dict(previous, status='in_progress'), dict(previous, head_branch='other'),
                             dict(previous, path='unrelated.yml'), dict(previous, event='pull_request'),
                             dict(previous, head_repository=dict(full_name='Other/Repository'))):
