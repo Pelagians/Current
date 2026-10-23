@@ -1150,3 +1150,29 @@ Native COSMIC panic or coredump records fail the flow; Wayland dispatch errors
 remain separately reported. Component versions and repair receipts accompany
 original rendering captures. Historical functional passes above do not satisfy
 this stronger gate retroactively.
+
+Native repair build `40000873803` (source `d1a11feb`) successfully rebuilt and
+retained **all five** requested RPM/source-RPM artifacts. Alma 9 welcome's native
+check section passed 14 tests. The panel and portal test targets compile, but
+those checked targets report zero assertions; they do not qualify these runtime
+fixes. Native binary receipts bind the source RPM, original signed parent,
+patch bytes and builder script. The obsolete assembly was stopped after all
+five package jobs succeeded because its tag lacked the setup API's required
+`br-` namespace. Corrected assembly `40008717786` reuses those matching artifacts
+at source `5064b03b`, validates their binary checksums, and produces fresh signed
+`br-repair-run-*` candidates without recompiling them.
+
+Original-image control `40002682168` completed native onboarding and four real
+PAM logins across Fedora→Alma 10, ordinary target reboot and exact rollback, but
+failed at the new journal query: this reader rejects the hyphenated kernel UUID
+as a boot descriptor. This is a harness failure, not proof of the panic gate.
+Source `5064b03b` canonicalizes the authenticated kernel UUID to 32 hex digits
+and checks the returned journal's boot identity; a regression fixture includes
+the actual failed UUID. The query retains complete messages and diagnostic/core
+metadata without uploading memory blobs or process environments. Control rerun
+`40007524413` remains the acceptance gate for detecting original native panics.
+The first control's Alma 10 initial/reboot dock samples are visually clean and
+have zero changes in 38,400 fixed margin pixels. The older reproduced case
+`39938983888` has 1,129 changed pixels in those same margins in both QMP and
+portal captures. That difference reinforces the intermittent nature of the
+artifact; a single clean new sample cannot establish a fix.
