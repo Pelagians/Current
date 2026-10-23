@@ -3,5 +3,11 @@
   "sources": "ghcr.io/pelagians/current-cosmic-repairs@sha256:47042bc7c0d88d80c805f46ef5b0d8ad0c0de059382aba5984267aaa8493cd64",
   "build_run": "40011318210",
   "revision": "d677e809df12e81fae11624a78cbb19a5d3225b8",
-  "architecture": "x86_64"
+  "architecture": "x86_64",
+  "catalogue_sha256": "3af038ce4642a63d211931de31f310b8cb31af6112d3aac83aa5de89fd712b9f",
+  "patches": {
+    "panel-transparent-repaint.patch": "3ce0a572dd0220aca1d8e590dbd4f7a7cae9225efc0ac31ce8c9c10013f94922",
+    "portal-disconnect.patch": "d54f6bde66ebee1dd227ba9b75faae8ce457afb89ea4bdfadba71287ae970ab2",
+    "setup-bounded-window.patch": "bf44f28138ebcafad930e9e555deadcb0966095b2e243dbf5da30861d02910f1"
+  }
 }

@@ -29,6 +29,9 @@ class NativeRepairs(unittest.TestCase):
         bundle = json.loads((build.INPUTS / 'bundle.json').read_text())
         for name in ('runtime', 'sources'):
             self.assertRegex(bundle[name], r'^ghcr\.io/pelagians/current-cosmic-repairs@sha256:[0-9a-f]{64}$')
+        self.assertEqual(bundle['catalogue_sha256'], hashlib.sha256((build.INPUTS / 'sources.json').read_bytes()).hexdigest())
+        self.assertEqual(bundle['patches'], {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                                           for p in (build.INPUTS / 'patches').glob('*.patch')})
         layer = (ROOT / 'recipes/layers/shared/workstation-cosmic.yml').read_text()
         self.assertIn('from=' + bundle['runtime'] + ',src=/,dst=/tmp/current-cosmic-repairs,ro', layer)
         self.assertIn('install-cosmic-repairs.py /tmp/current-cosmic-repairs', layer)
