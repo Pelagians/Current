@@ -96,6 +96,12 @@ class UnifiedISO(unittest.TestCase):
         search_options = dict(labels=('closest',), required_phrase='Timezone and location', minimum_y=0)
         self.assertEqual(vm.visible_control(header + location, 1280, 800, **search_options), ('Closest', 370, 260))
         self.assertIsNone(vm.visible_control(header + word('Closest', x=340, y=250), 1280, 800, **search_options))
+        auth_options = dict(labels=('password',), required_phrase='Authentication is required to set system timezone', minimum_y=0)
+        prompt = word('Authentication is required to set system timezone', x=450, y=330)
+        field = word('Password', x=480, y=365)
+        self.assertEqual(vm.visible_control(header + prompt + field, 1280, 800, **auth_options), ('Password', 510, 375))
+        for invalid in (field, prompt, prompt + field + word('Password', x=500, y=400)):
+            self.assertIsNone(vm.visible_control(header + invalid, 1280, 800, **auth_options))
         for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),
                      word('Skip'), word() + word('Finish', x=1000), ''):
             self.assertIsNone(vm.visible_control(header + rows, 1280, 800))

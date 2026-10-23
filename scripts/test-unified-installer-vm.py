@@ -785,6 +785,7 @@ def run(args):
             return text
 
         def cosmic_onboarding(stage):
+            nonlocal graphical_password_pending
             # Exercise the actual first-run UI, including its own completion
             # marker. Never create that marker, mask autostart, or delete user
             # preferences to make shutdown quieter.
@@ -793,10 +794,13 @@ def run(args):
             entry = {'stage': stage, 'actions': actions, 'completed': False}
             report.setdefault('cosmic_onboarding', []).append(entry)
             timezone_searched = False
+            timezone_authenticated = False
             for attempt in range(24):
                 state = command("printf '\\nONBOARDING_DONE=%s\\n' \"$(if test -f ~/.config/cosmic-initial-setup-done; then printf 1; else printf 0; fi)\"")
                 if re.search(r'^ONBOARDING_DONE=1\r?$', terminal_text(state), re.MULTILINE):
                     command("(for attempt in $(seq 1 20); do if ! pgrep -u $(id -u) -f '^(/usr/bin/)?cosmic-initial-setup($| )' >/dev/null; then exit 0; fi; sleep 1; done; exit 1)")
+                    if timezone_searched:
+                        command('test "$(timedatectl show -p Timezone --value)" = Africa/Dakar')
                     entry['completed'] = True
                     (evidence / (stage + '-first-run-journal.log')).write_text(command('sudo journalctl -b _UID=$(id -u) --no-pager -n 1000; timedatectl status'))
                     record(stage + ': COSMIC first-run completion marker and process exit passed after real UI interaction')
@@ -805,6 +809,25 @@ def run(args):
                 vm.screenshot(name)
                 tsv = control_ocr(name)
                 width, height = Image.open(evidence / (name + '.png')).size
+                # A real polkit dialog can cover this page while its Next
+                # button remains clickable behind it. Complete authentication
+                # before advancing; never count that obscured UI as a pass.
+                screen_text = ' '.join(line.split('\t')[-1] for line in tsv.splitlines()[1:])
+                if re.search(r'authentication\s+required', screen_text, re.IGNORECASE):
+                    field = visible_control(tsv, width, height, labels=('password',),
+                                            required_phrase='Authentication is required to set system timezone', minimum_y=0)
+                    if not timezone_searched or timezone_authenticated or not field:
+                        raise RuntimeError('Unexpected authentication dialog during COSMIC onboarding; no password entered')
+                    _, x, y = field
+                    vm.qmp.click(x, y, width, height)
+                    graphical_password_pending = True
+                    vm.qmp.keys(password + '\n', delay=.1)
+                    command('(for attempt in $(seq 1 20); do if test "$(timedatectl show -p Timezone --value)" = Africa/Dakar; then exit 0; fi; sleep 1; done; exit 1)')
+                    graphical_password_pending = False
+                    timezone_authenticated = True
+                    actions.append({'screenshot': name + '.png', 'authentication': 'native timezone polkit dialog', 'timezone_verified': 'Africa/Dakar'})
+                    time.sleep(3)
+                    continue
                 search = visible_control(tsv, width, height, labels=('closest',), required_phrase='Timezone and location', minimum_y=0)
                 if search and not timezone_searched:
                     _, x, y = search

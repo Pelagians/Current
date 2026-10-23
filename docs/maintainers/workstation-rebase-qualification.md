@@ -1215,3 +1215,50 @@ unchanged. The data-only bundle's amd64 platform warning during an ARM mount
 is not an ARM executable installation: the installer explicitly returns before
 package reads or mutation on aarch64. Normal ARM payload/boot claims remain
 separate from x86_64 repairs.
+
+The next normal build, `40014464072` at `677ff269`, successfully installed the
+native repair RPMs but failed the existing Secret-portal routing check: the
+portal RPM overwrote Current's `cosmic-portals.conf`. Source `790cffdc` puts the
+native portal package and repair before `files/cosmic/shared`, preserving the
+canonical policy and its existing validation. Candidate assembly also reapplies
+that same file after RPM installation. The earlier candidate images therefore
+provide narrow repair evidence, not final Current-policy qualification.
+
+| Candidate VM | Sequence, including ordinary target reboot and exact rollback | Complete-boot panic gate |
+| --- | --- | --- |
+| `40012823902` | Fedora COSMIC → Alma 10 COSMIC | Passed all four boots |
+| `40012836730` | Alma 10 COSMIC → Alma 9 COSMIC | Failed on Alma 9 startup keymap panic |
+| `40012807977` | Alma 9 COSMIC → Fedora COSMIC | Failed on Alma 9 keymap/seat-event panics |
+
+These use signed repair build `40011318210`. All twelve completed boot journals
+retain the portal's unsuccessful disconnect diagnostics but have no portal
+unwind panic or native core dump. The two failing flows still completed four
+real PAM logins, target reboot, and rollback; that functional sequence does not
+supersede the stronger failure gate. The Alma 9 panic sites match upstream
+[`cosmic-osk` at `38e96257`](https://github.com/pop-os/cosmic-osk/tree/38e962576f1893e6452d4c273c41149c432191b2):
+`src/lib.rs:1036` unwraps a rejected keymap and `src/wayland.rs:166` expects a
+successful send to its disconnected receiver. The session parent captures this
+child's stderr. Both signatures also occur in original controls `39946774367`
+and `39943996307`; they are not introduced by the repair RPMs. Fixing the
+underlying keymap interchange requires capturing the supplied keymap and
+qualifying the on-screen keyboard, not merely swallowing those errors.
+
+The Alma 9 welcome candidate displayed its accessibility controls and reached
+its own completion marker through eleven native actions. Original frames also
+exposed a timezone authentication dialog that the old harness could advance
+behind. The harness now authenticates only the recognized native timezone
+prompt and verifies `Africa/Dakar` before advancing or claiming completion.
+The old run does not qualify successful timezone authentication. Independent
+visual inspection of the newer Fedora/Alma 10 welcome also found clipped
+accessibility controls despite successful navigation. Source `576a75b2` extends
+the same layout patch to their exact native 1.11 source RPMs; the two additional
+packages must compile and be included in a newly pinned bundle before the
+normal-image repair can be considered complete. The existing bundle/source
+hash gate deliberately rejects that intermediate mismatch.
+
+The repaired Alma 10 target and reboot in `40012823902` have visually clean
+original QMP/portal frames and zero changes in the 38,400 fixed outer dock-margin
+pixels. This is bounded evidence for the full-repaint change, alongside the
+original intermittent corrupted control. Repeated final-image captures and
+physical GPU/performance testing remain distinct requirements. XFS, signature
+policy, user preferences, and ARM package selection remain unchanged.
