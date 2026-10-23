@@ -1,0 +1,3 @@
+# Raw Tesseract evidence has an empty final text field on structural rows.
+# Preserve the original TSV bytes, including the final field separator.
+scripts/tests/fixtures/cosmic-welcome/*.tsv whitespace=-blank-at-eol
