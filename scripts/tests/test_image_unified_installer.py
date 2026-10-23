@@ -24,6 +24,15 @@ policy_spec.loader.exec_module(policy)
 
 
 class UnifiedISO(unittest.TestCase):
+    def test_health_receipts_are_allowed_at_source_and_each_reboot_stage(self):
+        for stage in ('source', 'rebase-target', 'rebase-target-reboot', 'rebase-rollback'):
+            self.assertTrue(vm.allowed_evidence_path('/' + stage + '-workstation-health.log'))
+        for path in ('/bootstrap-account-labels.log', '/installer-account-diagnostics.log'):
+            self.assertTrue(vm.allowed_evidence_path(path))
+        for path in ('/etc/shadow', '/../source-workstation-health.log',
+                     '/source-workstation-health.log/../../result.json', '/result.json'):
+            self.assertFalse(vm.allowed_evidence_path(path))
+
     def test_cross_distro_workstations_keep_desktop_unless_explicitly_selected(self):
         for source in ('fedora', 'alma9', 'alma10'):
             for target in ('fedora', 'alma9', 'alma10'):

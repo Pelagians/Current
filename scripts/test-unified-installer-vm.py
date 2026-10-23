@@ -40,6 +40,16 @@ def workstation_target(distribution, desktop, target_distribution=None, target_d
     return 'cosmic' if desktop == 'gnome' else 'gnome'
 
 
+def allowed_evidence_path(path):
+    fixed = {'/anaconda.log', '/storage.log', '/program.log', '/packaging.log',
+             '/users.log', '/install-marker.log', '/install-error.log',
+             '/storage-rejected.log', '/bootstrap-account-labels.log',
+             '/installer-account-diagnostics.log'}
+    return path in fixed or re.fullmatch(
+        r'/(?:bootstrap|source|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health)\.log',
+        path) is not None
+
+
 def terminal_text(output):
     """Remove terminal framing, retaining the actual guest output for assertions."""
     output = re.sub(r'\x1b\].*?(?:\x07|\x1b\\)', '', output, flags=re.DOTALL)
@@ -385,7 +395,7 @@ def run(args):
             self.wfile.write(ks)
 
         def do_POST(self):
-            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log', '/bootstrap-account-labels.log', '/installer-account-diagnostics.log') and not re.fullmatch(r'/(?:bootstrap|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health)\.log', self.path):
+            if not allowed_evidence_path(self.path):
                 self.send_error(404)
                 return
             length = int(self.headers.get('Content-Length', '0'))
