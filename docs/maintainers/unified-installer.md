@@ -212,16 +212,21 @@ passed, with x86_64 checksum `f8e20767...`. The strict fresh
 passed locale, complete native Avahi journal, account/authentication, reboot and
 shutdown checks. Five amended server/GNOME flows at `dc78334d` passed with this
 ISO. All 45 native `dc78334d` image jobs passed, but its publisher was cancelled
-as superseded; shared references still match the prior complete `809c0fc3` build.
+as superseded; independent checks at that cancellation matched shared references
+to the prior complete `809c0fc3` build.
 
 The final [destination/publication rebuild](https://github.com/Pelagians/Current/actions/runs/39932122029)
 at `782560bf` adds only the measured COSMIC country-data compatibility correction.
-Fresh Alma 9 first-run, three COSMIC transitions and complete shared publication
-remain required. The current installer payload is unchanged. See the
+All 45 native jobs and three final-source COSMIC functional flows passed,
+including fresh Alma 9 welcome completion, 12 real graphical logins, 15 shutdown
+pivots and 54 final archives. Complete shared publication is still running.
+COSMIC portal shutdown panics, intermittent welcome-window clipping and the
+reproduced Alma 10 software-rendering artifact remain unqualified. The current installer payload is unchanged. See the
 [warning follow-up](workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
 for exact receipts, completed flows, diagnostic failures and remaining gates.
 Test-only commits reuse the recorded product revision; they do not change the
 installed payload.
+
 The preceding `3bdfcaa1` product / `6d27cf9a` installer baseline passed both ISOs,
 all 51 native/publication jobs, 45 native receipts, 24 shared indexes and 21 ARM
 compatibility references, plus fourteen complete workstation flows. The
@@ -248,7 +253,7 @@ Alma 9's unsupported Fedora archives must pass the final bootstrap reader.
 | Transition / hardware | Status |
 | --- | --- |
 | Fresh x86_64 bootstrap | Current ISO passed native labels, English locale, Avahi startup, authenticated setup resume and reboot |
-| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Three strict GNOME flows passed at dc78334d; Fedora→Alma 10 COSMIC native onboarding/rollback passed at 809c0fc3; final COSMIC country-data fix requires fresh flows |
+| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Three strict GNOME flows passed at dc78334d; three final-source COSMIC functional flows passed at 782560bf; software rendering/client teardown remain unqualified |
 | Server and same-distro desktop switches | Two complete strict server rebases passed at dc78334d with the Fedora NSS correction; same-distro desktop switches not repeated |
 | Generic ARM64 UEFI | Current native ISO assembly passed; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations/build gates only; physical rendering/module tests required |

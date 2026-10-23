@@ -852,10 +852,12 @@ journals, authenticated setup/resume, retained networking, ordinary reboot and
 shutdown. ARM ISO assembly does not qualify ARM boot or Secure Boot.
 
 The final [native rebuild 39932122029](https://github.com/Pelagians/Current/actions/runs/39932122029)
-at `782560bf` is running. Its three COSMIC flows, fresh Alma 9 welcome interaction,
-and complete signed shared publication remain required. Its native ARM64 Alma 9
-COSMIC job passed and records the compatibility helper adding 249 flag fields;
-this is build evidence only.
+at `782560bf` passed all 45 native image jobs. The complete shared publisher is
+running; full publication and independent native/index/ARM-reference matching
+remain open gates. The native x86_64 and ARM64 Alma 9 logs record 249 missing
+country flag fields added; already-compatible Alma 10 data receives zero changes.
+Three final-source COSMIC flows below passed actual native first-run completion,
+reboot, exact rollback and recovery. Rendering remains separately unqualified.
 
 Its first attempt retained 41 successful native images. Three x86_64 Alma 9
 COSMIC variants exhausted native COPR RPM downloads with curl timeout 28 before
@@ -864,8 +866,11 @@ cancelled after about 50 minutes to inspect its log and release the held retry.
 That log shows a core-package step taking 24 minutes, partial/slow native mirror
 downloads, then successful layer export; cancellation stopped its push. It is a
 cancelled diagnostic attempt, not a measured recipe failure. The publisher ran
-no steps. The failed-job retry runs four unfinished native lanes at the same
-source and retains successful artifacts; all signing/publication gates remain.
+no steps. The first retry retained successful artifacts. Standard/R580 Alma 9 COSMIC
+passed; open-driver COPR timeouts and NVIDIA-server CUDA HTTP/2 errors required
+further isolated retries. The server passed on attempt 3; Alma 9 open-driver
+passed on attempt 4. Successful artifacts from the same source were retained;
+all signing, NVIDIA and complete-publication gates remain.
 
 The preceding amended build `dc78334d` passed all 45 native image jobs. Its
 publisher was cancelled as superseded by the measured country-schema fix.
@@ -893,13 +898,35 @@ home/ICC/account types, zero captured colord denials, Avahi account resolution,
 both provider/default mDNS lookups and actual non-root Homebrew version/prefix
 checks. These do not establish arbitrary Homebrew package ABI compatibility.
 
-The corrected [Fedora COSMIC → Alma 10 flow 39925428329](https://github.com/Pelagians/Current/actions/runs/39925428329)
-passed on this ISO with exact signed `809c0fc3` candidates: native source
-Next/timezone/Finish interaction, completion marker and process exit, four real
-logins/health checks, eight native portal captures, 24 original QMP frames,
-target reboot, exact rollback, five shutdown pivots and 14 final archives. Later
-sessions correctly reuse the source's native completion marker; this is not a
-fresh Alma 10 welcome test or final `782560bf` image qualification.
+#### Final-source COSMIC flows
+
+These three full functional passes use the current `480b323e` ISO and signed
+`782560bf` native candidates. Exact source/target native digests are asserted at
+source, target, target reboot and rollback. Each starts with a fresh source home
+and completes the native welcome through visible Next/Finish, then requires its
+own marker and process exit. Destinations correctly retain that native marker.
+
+| Source → destination | Run | Final closed archives | Primary capture review |
+| --- | --- | ---: | --- |
+| Fedora COSMIC → Alma 10 COSMIC | [39938983888](https://github.com/Pelagians/Current/actions/runs/39938983888) | 14 | Artifact after Alma 10 reboot; 32 captures, 8 pixel-distinct frames reviewed |
+| Alma 10 COSMIC → Alma 9 COSMIC | [39943996307](https://github.com/Pelagians/Current/actions/runs/39943996307) | 18 | Clean sampled source/target/reboot/rollback; 32 captures, 7 distinct reviewed |
+| Alma 9 COSMIC → Fedora COSMIC | [39946774367](https://github.com/Pelagians/Current/actions/runs/39946774367) | 22 | Clean sampled source/target/reboot/rollback; 32 captures, 9 distinct reviewed |
+
+Together these passed 12 actual greeter/password logins and native health checks,
+15 shutdown pivots/old-root unmounts, and 54 final closed archives verified by the
+original bootstrap reader. Every checkpoint passed complete native Avahi unit
+journals and English-locale assertions; every graphical stage passed both mDNS
+resolver paths, native home/account types, actual non-root Brew execution and
+zero captured current-boot colord denials. All 96 primary captures retain their
+original pixels (72 QMP, 24 portal); decoded-pixel equality only groups duplicates
+for manual review. Captures share the same guest rendering stack, so they do not
+independently qualify physical GPUs. The initial unmodified ISO screenshot was
+also reviewed and shows graphical Anaconda's language page.
+
+The preceding corrected Fedora→Alma 10 run `39925428329` passed on this ISO with
+`809c0fc3` candidates. It is historical probe/onboarding evidence, superseded by
+the final-source functional flow above; none of these passes establishes clean
+COSMIC client teardown, all application behavior or physical rendering.
 
 #### Avahi and locale corrections
 
@@ -962,9 +989,23 @@ file: `rpm -V iso-codes` can report that expected modification. Current's image
 signature authenticates the resulting bytes; native package provenance/license
 remain. There is no second catalogue, per-user environment override or forged
 first-run marker. Three fixture tests cover identity/data/mode preservation,
-idempotence, compatible bytes and fail-before-write. All 185 local tests pass
+idempotence, compatible bytes and fail-before-write. All 185 final local tests pass
 (80 runtime, 105 image), plus Actionlint and diff checks. Native GUI completion
 on the new image remains the acceptance gate.
+
+The signed x86_64 Alma 9 standard retry passed and added 249 fields, as the
+native ARM build did. Fresh run `39943977653` has no country-registry error, but
+stops on the Accessibility page: the native 1.9 window extends below the 1280×800
+output and Next is offscreen. No completion action/marker was manufactured.
+The fresh [rerun 39946774367](https://github.com/Pelagians/Current/actions/runs/39946774367)
+fit naturally and completed visible Next/Skip/timezone/Finish with the native
+marker and process exit. Its action trace contains no fullscreen/window action.
+A guarded shortcut introduced in harness `92d343ed` was therefore unexercised
+and removed in `3d43d6c4`; the final harness returns to the actually exercised
+control path, with the original display and renderer. The intermittent viewport
+failure remains a qualification limitation, not a claimed UI fix. The country
+schema fix is validated by actual native completion, without preference resets,
+resolution changes or fabricated state.
 
 COSMIC's [native Finish action](https://github.com/pop-os/cosmic-initial-setup/blob/master/src/main.rs)
 records completion. The probe requires that action, its marker and process exit;
@@ -976,12 +1017,15 @@ separately; wireless setup is not qualified.
 
 #### Warning and rendering limits
 
-The completed Fedora→Alma 10 COSMIC flow has no captured locale-parser or
-first-run Broken-pipe/crash warning after native onboarding completion. Other
-COSMIC/portal clients still emit Wayland Broken-pipe messages during shutdown;
-the serial capture contains 2,939 matching lines across the flow, not 2,939
-independent failures. Bounded diagnostic snapshots overlap, so their counts must
-not be summed. All five shutdown initramfs pivots and final journal checks passed.
+All three final-source serial captures have zero matches for the known locale
+parser, locale-registry and first-run disconnect patterns after native completion.
+Other COSMIC/portal clients still emit Wayland Broken-pipe messages and portal
+thread panics during teardown. Their retained serial captures contain 3,216,
+3,291 and 2,957 matching client-disconnect lines respectively. These include
+replayed diagnostic history, not independent failures or complete unique-event
+counts; bounded snapshots overlap. All 15 shutdown pivots and final archive
+checks passed. These are filesystem/lifecycle passes, not clean app-shutdown
+qualification.
 [The 1.9](https://github.com/pop-os/cosmic-session/blob/epoch-1.9.0/src/main.rs)
 and [1.11 session implementations](https://github.com/pop-os/cosmic-session/blob/epoch-1.11.0/src/main.rs)
 abort compositor work before deferred target teardown; that is consistent with
@@ -994,7 +1038,33 @@ The earlier Alma 10 COSMIC rollback `39901294471` retained colored horizontal
 streaks at the bottom edge of `rebase-rollback-session.png`. The completed newer
 Alma 10 target sample `39925428329/rebase-target-after-render-2.png` is visibly
 clean. It is a different transition checkpoint, so this does not establish an
-artifact fix. Final Alma 10 rollback samples remain required.
+artifact fix. The final Alma 10 rollback in `39943996307` is also clean, while
+the separate target-reboot case below reproduces the problem.
+
+Final-source Fedora→Alma 10 run `39938983888` passed the functional flow (four
+native graphical/health checks, five shutdown pivots, 14 final archives), but
+**reproduced the bottom-edge streaks after the Alma 10 target reboot**. All six
+QMP frames and both native portal captures across that stage's before/after
+sets have identical pixels and show the artifact. The initial Alma 10 target
+and Fedora rollback frames are clean. All 32 primary captures reduce to eight
+pixel-distinct frames, each visually reviewed; crops/consent probes are excluded
+from that count. Software rendering is not qualified by the functional pass.
+The affected and clean boots use the same Alma 10 cosmic-comp 1.11.0 and Mesa
+25.2.7 packages. The panel's EGL BAD_ALLOC initialization warning appears in all
+four sessions, including clean ones, so that line alone does not identify the
+cause.
+
+[Upstream panel issue 576](https://github.com/pop-os/cosmic-panel/issues/576)
+reports intermittent software-rendered VM artifacts around a floating dock.
+That is a close candidate match for the observed location/configuration, not a
+confirmed Current root cause. The issue remains open without an attached fix at
+this checkpoint. The safe next rendering step is an upstream/minimal software-VM
+reproduction and a qualified native package fix, followed by the same original
+QMP/portal comparison. No persistent dock expansion, renderer/environment override
+or preference reset is applied to hide the artifact. Native portal processes
+also retain shutdown panics on Wayland disconnect; this is stronger than a quiet
+shutdown claim, even though filesystem pivots and archive checks pass. No coredump
+suppression or service-success override is used.
 
 Each COSMIC login retains three unmodified QMP frames three seconds apart before
 and after onboarding, plus a native portal screenshot through the actual user
@@ -1022,6 +1092,9 @@ access recovered. No conclusion was inferred from inaccessible evidence.
 | `39921090622`, `39921099634` | Populated timezone page required ordinary city selection; harness corrected |
 | `39922866183` | Docker inventory failed with max-depth before reading data; Podman inventory subsequently passed |
 | `39932122029`, attempt 1 | Three native COSMIC RPM-download failures and one prolonged server build cancelled for diagnosis; four-lane retry retains successful artifacts |
+| `39932122029`, attempt 2 | Standard/R580 Alma 9 COSMIC retries passed; Alma 9 open-driver COPR downloads and Alma 10 NVIDIA-server CUDA HTTP/2 downloads failed; two-lane retry retains successful artifacts |
+| `39932122029`, attempt 3 | NVIDIA server passed; Alma 9 open-driver COPR timeout remained; that single lane passed on attempt 4 |
+| `39943977653` | Country registry error absent; first-run Next below the native viewport; fresh rerun fit naturally and passed without shortcut fallback |
 
 The corrected OCR probe combines original whole-frame OCR with OCR-only interiors
 of bounded cyan controls, requires high-confidence exact title/unique label, and

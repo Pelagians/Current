@@ -28,7 +28,7 @@ use closed archives because upstream verification can race active journal writes
 Authenticated user services passed on all three distributions despite nonfatal
 bootstrap PAM credential audit messages. Recorded GNOME/COSMIC graphical-login,
 switch and rollback cases are listed in the
-[current VM matrix](../maintainers/workstation-rebase-qualification.md#current-complete-flow-matrix).
+[recorded baseline VM matrix](../maintainers/workstation-rebase-qualification.md#current-complete-flow-matrix).
 The prior ISO (`6d27cf9a`) corrected native-policy labels for newly created
 homes/account files; prior workstation images (`3bdfcaa1`) added package-derived
 Avahi account provisioning and an Alma 9 Homebrew setup correction. Their fourteen
@@ -44,12 +44,14 @@ and deliberately selected C locales remain separate qualification work.
 
 The current ISO passed strict bootstrap locale/Avahi/authentication/reboot checks.
 Five amended server/GNOME flows passed with destination source `dc78334d`.
-A corrected Fedora→Alma 10 COSMIC flow also completed real native onboarding,
-login, reboot and rollback on preceding `809c0fc3` images. The final COSMIC rebuild
-`782560bf` addresses an older Alma 9 country-data schema that left its language
-page empty; fresh first-run and cross-distro results remain required. It supplies
-missing flag fields from existing native country codes without changing names,
-identities or per-user settings. See the
+The final COSMIC image source `782560bf` corrects an older Alma 9 country-data
+schema that left its language page empty. Fresh-source Fedora→Alma 10,
+Alma 10→Alma 9 and Alma 9→Fedora COSMIC flows passed actual native welcome,
+graphical login, reboot, exact rollback and recovery. Missing flag fields derive
+from existing native country codes without changing names, identities or user
+preferences. Full candidate publication remains under verification. COSMIC portal
+shutdown panics, an intermittent oversized welcome window and reproduced
+software-rendered dock artifacts remain unresolved. See the
 [warning/first-run evidence](../maintainers/workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
 for exact receipts and remaining shutdown/rendering warnings. These tests do not
 qualify all applications, Brew packages, external LAN discovery or physical GPUs.
@@ -59,6 +61,7 @@ If an earlier COSMIC image has an empty language page, use a console login to
 inspect the journal and `sudo bootc status`, then recover through the prior
 boot-menu deployment if needed. Do not create the native first-run completion
 marker or reset your home to bypass the failure.
+
 The added installer relabel hook excludes reused homes. Earlier draft installs
 with incorrect labels need administrator review; use a fresh disposable install
 for qualification. There is no automatic recursive repair of existing homes.
