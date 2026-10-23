@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -36,6 +37,13 @@ def patch_spec(text, release):
     text, count = re.subn(r'^(Source2:.*)$', r'\1\nPatch900: current-repair.patch', text, flags=re.M)
     if count != 1:
         raise ValueError('Missing native vendored source declaration')
+    # SRPMs have no packaging Git history. Fedora 44 also no longer publishes
+    # the old standalone rpmautospec macro package. Record this local rebuild
+    # explicitly rather than requiring the source packager's Git automation.
+    if text.count('%autochangelog') != 1:
+        raise ValueError('Unexpected native changelog structure')
+    text = text.replace('%autochangelog', '* Fri Oct 23 2026 Current Project\n'
+                        '- Apply the pinned Current COSMIC repair.')
     return text
 
 
@@ -48,8 +56,11 @@ def build(distribution, package, output):
     if native != source['version']:
         raise ValueError(f'Pinned source does not match installed {package}: {native}')
     output.mkdir(parents=True, exist_ok=True)
+    # bootc /opt points into /var; installed-OS tmpfiles have not run in this
+    # disposable build container. Native EL9 GCC toolsets install below /opt/rh.
+    Path('/var/opt').mkdir(parents=True, exist_ok=True)
     dnf = shutil.which('dnf4') or shutil.which('dnf')
-    run(dnf, '-y', 'install', 'dnf-plugins-core', 'rpm-build', 'rpmdevtools', 'rpmautospec-rpm-macros')
+    run(dnf, '-y', 'install', 'dnf-plugins-core', 'rpm-build', 'rpmdevtools')
     with tempfile.TemporaryDirectory(prefix='cosmic-rpm-') as directory:
         top = Path(directory)
         archive = top / 'source.src.rpm'
@@ -65,7 +76,6 @@ def build(distribution, package, output):
         shutil.copyfile(patch, top / 'SOURCES/current-repair.patch')
         run(dnf, '-y', 'builddep', str(spec))
         # The SRPM contains vendored Cargo inputs. Refuse registry/Git updates.
-        import os
         os.environ['CARGO_NET_OFFLINE'] = 'true'
         os.environ['CARGO_BUILD_JOBS'] = '2'
         run('rpmbuild', '-ba', '--define', f'_topdir {top}',
@@ -81,6 +91,7 @@ def build(distribution, package, output):
         shutil.copyfile(source_rpms[0], output / source_rpms[0].name)
         receipt = dict(distribution=distribution, package=package, native_version=native,
                        source=source, base=configuration['base'], base_revision=configuration['base_revision'],
+                       builder_script_sha256=file_hash(Path(__file__)),
                        patch_sha256=hashlib.sha256(patch.read_bytes()).hexdigest(),
                        rpm=rpm.name, rpm_sha256=file_hash(rpm))
         (output / (package + '.json')).write_text(json.dumps(receipt, indent=2) + '\n')

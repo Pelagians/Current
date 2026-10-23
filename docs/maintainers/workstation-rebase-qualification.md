@@ -1106,3 +1106,47 @@ and shutdown gates remain mandatory. No test failure is bypassed by creating use
 state. Final qualification still excludes physical GPUs, Secure Boot enabled,
 ARM boot/Apple Silicon, reused/encrypted/separate homes, custom IDs, arbitrary
 applications/Brew packages and external LAN discovery.
+
+#### Native repair candidates for the three remaining COSMIC failures
+
+The follow-up keeps the signed source `782560bf` parent images and the source
+`480b323e` XFS installer unchanged while testing narrowly patched native RPMs.
+The parent digests, native source RPM checksums and patches are recorded in
+[`packages/cosmic-repairs`](../../packages/cosmic-repairs/README.md).
+
+The portal's unrecoverable Wayland dispatch arm explicitly calls `panic!` in
+both native 1.9 and 1.11 sources. The candidate logs the dispatch error and exits
+unsuccessfully instead, preserving the existing service failure/recovery
+semantics without unwinding the worker. This targets the reproduced panic; it
+does not classify unexpected compositor disconnects as successful shutdowns.
+
+Alma 9's exact source RPM contains a native `libcosmic` initial window size of
+1024×768 while the welcome application specifies only a 900×650 maximum. The
+candidate supplies an explicit 900×650 initial size and scrollable content with
+native navigation outside the scroll region. It preserves real completion,
+user preferences and output configuration. The isolated Alma 10 panel candidate
+requests full repaint for non-expanded surfaces so transparent margins cannot
+rely on stale EGL buffer contents. Its effect on the reproduced streaks remains
+to be established by repeated unmodified QMP/portal captures; repaint cost and
+other GPUs are not qualified by source inspection.
+
+The repair-only workflow rebuilds five pinned native source RPMs with vendored
+Cargo dependencies and native test/install/license sections, then produces
+three signed disposable x86_64 bootc candidates. It does not promote normal
+Current image tags or claim ARM repair qualification. The existing main builder
+can dispatch this mode without adding a workflow to `stable`.
+
+The first Docker attempt exposed `max depth exceeded` while loading the deep
+Alma 9 image, before patch compilation. The retry uses the already established
+Podman diagnostic path without squashing the production images. A native Python
+3.9 hashing compatibility correction accompanies that retry. Build and VM
+receipts must establish effectiveness before the normal recipes consume these
+packages.
+
+The VM harness now retains complete native journal JSON for each COSMIC boot,
+selected by its kernel boot ID and read using the original bootstrap after
+rollback. This avoids both serial diagnostic replay and EL9 reader limitations.
+Native COSMIC panic or coredump records fail the flow; Wayland dispatch errors
+remain separately reported. Component versions and repair receipts accompany
+original rendering captures. Historical functional passes above do not satisfy
+this stronger gate retroactively.

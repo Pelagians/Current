@@ -24,14 +24,16 @@ class NativeRepairs(unittest.TestCase):
     def test_spec_preserves_native_tests_dependencies_and_install(self):
         native = ('Name: cosmic-panel\nRelease: %autorelease\nSource2: vendor.toml\n'
                   'BuildRequires: cargo\n%prep\n%autosetup -n cosmic-panel -p1 -a1\n'
-                  '%build\njust build-release\n%install\njust install\n%check\n%cargo_test\n')
+                  '%build\njust build-release\n%install\njust install\n%check\n%cargo_test\n'
+                  '%changelog\n%autochangelog\n')
         result = build.patch_spec(native, '1.el10')
         self.assertIn('Release: 1.el10.current1\n', result)
         self.assertIn('Patch900: current-repair.patch\n', result)
-        self.assertTrue(result.endswith(native[native.index('BuildRequires:'):]))
+        self.assertIn(native[native.index('BuildRequires:'):native.index('%changelog')], result)
+        self.assertNotIn('%autochangelog', result)
         for invalid in (native.replace('Source2:', 'Source3:'),
                         native.replace('%autosetup ', '%setup '),
-                        native + 'Release: another\n', result):
+                        native + 'Release: another\n', native.replace('%autochangelog', ''), result):
             with self.subTest(invalid=invalid):
                 with self.assertRaises(ValueError):
                     build.patch_spec(invalid, '1.el10')
