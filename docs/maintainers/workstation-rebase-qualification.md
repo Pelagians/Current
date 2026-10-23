@@ -1302,3 +1302,17 @@ alive. Recorded original OCR fixtures distinguish the clipped 1.11 page from
 the repaired 1.9 page, and verify the exact native timezone request/field before
 password entry. The fixed-size VM now requires visible Additional scale options
 on the accessibility page before proceeding.
+
+The expanded native build `40018802762` completed all eight package artifacts;
+Alma 10 and Fedora's repaired 1.11 welcome each passed fourteen native tests.
+Their receipts independently match the pinned source RPM, parent and layout
+patch. The obsolete assembly was cancelled after preserving those artifacts.
+Final repair build `40024145466`, source
+`09f7af10a6df2d1260af26b8b51b8cee0df1dccc`, reused the matching eight artifacts
+and built Alma 9's OSK natively. Both new keymap tests passed inside its actual
+x86_64 EL9 RPM check section, including the mapped keysym, unchanged shared fd
+offset and malformed-input rejection. The resulting runtime RPM SHA-256 is
+`3a04632d621612050f3cfed3a9b9beda8df93390a978448c6cd2513d04e112fe`.
+The source/parent/patch receipt was independently checked. All nine package
+jobs passed; signed assembly, fresh native sessions and normal-image acceptance
+remain separate gates.

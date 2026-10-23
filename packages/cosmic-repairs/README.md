@@ -62,7 +62,7 @@ The shared COSMIC layer mounts the runtime bundle read-only and calls
 `files/scripts/install-cosmic-repairs.py`. CI verifies its Current signature
 before the native image build. Both published digests were independently
 resolved without registry credentials. The runtime bundle is approximately
-57 MiB compressed; the source bundle is not pulled into the finished image.
+99.3 MiB compressed; the source bundle is not pulled into the finished image.
 RPMs and build tools are not left in an image layer by the mount.
 
 The installer validates every receipt, binary checksum, RPM identity and
@@ -73,7 +73,9 @@ The installed image retains the small receipts under
 so x86_64 repair evidence must not be advertised as an ARM repair.
 
 To update, review the native source and patch, rebuild the affected RPM (matching
-unchanged artifacts may be seeded), qualify signed candidates, then update both
-bundle digests and the shared layer reference together. Re-run normal native
-image builds and boot tests. Remove a local patch only after the upstream
-replacement passes its corresponding regression flow.
+unchanged artifacts may be seeded), and verify the signed bundle and native RPM
+receipts. Update both bundle digests and the shared layer reference together.
+Experimental branch builds may run alongside signed candidate boot tests; both
+candidate and normal-image boot flows must pass before promotion. Remove a local
+patch only after the upstream replacement passes its corresponding regression
+flow.

@@ -43,7 +43,7 @@ modules:
     snippets:
       - >-
         RUN --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,ro
-        --mount=type=bind,from=ghcr.io/pelagians/current-cosmic-repairs@sha256:9ced98656d1d47057161ca089f2665337df3daa6596d4d85113f77c4d7dff2fe,src=/,dst=/tmp/current-cosmic-repairs,ro
+        --mount=type=bind,from=ghcr.io/pelagians/current-cosmic-repairs@sha256:3820302badf44a26b8d4cac5ff23f01f9e271092d1ec83d4d1152ddd9e902dee,src=/,dst=/tmp/current-cosmic-repairs,ro
         python3 /tmp/files/scripts/install-cosmic-repairs.py --image-build /tmp/current-cosmic-repairs
 
   - type: files
