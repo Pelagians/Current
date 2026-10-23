@@ -53,12 +53,16 @@ def allowed_evidence_path(path):
         r'/(?:source|rebase-target|rebase-target-reboot|rebase-rollback)-before-workstation-health\.log', path) is not None
 
 
-def cosmic_setup_button(tsv, width, height):
-    """Only act on a unique visible onboarding footer control, never guess."""
+def visible_footer_button(tsv, width, height, labels=('next', 'finish'), required_phrase=None):
+    """Only act on a unique visible control in the expected UI, never guess."""
+    if required_phrase:
+        words = ' '.join(line.split('\t')[-1] for line in tsv.splitlines()[1:])
+        if required_phrase.lower() not in words.lower():
+            return None
     buttons = []
     for line in tsv.splitlines()[1:]:
         fields = line.split('\t')
-        if len(fields) != 12 or fields[11].lower() not in ('next', 'finish'):
+        if len(fields) != 12 or fields[11].lower() not in labels:
             continue
         x, y, w, h = map(int, fields[6:10])
         if (float(fields[10]) >= 60 and 0 <= x < x + w <= width
@@ -582,6 +586,7 @@ def run(args):
             # are assertions, not an interpretation of warning text.
             probes = [
                 'rpm -q systemd systemd-pam pam dracut ostree bootc; uname -r',
+                'rpm -q glibc-minimal-langpack glibc-langpack-en glibc-all-langpacks; cat /etc/locale.conf; localectl status; locale -a | head -15',
                 'systemctl --failed --no-pager; systemctl --user --failed --no-pager',
                 'loginctl session-status --no-pager; systemctl show user@$(id -u).service -p ActiveState -p SubState -p Result -p ExecMainStatus',
                 'sudo cat /etc/pam.d/systemd-user /usr/lib/pam.d/systemd-user; authselect current',
@@ -673,10 +678,10 @@ def run(args):
                     return
                 name = stage + '-first-run-' + str(attempt)
                 vm.screenshot(name)
-                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', '--psm', '11', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
                 (evidence / (name + '.tsv')).write_text(tsv)
                 width, height = Image.open(evidence / (name + '.png')).size
-                button = cosmic_setup_button(tsv, width, height)
+                button = visible_footer_button(tsv, width, height)
                 if button:
                     label, x, y = button
                     vm.qmp.click(x, y, width, height)
@@ -686,18 +691,40 @@ def run(args):
 
         def cosmic_rendering(stage, phase):
             # Keep the original software GPU and resolution. Capture more than
-            # one QMP frame, plus a native portal image as a second capture
-            # packaged CLI supports it. Neither route invents display variables.
+            # one QMP frame, plus a native portal image as a second capture path.
+            # Consent uses the real GUI; no display variables are manufactured.
             stage = stage + '-' + phase
             diagnostics = command("rpm -q cosmic-initial-setup cosmic-comp cosmic-session cosmic-screenshot mesa-dri-drivers mesa-libEGL mesa-vulkan-drivers; locale; localectl status; lspci -nnk; ls -l /dev/dri /sys/class/drm; systemctl --user show-environment | grep -E '^(LANG|LANGUAGE|LC_ALL|DISPLAY|WAYLAND_DISPLAY|XDG_CURRENT_DESKTOP|XDG_SESSION_TYPE)='; systemd-run --user --wait --pipe cosmic-randr list; systemctl --user list-units --all --no-pager '*CosmicInitialSetup*'; cosmic-screenshot --help; true")
             (evidence / (stage + '-rendering-diagnostics.log')).write_text(diagnostics)
             for index in range(3):
                 time.sleep(3)
                 vm.screenshot(stage + '-render-' + str(index))
-            directory = '"$HOME/current-vm-portal-' + stage + '"'
-            capture = command('mkdir -p ' + directory + '; systemd-run --user --wait --pipe --collect --property=RuntimeMaxSec=40s cosmic-screenshot --interactive=false --modal=false --notify=false --save-dir ' + directory + '; rc=$?; printf "\\nPORTAL_RC=%s\\n" "$rc"; if test "$rc" = 0; then image=$(find ' + directory + ' -maxdepth 1 -type f -name "*.png" -print -quit); if test -n "$image"; then curl -fsS --max-time 30 --data-binary @"$image" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-portal.png; fi; fi; true', timeout=120)
+            directory = '/var/home/currenttest/current-vm-portal-' + stage
+            prefix = directory
+            program = 'cosmic-screenshot --interactive=false --modal=false --notify=false --save-dir ' + directory + ' > ' + prefix + '.log 2>&1; rc=$?; printf "%s\\n" "$rc" > ' + prefix + '.rc; exit "$rc"'
+            command('mkdir -p ' + directory + '; systemd-run --user --no-block --collect --property=RuntimeMaxSec=60s /bin/bash -c ' + shlex.quote(program))
+            consent = []
+            for attempt in range(20):
+                state = graphical_result(command("printf 'SESSION_RESULT=%s\\n' \"$(if test -f " + prefix + ".rc; then cat " + prefix + ".rc; else printf pending; fi)\""))
+                if state is not None:
+                    break
+                name = stage + '-portal-consent-' + str(attempt)
+                vm.screenshot(name)
+                tsv = subprocess.check_output(['tesseract', str(evidence / (name + '.png')), 'stdout', '--psm', '11', 'tsv'], text=True, stderr=subprocess.DEVNULL, timeout=30, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
+                (evidence / (name + '.tsv')).write_text(tsv)
+                from PIL import Image
+                width, height = Image.open(evidence / (name + '.png')).size
+                button = visible_footer_button(tsv, width, height, labels=('allow',), required_phrase='Allow Apps to Take Screenshots')
+                if button:
+                    label, x, y = button
+                    vm.qmp.click(x, y, width, height)
+                    consent.append({'screenshot': name + '.png', 'button': label, 'x': x, 'y': y})
+                time.sleep(3)
+            else:
+                raise RuntimeError('Native screenshot request did not finish; inspect portal consent; onboarding was not tested past this obstacle')
+            capture = command('cat ' + prefix + '.log; printf "\\nPORTAL_RC=%s\\n" "$(cat ' + prefix + '.rc)"; if test "$(cat ' + prefix + '.rc)" = 0; then image=$(find ' + directory + ' -maxdepth 1 -type f -name "*.png" -print -quit); if test -n "$image"; then curl -fsS --max-time 30 --data-binary @"$image" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-portal.png; fi; fi; true', timeout=120)
             (evidence / (stage + '-portal-capture.log')).write_text(capture)
-            report.setdefault('rendering_captures', []).append({'stage': stage, 'qmp_frames': [stage + '-render-' + str(i) + '.png' for i in range(3)], 'native_portal': (evidence / (stage + '-portal.png')).is_file()})
+            report.setdefault('rendering_captures', []).append({'stage': stage, 'qmp_frames': [stage + '-render-' + str(i) + '.png' for i in range(3)], 'native_portal': (evidence / (stage + '-portal.png')).is_file(), 'portal_returncode': state, 'consent': consent})
 
         def workstation_health(stage, desktop, before=False):
             options = (' --require-mdns' if args.require_mdns else '') + (' --require-icc' if desktop == 'gnome' else '')

@@ -41,11 +41,20 @@ class UnifiedISO(unittest.TestCase):
         header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
         def word(text='Next', x=900, y=720, confidence=95):
             return f'5\t1\t1\t1\t1\t1\t{x}\t{y}\t60\t20\t{confidence}\t{text}\n'
-        self.assertEqual(vm.cosmic_setup_button(header + word(), 1280, 800), ('Next', 930, 730))
-        self.assertEqual(vm.cosmic_setup_button(header + word('Finish'), 1280, 800), ('Finish', 930, 730))
+        self.assertEqual(vm.visible_footer_button(header + word(), 1280, 800), ('Next', 930, 730))
+        self.assertEqual(vm.visible_footer_button(header + word('Finish'), 1280, 800), ('Finish', 930, 730))
         for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),
                      word('Skip'), word() + word('Finish', x=1000), ''):
-            self.assertIsNone(vm.cosmic_setup_button(header + rows, 1280, 800))
+            self.assertIsNone(vm.visible_footer_button(header + rows, 1280, 800))
+
+    def test_portal_consent_requires_the_observed_title_and_one_allow_control(self):
+        header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n'
+        title = '5\t1\t1\t1\t1\t1\t450\t280\t400\t25\t95\tAllow Apps to Take Screenshots?\n'
+        allow = '5\t1\t2\t1\t1\t1\t835\t460\t65\t20\t95\tAllow\n'
+        options = dict(labels=('allow',), required_phrase='Allow Apps to Take Screenshots')
+        self.assertEqual(vm.visible_footer_button(header + title + allow, 1280, 800, **options), ('Allow', 867, 470))
+        for rows in (allow, title, title + allow + allow, title.replace('Screenshots', 'Files') + allow):
+            self.assertIsNone(vm.visible_footer_button(header + rows, 1280, 800, **options))
 
     def test_cross_distro_workstations_keep_desktop_unless_explicitly_selected(self):
         for source in ('fedora', 'alma9', 'alma10'):

@@ -65,7 +65,7 @@ def check_mdns(run=subprocess.run, popen=subprocess.Popen):
 def installer_diagnostics():
     # Read the logs saved by Anaconda after all tasks, not only the earlier
     # live-runtime %post snapshot. Never collect credential/shadow contents.
-    pattern = re.compile(r'restorecon|genhomedircon|_current_label_new_home|relabel|SELinux is disabled', re.I)
+    pattern = re.compile(r'restorecon|genhomedircon|_current_label_new_home|relabel|SELinux is disabled|locale|language.*fallback', re.I)
     for path in sorted(Path('/var/log/anaconda').glob('*.log')):
         print('LOG', path)
         for line in path.read_text(errors='replace')[-4 * 1024**2:].splitlines():
