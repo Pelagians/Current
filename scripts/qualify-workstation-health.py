@@ -30,6 +30,23 @@ def check_avcs(output):
             raise RuntimeError('Color daemon still has an SELinux denial: ' + line)
 
 
+def installer_diagnostics():
+    # Read the logs saved by Anaconda after all tasks, not only the earlier
+    # live-runtime %post snapshot. Never collect credential/shadow contents.
+    pattern = re.compile(r'restorecon|genhomedircon|_current_label_new_home|relabel|SELinux is disabled', re.I)
+    for path in sorted(Path('/var/log/anaconda').glob('*.log')):
+        print('LOG', path)
+        for line in path.read_text(errors='replace')[-4 * 1024**2:].splitlines():
+            if pattern.search(line) and not re.search(r'password|rootpw|chpasswd', line, re.I):
+                print(line)
+    path = Path('/etc/selinux/targeted/contexts/files/file_contexts.homedirs')
+    print('HOMEDIR_CONTEXTS', path.exists())
+    if path.exists():
+        for line in path.read_text().splitlines():
+            if re.search(r'currenttest|HOME_|/var/home|/home', line):
+                print(line)
+
+
 def main(labels_only=False, require_icc=False):
     home = Path('/var/home/currenttest')
     paths = [home, home / 'current-sentinel', Path('/etc/passwd'), Path('/etc/shadow'),
@@ -68,5 +85,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--labels-only', action='store_true')
     parser.add_argument('--require-icc', action='store_true')
+    parser.add_argument('--installer-diagnostics', action='store_true')
     args = parser.parse_args()
-    main(args.labels_only, args.require_icc)
+    if args.installer_diagnostics:
+        installer_diagnostics()
+    else:
+        main(args.labels_only, args.require_icc)

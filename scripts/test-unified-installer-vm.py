@@ -385,7 +385,7 @@ def run(args):
             self.wfile.write(ks)
 
         def do_POST(self):
-            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log', '/bootstrap-account-labels.log') and not re.fullmatch(r'/(?:bootstrap|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health)\.log', self.path):
+            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log', '/bootstrap-account-labels.log', '/installer-account-diagnostics.log') and not re.fullmatch(r'/(?:bootstrap|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health)\.log', self.path):
                 self.send_error(404)
                 return
             length = int(self.headers.get('Content-Length', '0'))
@@ -742,6 +742,7 @@ def run(args):
         command("printf 'retained-user-data\\n' > ~/current-sentinel; sha256sum ~/current-sentinel")
         command('mkdir -p ~/.local/bin')
         put_guest('~/.local/bin/current-vm-workstation-health', Path('scripts/qualify-workstation-health.py').read_text())
+        command('sudo python3 ~/.local/bin/current-vm-workstation-health --installer-diagnostics > ~/current-vm-installer-accounts.log && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-installer-accounts.log" http://10.0.2.2:' + str(server.server_port) + '/installer-account-diagnostics.log')
         command('sudo python3 ~/.local/bin/current-vm-workstation-health --labels-only > ~/current-vm-bootstrap-labels.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-bootstrap-labels.json" http://10.0.2.2:' + str(server.server_port) + '/bootstrap-account-labels.log')
         command('id -u > ~/current-original-uid; sudo sh -c \'sha256sum /etc/NetworkManager/system-connections/*\' > ~/current-network-hashes')
         # Test-only persistent journal retains shutdown-time finalization errors.
