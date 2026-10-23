@@ -385,7 +385,7 @@ def run(args):
             self.wfile.write(ks)
 
         def do_POST(self):
-            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log') and not re.fullmatch(r'/(?:bootstrap|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification)\.log', self.path):
+            if self.path not in ('/anaconda.log', '/storage.log', '/program.log', '/packaging.log', '/users.log', '/install-marker.log', '/install-error.log', '/storage-rejected.log', '/bootstrap-account-labels.log') and not re.fullmatch(r'/(?:bootstrap|bootstrap-reboot|destination|destination-reboot|rollback|rebase-target|rebase-target-reboot|rebase-rollback|recovery-bootstrap|journal-final)-(?:markers|archive-verification|workstation-health)\.log', self.path):
                 self.send_error(404)
                 return
             length = int(self.headers.get('Content-Length', '0'))
@@ -683,15 +683,14 @@ def run(args):
                     if ('DESKTOP=' + desktop.upper()) not in proof.upper():
                         raise RuntimeError('Autostart reported the wrong desktop')
                     command('sudo systemctl start avahi-daemon.service')
-                    health = command('sudo python3 ~/.local/bin/current-vm-workstation-health')
-                    (evidence / (stage + '-workstation-health.log')).write_text(health)
+                    command('sudo python3 ~/.local/bin/current-vm-workstation-health > ~/current-vm-workstation-health.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-workstation-health.json" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-workstation-health.log')
                     brew = command('/var/home/linuxbrew/.linuxbrew/bin/brew --version')
                     (evidence / (stage + '-brew-version.log')).write_text(brew)
                     if stage == 'source':
                         command('printf retained-brew-data > /var/home/linuxbrew/.linuxbrew/current-vm-sentinel')
                     else:
                         command('test "$(cat /var/home/linuxbrew/.linuxbrew/current-vm-sentinel)" = retained-brew-data')
-                    report.setdefault('graphical_logins', []).append({'stage': stage, 'desktop': desktop, 'proof': stage + '-graphical-session.log'})
+                    report.setdefault('graphical_logins', []).append({'stage': stage, 'desktop': desktop, 'proof': stage + '-graphical-session.log', 'health_proof': stage + '-workstation-health.log'})
                     record(stage + ': real greeter password login and desktop-session ownership checks passed')
                     return
                 time.sleep(5)
@@ -763,6 +762,7 @@ def run(args):
             command('mkdir -p ~/.local/bin ~/.config/autostart')
             put_guest('~/.local/bin/current-vm-qualify-workstation', Path('scripts/qualify-workstation-boot.sh').read_text(), True)
             put_guest('~/.local/bin/current-vm-workstation-health', Path('scripts/qualify-workstation-health.py').read_text())
+            command('sudo python3 ~/.local/bin/current-vm-workstation-health --labels-only > ~/current-vm-bootstrap-labels.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-bootstrap-labels.json" http://10.0.2.2:' + str(server.server_port) + '/bootstrap-account-labels.log')
             put_guest('~/.local/bin/current-vm-session', session_probe(), True)
             put_guest('~/.config/autostart/current-vm-session.desktop', '[Desktop Entry]\nType=Application\nName=Current VM qualification\nExec=/home/currenttest/.local/bin/current-vm-session\n')
         command('rpm -q ostree bootc selinux-policy-targeted policycoreutils libsemanage; sudo semodule -lfull; sudo ls -ldZ /etc/selinux /var/lib/selinux; sudo bootc status --json')

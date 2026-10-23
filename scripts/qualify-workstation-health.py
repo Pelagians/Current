@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Read-only native-policy/account assertions for fresh disposable VM installs."""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -20,7 +21,7 @@ def check_labels(paths, get_context=lambda path: os.getxattr(path, 'security.sel
     return results
 
 
-def main():
+def main(labels_only=False):
     home = Path('/var/home/currenttest')
     paths = [home, home / 'current-sentinel', Path('/etc/passwd'), Path('/etc/shadow'),
              Path('/etc/group'), Path('/etc/gshadow'), Path('/etc/.pwd.lock')]
@@ -28,6 +29,9 @@ def main():
     if icc.exists():
         paths.extend([icc, *sorted(path for path in icc.rglob('*') if not path.is_symlink())])
     result = {'labels': check_labels(paths)}
+    if labels_only:
+        print(json.dumps(result, indent=2))
+        return
     result['avahi_user'] = subprocess.check_output(['getent', 'passwd', 'avahi'], text=True).strip()
     result['avahi_group'] = subprocess.check_output(['getent', 'group', 'avahi'], text=True).strip()
     if result['avahi_user'].split(':')[3] != result['avahi_group'].split(':')[2]:
@@ -46,4 +50,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--labels-only', action='store_true')
+    main(parser.parse_args().labels_only)
