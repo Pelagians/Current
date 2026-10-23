@@ -4,14 +4,14 @@ index 3b7a3c3..ace4e44 100644
 +++ b/src/lib.rs
 @@ -40,6 +40,7 @@ use unicode_width::UnicodeWidthStr;
  use xkbcommon::xkb;
- 
+
  mod ei;
 +mod keymap_compat;
- 
+
  use layout::Layout;
  mod layout;
 @@ -1016,26 +1017,24 @@ impl Application for App {
- 
+
                          if evt.device.has_capability(DeviceCapability::Keyboard) {
                              log::info!("  has keyboard");
 +                            let xkb_keymap = match evt.device.keymap().ok_or_else(||
@@ -62,11 +62,11 @@ index 418dfc2..b1242f2 100644
 -    while let Ok(_) = event_loop.dispatch(None, &mut state) {}
 +    while state.running && event_loop.dispatch(None, &mut state).is_ok() {}
  }
- 
+
  struct Seat {
 @@ -51,6 +52,7 @@ struct Seat {
  }
- 
+
  struct State {
 +    running: bool,
      msg_tx: futures::channel::mpsc::Sender<Message>,
