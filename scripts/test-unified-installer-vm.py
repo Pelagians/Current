@@ -387,7 +387,7 @@ def run(args):
     evidence.mkdir()
     report = {'iso_sha256': digest, 'inputs': receipt, 'harness_revision': subprocess.check_output(
         ['git', 'rev-parse', 'HEAD'], text=True).strip(), 'distribution': args.distribution,
-        'channel': args.channel, 'scenario': args.scenario,
+        'channel': args.channel, 'scenario': args.scenario, 'require_mdns': args.require_mdns,
               'desktop': args.desktop if args.scenario == 'workstation-flow' else None,
               'target_distribution': args.target_distribution, 'target_desktop': args.target_desktop,
               'target_channel': args.target_channel, 'image_revision': args.image_revision, 'milestones': [], 'status': 'running'}
@@ -768,7 +768,7 @@ def run(args):
                         cosmic_rendering(stage, 'after')
                         vm.screenshot(stage + '-session')
                     command('sudo systemctl start avahi-daemon.service')
-                    health_options = ' --require-icc' if desktop == 'gnome' else ''
+                    health_options = (' --require-mdns' if args.require_mdns else '') + (' --require-icc' if desktop == 'gnome' else '')
                     command('sudo python3 ~/.local/bin/current-vm-workstation-health' + health_options + ' > ~/current-vm-workstation-health.json && curl -fsS --max-time 30 --data-binary @"$HOME/current-vm-workstation-health.json" http://10.0.2.2:' + str(server.server_port) + '/' + stage + '-workstation-health.log')
                     brew = command('/var/home/linuxbrew/.linuxbrew/bin/brew --version')
                     (evidence / (stage + '-brew-version.log')).write_text(brew)
@@ -1009,6 +1009,7 @@ if __name__ == '__main__':
     parser.add_argument('--target-desktop', choices=('gnome', 'cosmic'))
     parser.add_argument('--image-revision', default='3bdfcaa1f2665051c873f40e30e45b1f49333616')
     parser.add_argument('--scenario', choices=('server-flow', 'reject-btrfs', 'bootstrap-reboot', 'workstation-flow', 'rebase-flow'), default='server-flow')
+    parser.add_argument('--require-mdns', action='store_true', help='Require native provider/default mDNS lookups and no Avahi startup warnings')
     args = parser.parse_args()
     if not re.fullmatch(r'pr-[0-9]+|br-[A-Za-z0-9_.-]+|latest', args.channel):
         parser.error('Invalid destination channel')

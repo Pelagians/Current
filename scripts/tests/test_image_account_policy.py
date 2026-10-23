@@ -18,6 +18,30 @@ health_spec.loader.exec_module(health)
 
 
 class Accounts(unittest.TestCase):
+    def test_mdns_requires_provider_and_default_lookup_and_cleans_publisher(self):
+        publisher = Mock()
+        publisher.poll.return_value = 0
+        publisher.communicate.return_value = ('established local test record', None)
+        success = SimpleNamespace(returncode=0, stdout='192.0.2.123 STREAM fixture.local\n')
+        lookup = Mock(return_value=success)
+        proof = health.check_mdns(lookup, Mock(return_value=publisher))
+        self.assertEqual(set(proof['lookups']), {'provider', 'default'})
+        self.assertEqual(lookup.call_args_list[0].args[0][1:4], ['-s', 'mdns4', 'ahostsv4'])
+        self.assertEqual(lookup.call_args_list[1].args[0][1], 'ahostsv4')
+        publisher.terminate.assert_called_once()
+        for responses in ([SimpleNamespace(returncode=2, stdout='')],
+                          [success, SimpleNamespace(returncode=2, stdout='')],
+                          [SimpleNamespace(returncode=0, stdout='192.0.2.124 STREAM wrong\n')]):
+            publisher.reset_mock()
+            with self.assertRaisesRegex(RuntimeError, 'mDNS .* lookup failed'):
+                health.check_mdns(Mock(side_effect=responses), Mock(return_value=publisher))
+            publisher.terminate.assert_called_once()
+        publisher.reset_mock()
+        with self.assertRaises(subprocess.TimeoutExpired):
+            health.check_mdns(Mock(side_effect=subprocess.TimeoutExpired(['getent'], 10)),
+                              Mock(return_value=publisher))
+        publisher.terminate.assert_called_once()
+
     def test_bootc_exposes_only_needed_selinux_submount_and_tracks_teardown(self):
         original = '''class PrepareBootcMountTargetsTask:
     def _handle_api_mount_points(self):

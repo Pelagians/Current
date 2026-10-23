@@ -20,7 +20,7 @@ on:
         default: br-codex_unified-installer
       scenario:
         type: choice
-        options: [server-flow, reject-btrfs, bootstrap-reboot, workstation-flow, rebase-flow]
+        options: [server-flow, reject-btrfs, bootstrap-reboot, workstation-flow, workstation-mdns-flow, rebase-flow]
         default: server-flow
       desktop:
         type: choice
@@ -93,12 +93,14 @@ jobs:
           IMAGE_REVISION: ${{ inputs.image_revision || '3bdfcaa1f2665051c873f40e30e45b1f49333616' }}
         run: |
           extra=()
+          scenario="$SCENARIO"
+          if [[ "$scenario" == workstation-mdns-flow ]]; then scenario=workstation-flow; extra+=(--require-mdns); fi
           if [[ "$TARGET_DISTRIBUTION" != none ]]; then extra+=(--target-distribution "$TARGET_DISTRIBUTION"); fi
           if [[ "$TARGET_DESKTOP" != auto ]]; then extra+=(--target-desktop "$TARGET_DESKTOP"); fi
           if [[ -n "$TARGET_CHANNEL" ]]; then extra+=(--target-channel "$TARGET_CHANNEL"); fi
           exec /usr/bin/python3 scripts/test-unified-installer-vm.py \
             --artifact iso --revision "$ISO_REVISION" --output vm-evidence \
-            --distribution "$DISTRIBUTION" --channel "$CHANNEL" --scenario "$SCENARIO" \
+            --distribution "$DISTRIBUTION" --channel "$CHANNEL" --scenario "$scenario" \
             --desktop "$DESKTOP" --image-revision "$IMAGE_REVISION" "${extra[@]}"
       - uses: actions/upload-artifact@v7
         if: ${{ always() }}

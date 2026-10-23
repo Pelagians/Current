@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Read-only native-policy/account assertions for fresh disposable VM installs."""
+"""Native-policy/account assertions and an optional ephemeral guest mDNS probe."""
 import argparse
 import json
 import os
 from pathlib import Path
 import re
+import secrets
 import subprocess
+import time
 
 
 def check_labels(paths, get_context=lambda path: os.getxattr(path, 'security.selinux'),
@@ -30,6 +32,36 @@ def check_avcs(output):
             raise RuntimeError('Color daemon still has an SELinux denial: ' + line)
 
 
+def check_mdns(run=subprocess.run, popen=subprocess.Popen):
+    """Probe only the disposable guest's daemon/NSS path, not external LANs."""
+    name = 'current-vm-' + secrets.token_hex(6) + '.local'
+    address = '192.0.2.123'
+    publisher = popen(['avahi-publish', '-a', '-R', name, address],
+                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    results = {}
+    try:
+        for label, arguments in [('provider', ['-s', 'mdns4']), ('default', [])]:
+            for attempt in range(10):
+                result = run(['getent', *arguments, 'ahostsv4', name],
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             text=True, timeout=10)
+                if result.returncode == 0 and any(line.split()[0] == address for line in result.stdout.splitlines() if line.split()):
+                    results[label] = result.stdout
+                    break
+                if publisher.poll() is not None or attempt == 9:
+                    raise RuntimeError('mDNS ' + label + ' lookup failed: ' + result.stdout)
+                time.sleep(.5)
+    finally:
+        publisher.terminate()
+        try:
+            output, _ = publisher.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            publisher.kill()
+            output, _ = publisher.communicate(timeout=10)
+    return dict(name=name, address=address, lookups=results, publisher=output,
+                scope='isolated guest daemon/NSS path; external LAN discovery unqualified')
+
+
 def installer_diagnostics():
     # Read the logs saved by Anaconda after all tasks, not only the earlier
     # live-runtime %post snapshot. Never collect credential/shadow contents.
@@ -47,7 +79,7 @@ def installer_diagnostics():
                 print(line)
 
 
-def main(labels_only=False, require_icc=False):
+def main(labels_only=False, require_icc=False, require_mdns=False):
     home = Path('/var/home/currenttest')
     paths = [home, home / 'current-sentinel', Path('/etc/passwd'), Path('/etc/shadow'),
              Path('/etc/group'), Path('/etc/gshadow'), Path('/etc/.pwd.lock')]
@@ -78,6 +110,13 @@ def main(labels_only=False, require_icc=False):
     check_avcs(avcs)
     result['colord_denials'] = 0
     result['colord_denials_source'] = 'current-boot kernel journal'
+    if require_mdns:
+        result['mdns'] = check_mdns()
+        avahi_log = subprocess.check_output(['journalctl', '-b', '-u', 'avahi-daemon.service', '--no-pager', '-o', 'cat'], text=True)
+        for warning in ('No NSS support for mDNS', 'Failed to open /etc/resolv.conf', 'chroot.c: open() failed'):
+            if warning in avahi_log:
+                raise RuntimeError('Avahi startup warning remains: ' + warning)
+        result['avahi_startup_warnings'] = 0
     print(json.dumps(result, indent=2))
 
 
@@ -85,9 +124,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--labels-only', action='store_true')
     parser.add_argument('--require-icc', action='store_true')
+    parser.add_argument('--require-mdns', action='store_true')
     parser.add_argument('--installer-diagnostics', action='store_true')
     args = parser.parse_args()
     if args.installer_diagnostics:
         installer_diagnostics()
     else:
-        main(args.labels_only, args.require_icc)
+        main(args.labels_only, args.require_icc, args.require_mdns)
