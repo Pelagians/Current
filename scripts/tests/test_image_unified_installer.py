@@ -125,15 +125,15 @@ class UnifiedISO(unittest.TestCase):
         focused = (ROOT / 'scripts/tests/fixtures/cosmic-welcome/timezone-authentication-focused-fedora.tsv').read_text()
         self.assertIsNone(vm.visible_control(focused, 1280, 800, **auth_options))
         self.assertEqual(vm.visible_control(focused, 1280, 800, **submit_options), ('Authenticate', 842, 462))
-        self.assertTrue(vm.timezone_field_reocr_needed(focused, 1280, 800))
+        self.assertEqual(vm.timezone_field_ocr_region(focused, 1280, 800), (473, 360, 573, 388))
         # Raw full-frame OCR may miss the cyan submission label. Its separate
         # crop has not run yet; that must not prevent a field re-read.
         without_submit = '\n'.join(line for line in focused.splitlines() if not line.endswith('\tAuthenticate')) + '\n'
         self.assertIsNone(vm.visible_control(without_submit, 1280, 800, **submit_options))
-        self.assertTrue(vm.timezone_field_reocr_needed(without_submit, 1280, 800))
+        self.assertEqual(vm.timezone_field_ocr_region(without_submit, 1280, 800), (473, 360, 573, 388))
         for invalid in (observed, focused.replace('timezone.', 'hostname.'),
                         focused + word('Password', x=520, y=400, confidence=32)):
-            self.assertFalse(vm.timezone_field_reocr_needed(invalid, 1280, 800))
+            self.assertIsNone(vm.timezone_field_ocr_region(invalid, 1280, 800))
         for invalid in (word('Authenticate'), prompt, prompt + word('Authenticate') + word('Authenticate', x=1000)):
             self.assertIsNone(vm.visible_control(header + invalid, 1280, 800, **submit_options))
         for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),

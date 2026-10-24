@@ -137,13 +137,24 @@ def visible_control(tsv, width, height, labels=('next', 'finish'), required_phra
     return buttons[0] if len(buttons) == 1 else None
 
 
-def timezone_field_reocr_needed(tsv, width, height):
-    # Reading more pixels does not authorize input. The eventual field and
-    # Authenticate button must both pass their normal confidence checks.
-    options = dict(labels=('password',), minimum_y=0,
-                   required_phrase='Authentication is required to set the system timezone')
-    return (visible_control(tsv, width, height, control_confidence=0, **options) is not None
-            and visible_control(tsv, width, height, control_confidence=45, **options) is None)
+def timezone_field_ocr_region(tsv, width, height):
+    # Reading more pixels does not authorize input. Both eventual controls must
+    # still pass normal confidence checks under the exact native request.
+    weak = visible_control(tsv, width, height, labels=('password',), minimum_y=0,
+                           required_phrase='Authentication is required to set the system timezone',
+                           control_confidence=0)
+    if not weak:
+        return None
+    for line in tsv.splitlines()[1:]:
+        row = line.split('\t')
+        if len(row) != 12 or row[0] != '5' or row[11].lower() != 'password':
+            continue
+        x, y, w, h = map(int, row[6:10])
+        if (0 <= x < x + w <= width and 0 < y < y + h <= height
+                and (x + w // 2, y + h // 2) == weak[1:]
+                and 0 <= float(row[10]) < 45):
+            return (max(0, x - 4), max(0, y - 4), min(width, x + w + 4), min(height, y + h + 4))
+    return None
 
 
 def terminal_text(output):
@@ -810,12 +821,13 @@ def run(args):
             regions = [(box, 7) for box in accent_footer_regions(
                 image.width, image.height, lambda x, y: pixels[x, y])]
             # A focused caret and lock icon can reduce the placeholder's raw
-            # confidence. Re-read the unchanged full frame at higher resolution
+            # confidence. Re-read its observed bounds at higher resolution
             # rather than weakening the field or exact-request checks. Preserve
             # the derived frame alongside the original for independent review.
             raw = '\n'.join('\t'.join(row) for row in rows) + '\n'
-            if timezone_field_reocr_needed(raw, image.width, image.height):
-                regions.append(((0, 0, image.width, image.height), 11))
+            field_box = timezone_field_ocr_region(raw, image.width, image.height)
+            if field_box:
+                regions.append((field_box, 7))
             for index, (box, psm) in enumerate(regions):
                 crop = image.crop(box).convert('L')
                 crop = crop.resize((crop.width * 3, crop.height * 3))

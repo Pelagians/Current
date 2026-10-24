@@ -33,7 +33,12 @@ a displaced heading word fail the regression test.
 
 `timezone-authentication-focused-fedora.tsv` is the unmodified `40038316592`
 frame 6 OCR. Its focused placeholder scores only 32.4 and must remain rejected.
-When the exact timezone request and unique Authenticate button are recognized
-but the field is not, the harness also OCRs a grayscale, three-times-enlarged
-copy of the same full frame. The field still has to meet the existing confidence
-and uniqueness checks; the original screenshot is preserved unchanged.
+When the exact timezone request and a unique weak field are recognized, the
+harness also OCRs a grayscale, three-times-enlarged crop of that field's observed
+bounds, padded by four pixels. It does not depend on the cyan submission label
+being recognized before its own crop runs. An isolated Ubuntu 24.04 Tesseract
+5.3.4 reproduction of run `40043111760` scored the raw field 32.4 and the plain
+grayscale crop 96.8; enlarging the full frame still missed it. No thresholding or
+inversion is needed. The field and submission button must still meet their
+existing confidence/uniqueness checks; originals remain unchanged. This ARM64
+tool reproduction does not replace the complete x86_64 VM retry.
