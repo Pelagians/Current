@@ -50,12 +50,19 @@ Alma 10→Alma 9 and Alma 9→Fedora COSMIC flows passed actual native welcome,
 graphical login, reboot, exact rollback and recovery. Missing flag fields derive
 from existing native country codes without changing names, identities or user
 preferences. The complete native/shared candidate publication passed independent receipt
-and reference checks, including the tested COSMIC image digests. COSMIC portal
-shutdown panics, an intermittent oversized welcome window and reproduced
-software-rendered dock artifacts remain unresolved. See the
-[warning/first-run evidence](../maintainers/workstation-rebase-qualification.md#avahi-cosmic-onboarding-and-rendering-follow-up)
-for exact receipts and remaining shutdown/rendering warnings. These tests do not
-qualify all applications, Brew packages, external LAN discovery or physical GPUs.
+and reference checks, including the tested COSMIC image digests.
+
+Native repairs now address the portal shutdown panic, oversized welcome window,
+floating-dock rendering artifact and EL9 on-screen-keyboard startup failure.
+All three signed-candidate UEFI flows passed with real onboarding, graphical
+login, reboot and rollback. Normal images at `243ebb2b` passed all 45 native
+builds and publication; their separate acceptance is recorded in the
+[current repair evidence](../maintainers/workstation-rebase-qualification.md#normal-recipe-acceptance-2026-10-23-continuation).
+The bounded software-virtio samples have visible welcome controls, clean dock
+margins and no COSMIC panics/cores. Portal disconnect errors remain visible.
+Physical GPU behavior, arbitrary scaling, extended sessions and actual touch
+input remain unqualified, as do arbitrary applications, Brew packages and
+external LAN discovery.
 Keep testing disposable; prior image results do not qualify a replacement.
 
 If an earlier COSMIC image has an empty language page, use a console login to

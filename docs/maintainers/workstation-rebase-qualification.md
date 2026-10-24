@@ -1389,3 +1389,37 @@ integration uses the separately pinned bundle at `243ebb2b`; its 45 native
 images have built successfully in `40030261198`, with final shared publication
 and its three new normal-image UEFI flows tracked separately below. Keep XFS
 and draft status; this is not ARM or Secure Boot-enabled qualification.
+
+### Normal recipe acceptance (2026-10-23 continuation)
+
+Normal build [40030261198](https://github.com/Pelagians/Current/actions/runs/40030261198)
+completed successfully at image source
+`243ebb2b99f7afe7abea2738b05533a7bc9dce88`. Independent anonymous inspection
+matched all 45 native receipts, 24 shared indexes and 21 ARM compatibility
+references to that revision. Each normal-flow source/target native digest
+matches the corresponding final published shared-index child exactly.
+
+| Normal COSMIC source → target | UEFI run | Acceptance |
+| --- | --- | --- |
+| Alma 9 → Fedora | [40038286675](https://github.com/Pelagians/Current/actions/runs/40038286675) | Passed, independently reviewed |
+| Alma 10 → Alma 9 | [40038303207](https://github.com/Pelagians/Current/actions/runs/40038303207) | Passed, independently reviewed |
+| Fedora → Alma 10 | [40043111760](https://github.com/Pelagians/Current/actions/runs/40043111760) | Retry running |
+
+The first two use harness `037c597f`, with eight complete session boots and
+10,450 independently parsed raw journal records. There are no COSMIC panics,
+cores or keymap errors; all ten shutdown pivots passed. All 64 original primary
+frames, including sixteen native portal captures, retain unchanged fixed dock
+margins within comparable image/onboarding groups. Full-frame representatives
+of all eight session boots and both source accessibility pages were visually
+reviewed and are clean. Native onboarding/authentication, target reboot, exact
+rollback, final journal verification and the existing label/account/network/
+Avahi/Homebrew retention gates passed.
+
+Fedora's first normal run `40038316592` stopped before password entry: the
+focused native Password placeholder scored only 32.4 despite a high-confidence
+correct request and Authenticate button. Its original TSV remains a failing
+fixture. Harness `50b03dd8` re-reads a grayscale, enlarged copy of the same
+unchanged screenshot when the field is unrecognized. It does not lower the
+confidence/uniqueness checks, consent to another request or bypass actual
+timezone verification. Retry `40043111760` keeps the exact signed payloads;
+only the harness changes. The failed attempt is not a complete-flow pass.
