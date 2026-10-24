@@ -137,6 +137,15 @@ def visible_control(tsv, width, height, labels=('next', 'finish'), required_phra
     return buttons[0] if len(buttons) == 1 else None
 
 
+def timezone_field_reocr_needed(tsv, width, height):
+    # Reading more pixels does not authorize input. The eventual field and
+    # Authenticate button must both pass their normal confidence checks.
+    options = dict(labels=('password',), minimum_y=0,
+                   required_phrase='Authentication is required to set the system timezone')
+    return (visible_control(tsv, width, height, control_confidence=0, **options) is not None
+            and visible_control(tsv, width, height, control_confidence=45, **options) is None)
+
+
 def terminal_text(output):
     """Remove terminal framing, retaining the actual guest output for assertions."""
     output = re.sub(r'\x1b\].*?(?:\x07|\x1b\\)', '', output, flags=re.DOTALL)
@@ -805,9 +814,7 @@ def run(args):
             # rather than weakening the field or exact-request checks. Preserve
             # the derived frame alongside the original for independent review.
             raw = '\n'.join('\t'.join(row) for row in rows) + '\n'
-            auth = dict(required_phrase='Authentication is required to set the system timezone', minimum_y=0)
-            if (visible_control(raw, image.width, image.height, labels=('authenticate',), **auth)
-                    and not visible_control(raw, image.width, image.height, labels=('password',), control_confidence=45, **auth)):
+            if timezone_field_reocr_needed(raw, image.width, image.height):
                 regions.append(((0, 0, image.width, image.height), 11))
             for index, (box, psm) in enumerate(regions):
                 crop = image.crop(box).convert('L')
