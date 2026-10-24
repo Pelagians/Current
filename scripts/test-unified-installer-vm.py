@@ -798,12 +798,23 @@ def run(args):
             rows = [line.split('\t') for line in read(path, 11).splitlines()]
             image = Image.open(path).convert('RGB')
             pixels = image.load()
-            for index, box in enumerate(accent_footer_regions(image.width, image.height, lambda x, y: pixels[x, y])):
+            regions = [(box, 7) for box in accent_footer_regions(
+                image.width, image.height, lambda x, y: pixels[x, y])]
+            # A focused caret and lock icon can reduce the placeholder's raw
+            # confidence. Re-read the unchanged full frame at higher resolution
+            # rather than weakening the field or exact-request checks. Preserve
+            # the derived frame alongside the original for independent review.
+            raw = '\n'.join('\t'.join(row) for row in rows) + '\n'
+            auth = dict(required_phrase='Authentication is required to set the system timezone', minimum_y=0)
+            if (visible_control(raw, image.width, image.height, labels=('authenticate',), **auth)
+                    and not visible_control(raw, image.width, image.height, labels=('password',), control_confidence=45, **auth)):
+                regions.append(((0, 0, image.width, image.height), 11))
+            for index, (box, psm) in enumerate(regions):
                 crop = image.crop(box).convert('L')
                 crop = crop.resize((crop.width * 3, crop.height * 3))
                 derived = evidence / (name + '-ocr-button-' + str(index) + '.png')
                 crop.save(derived)
-                for line in read(derived, 7).splitlines()[1:]:
+                for line in read(derived, psm).splitlines()[1:]:
                     fields = line.split('\t')
                     if len(fields) != 12 or fields[0] != '5':
                         continue

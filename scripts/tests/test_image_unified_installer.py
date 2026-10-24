@@ -122,6 +122,9 @@ class UnifiedISO(unittest.TestCase):
         self.assertEqual(vm.visible_control(observed_fedora, 1280, 800, **auth_options), ('Password', 538, 373))
         self.assertEqual(vm.visible_control(observed_fedora, 1280, 800, **submit_options), ('Authenticate', 842, 462))
         self.assertIsNone(vm.visible_control(header + prompt + word('Password', confidence=44), 1280, 800, **auth_options))
+        focused = (ROOT / 'scripts/tests/fixtures/cosmic-welcome/timezone-authentication-focused-fedora.tsv').read_text()
+        self.assertIsNone(vm.visible_control(focused, 1280, 800, **auth_options))
+        self.assertEqual(vm.visible_control(focused, 1280, 800, **submit_options), ('Authenticate', 842, 462))
         for invalid in (word('Authenticate'), prompt, prompt + word('Authenticate') + word('Authenticate', x=1000)):
             self.assertIsNone(vm.visible_control(header + invalid, 1280, 800, **submit_options))
         for rows in (word(y=100), word(y=790), word(x=-1), word(confidence=20),

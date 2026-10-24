@@ -30,3 +30,10 @@ between its two heading lines in the reading order. The matcher retains the
 exact high-confidence screenshot-request phrase within its heading column and
 font size, and still requires a unique visible Allow button. Wrong requests or
 a displaced heading word fail the regression test.
+
+`timezone-authentication-focused-fedora.tsv` is the unmodified `40038316592`
+frame 6 OCR. Its focused placeholder scores only 32.4 and must remain rejected.
+When the exact timezone request and unique Authenticate button are recognized
+but the field is not, the harness also OCRs a grayscale, three-times-enlarged
+copy of the same full frame. The field still has to meet the existing confidence
+and uniqueness checks; the original screenshot is preserved unchanged.
