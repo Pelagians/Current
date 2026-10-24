@@ -111,13 +111,13 @@ jobs:
       COSIGN_PASSWORD: ""
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: native-*
           path: native-digests
           merge-multiple: true
       - uses: sigstore/cosign-installer@v4.1.2
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Install registry inspection tool
         run: |
           sudo apt-get update
