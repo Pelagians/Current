@@ -44,7 +44,7 @@ and deliberately selected C locales remain separate qualification work.
 
 The current ISO passed strict bootstrap locale/Avahi/authentication/reboot checks.
 Five amended server/GNOME flows passed with destination source `dc78334d`.
-The final COSMIC image source `782560bf` corrects an older Alma 9 country-data
+Earlier COSMIC image source `782560bf` corrects an older Alma 9 country-data
 schema that left its language page empty. Fresh-source Fedora→Alma 10,
 Alma 10→Alma 9 and Alma 9→Fedora COSMIC flows passed actual native welcome,
 graphical login, reboot, exact rollback and recovery. Missing flag fields derive
@@ -56,7 +56,8 @@ Native repairs now address the portal shutdown panic, oversized welcome window,
 floating-dock rendering artifact and EL9 on-screen-keyboard startup failure.
 All three signed-candidate UEFI flows passed with real onboarding, graphical
 login, reboot and rollback. Normal images at `243ebb2b` passed all 45 native
-builds and publication; their separate acceptance is recorded in the
+builds and publication. All three normal-image UEFI flows also passed real
+onboarding, login, ordinary reboot and exact rollback; see the
 [current repair evidence](../maintainers/workstation-rebase-qualification.md#normal-recipe-acceptance-2026-10-23-continuation).
 The bounded software-virtio samples have visible welcome controls, clean dock
 margins and no COSMIC panics/cores. Portal disconnect errors remain visible.

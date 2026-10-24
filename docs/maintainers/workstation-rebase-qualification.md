@@ -1403,7 +1403,7 @@ matches the corresponding final published shared-index child exactly.
 | --- | --- | --- |
 | Alma 9 → Fedora | [40038286675](https://github.com/Pelagians/Current/actions/runs/40038286675) | Passed, independently reviewed |
 | Alma 10 → Alma 9 | [40038303207](https://github.com/Pelagians/Current/actions/runs/40038303207) | Passed, independently reviewed |
-| Fedora → Alma 10 | [40045999875](https://github.com/Pelagians/Current/actions/runs/40045999875) | Checked crop retry running |
+| Fedora → Alma 10 | [40045999875](https://github.com/Pelagians/Current/actions/runs/40045999875) | Passed, independently reviewed |
 
 The first two use harness `037c597f`, with eight complete session boots and
 10,450 independently parsed raw journal records. There are no COSMIC panics,
@@ -1457,3 +1457,53 @@ request. No password was entered; original artifacts were not overwritten and
 the test container was removed. This is tool reproduction, not an x86_64 boot
 pass. Fresh full-flow retry `40045999875` retains the same signed images and
 mandatory timezone, journal, graphical-login, reboot and rollback gates.
+
+Broader inspection of the first two normal flows' eight complete session
+journals retains additional native diagnostics. Iced emits 177–2,037 repeated
+Wayland flush/dispatch lines per boot during short recorded bursts of 23–137 ms
+around the portal's terminating diagnostic. The summary's two explicit
+`wayland dispatch:` records per boot do not count all of that stderr traffic.
+The repaired path still exits unsuccessfully; this is a panic/core fix, not a
+quiet or successful disconnect claim. Nothing rate-limits or suppresses logs.
+
+Those journals also retain Mesa device-probing/driver fallback errors in the
+software-virtio environment, missing native theme/config keys, missing optional
+account icons, and old-library Compose `dead_hamza` warnings. They coexist with
+successful captures, native completion, login and exact rollback, but those
+checks do not qualify arbitrary application settings or compose/touch input.
+No user configuration, Compose table, renderer or graphics preference is reset
+to hide them. A compatible native library/data packaging update and physical
+GPU/application/input qualification remain separate follow-up work.
+
+### Completed normal-image evidence (2026-10-23)
+
+Fedora → Alma 10 [40045999875](https://github.com/Pelagians/Current/actions/runs/40045999875)
+passed the complete flow with harness `7d3e7ce8` and unchanged normal image
+source `243ebb2b`. Independent review matched all four actual booted digests to
+the exact published native/shared children, parsed its four completed journals
+(3,636 records), and confirmed zero COSMIC panics, cores or keymap errors. All
+five shutdown pivots unmounted the old root; all fourteen final closed archives
+verified. Its source welcome completed through twelve actual UI actions and
+native timezone authentication. The x86_64 run exercised the bounded crop:
+raw Password confidence remained 32.4, the projected crop scored 96.8, and the
+actual timezone became `Africa/Dakar` before screenshots resumed.
+
+All three normal flows are now accepted: twelve real graphical session boots,
+14,086 raw journal records, fifteen shutdown pivots and 54 final closed archives.
+All 96 original primary frames include 24 native portal captures; their 22
+distinct decoded frames were visually reviewed. Every comparable image/
+onboarding group retains zero changed pixels across its fixed 38,400 outer
+margin pixels. The source welcome controls, ordinary target reboot and exact
+rollback are clean, without renderer or preference overrides. Original frames
+and journals for the last run are in artifact
+[12542286342](https://github.com/Pelagians/Current/actions/runs/40045999875/artifacts/12542286342).
+
+Together with the three independently reviewed signed repair-candidate flows,
+this is six complete flows, 24 session boots, 26,390 raw journal records, thirty
+successful shutdown pivots, 108 verified final archives and 192 original primary
+frames, including 48 native portal captures. These are repeated software-virtio
+x86_64 UEFI samples, not independent physical GPU or ARM qualifications. The
+native diagnostics and physical/input/scaling/application limits above remain.
+All 196 local image/runtime checks, Actionlint and diff checks pass. XFS remains
+the default and PR #29 stays draft. Later documentation commits do not change
+the recorded runtime images, ISO or test harness revisions.

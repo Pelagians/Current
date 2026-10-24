@@ -215,7 +215,7 @@ ISO. All 45 native `dc78334d` image jobs passed, but its publisher was cancelled
 as superseded; independent checks at that cancellation matched shared references
 to the prior complete `809c0fc3` build.
 
-The final [destination/publication rebuild](https://github.com/Pelagians/Current/actions/runs/39932122029)
+The earlier [destination/publication rebuild](https://github.com/Pelagians/Current/actions/runs/39932122029)
 at `782560bf` adds only the measured COSMIC country-data compatibility correction.
 All 45 native jobs and three final-source COSMIC functional flows passed,
 including fresh Alma 9 welcome completion, 12 real graphical logins, 15 shutdown
@@ -230,7 +230,9 @@ twelve session boots contain no COSMIC panics, cores or keymap errors, and the
 sampled original frames have visible controls and clean dock margins. Portal
 disconnect errors remain visible. Normal image source `243ebb2b` passed all
 45 native builds and publication, with all shared/native references independently
-matched. Its separate UEFI acceptance and exact harness revisions are in the
+matched. All three normal-image flows also passed, with twelve complete session
+boots, clean sampled dock margins, ordinary reboot and exact rollback. Their
+separate UEFI acceptance and exact harness revisions are in the
 [current repair evidence](workstation-rebase-qualification.md#normal-recipe-acceptance-2026-10-23-continuation).
 This bounded software-virtio result does not qualify physical GPU behavior,
 repaint cost, arbitrary scaling or actual touch input. The installer payload
@@ -264,7 +266,7 @@ Alma 9's unsupported Fedora archives must pass the final bootstrap reader.
 | Transition / hardware | Status |
 | --- | --- |
 | Fresh x86_64 bootstrap | Current ISO passed native labels, English locale, Avahi startup, authenticated setup resume and reboot |
-| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Three strict GNOME flows passed at dc78334d; all three repaired COSMIC candidate flows passed at 09f7af10, with bounded rendering and complete-boot panic checks; normal 243ebb2b acceptance is tracked in the linked repair ledger |
+| Fedora / Alma 10 / Alma 9 cross-distro GNOME and COSMIC | Three strict GNOME flows passed at dc78334d; all three repaired COSMIC candidate flows passed at 09f7af10, with bounded rendering and complete-boot panic checks; all three normal 243ebb2b flows also passed with original-frame and complete-journal review |
 | Server and same-distro desktop switches | Two complete strict server rebases passed at dc78334d with the Fedora NSS correction; same-distro desktop switches not repeated |
 | Generic ARM64 UEFI | Current native ISO assembly passed; EFI/board/installer boot required |
 | NVIDIA R580/open, hybrid systems | Synthetic recommendations/build gates only; physical rendering/module tests required |
