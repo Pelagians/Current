@@ -100,6 +100,14 @@ jobs:
         include: ${{ fromJSON(needs.define-image-matrix.outputs.workstation_images) }}
     steps:
       - uses: actions/checkout@v7
+      - uses: sigstore/cosign-installer@v4.1.2
+        if: ${{ contains(matrix.name, '-cosmic') }}
+      - name: Verify pinned COSMIC repair bundle
+        if: ${{ contains(matrix.name, '-cosmic') }}
+        run: |
+          set -euo pipefail
+          reference=$(python3 -c 'import json; print(json.load(open("packages/cosmic-repairs/bundle.json"))["runtime"])')
+          cosign verify --key cosign.pub "$reference"
       - id: prepare
         name: Prepare isolated native staging recipe
         run: |

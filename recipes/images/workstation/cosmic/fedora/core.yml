@@ -17,5 +17,5 @@ modules:
   - from-file: layers/fedora/workstation.yml
   - from-file: layers/fedora/cosmic.yml
   - from-file: layers/shared/workstation-cosmic.yml
-  - type: initramfs
-  - type: signing
+  - from-file: layers/shared/initramfs.yml
+  - from-file: layers/shared/signing.yml

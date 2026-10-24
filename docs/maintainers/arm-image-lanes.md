@@ -1,5 +1,9 @@
 # ARM64 image candidates
 
+An experimental [unified ARM64 UEFI installer build path](unified-installer.md)
+now accompanies the image candidates. Its ISO/installed boot qualification is
+still pending; Apple Silicon/Asahi remains unsupported.
+
 The architecture split happens before the server/workstation split in CI.
 `build.yml` calls `build-architecture.yml` once for x86_64 and once for aarch64.
 The reusable workflow expands each architecture's server and workstation rows
@@ -22,7 +26,7 @@ and COSMIC recipes, reusing the existing role, desktop and bootc layers:
 
 Driver support requires package builds and hardware qualification. These are generic aarch64
 bootc/UEFI candidates; they do not provide an Apple Silicon/Asahi hardware port
-or an ARM installer ISO.
+or a boot-qualified ARM installer ISO.
 
 ## Package differences
 

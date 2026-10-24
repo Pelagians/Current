@@ -1,0 +1,30 @@
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -73,7 +73,9 @@
+     };
+ 
+     let mut settings = Settings::default();
+-    settings = settings.size_limits(Limits::NONE.max_width(900.0).max_height(650.0));
++    settings = settings
++        .size(cosmic::iced::Size::new(900.0, 650.0))
++        .size_limits(Limits::NONE.max_width(900.0).max_height(650.0));
+ 
+     cosmic::app::run::<App>(settings, mode)?;
+ 
+@@ -386,7 +388,7 @@
+         let content = page
+             .view()
+             .map(Message::PageMessage)
+-            .apply(widget::container)
++            .apply(widget::scrollable)
+             .height(Length::Fill);
+ 
+         widget::column::with_capacity(7)
+@@ -397,6 +399,7 @@
+             .push(widget::space::vertical().height(space_m))
+             .push(button_row)
+             .push(widget::space::vertical().height(space_l))
++            .height(Length::Fill)
+             .max_width(page.width())
+             .width(page.width())
+             .align_x(Alignment::Center)

@@ -1,0 +1,20 @@
+modules:
+  # Shared backend and destination-boot observation; inert without setup state.
+  - type: dnf
+    install:
+      install-weak-deps: false
+      packages:
+        - python3
+  - type: files
+    files:
+      - source: setup
+        destination: /
+      # Alma sudo's secure_path need not include /usr/local/bin. Install the
+      # existing command in the standard immutable PATH as well, without
+      # changing sudo policy or relying on mutable /usr/local population.
+      - source: justfiles/usr/local/bin/current
+        destination: /usr/bin/current
+  - type: containerfile
+    snippets:
+      - LABEL io.current.setup-api="1"
+      - COPY cosign.pub /usr/share/current/cosign.pub

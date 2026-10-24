@@ -1,0 +1,7 @@
+modules:
+  - type: signing
+  # BlueBuild establishes image-specific trust. Also require Current's key for
+  # sibling destinations so a configured host can safely change image/distro.
+  - type: script
+    scripts:
+      - setup-trust-policy.sh

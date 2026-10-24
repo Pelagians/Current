@@ -1,0 +1,5 @@
+{
+  "architecture": "x86_64", "cpu_level": 3, "cpu_flags": [],
+  "gpus": [{"slot": "0000:00:02.0", "vendor": "8086", "device": "46a6"}],
+  "uefi": true, "secure_boot": "disabled", "platform": "Generic PC"
+}
