@@ -1403,7 +1403,7 @@ matches the corresponding final published shared-index child exactly.
 | --- | --- | --- |
 | Alma 9 → Fedora | [40038286675](https://github.com/Pelagians/Current/actions/runs/40038286675) | Passed, independently reviewed |
 | Alma 10 → Alma 9 | [40038303207](https://github.com/Pelagians/Current/actions/runs/40038303207) | Passed, independently reviewed |
-| Fedora → Alma 10 | [40043111760](https://github.com/Pelagians/Current/actions/runs/40043111760) | Retry running |
+| Fedora → Alma 10 | [40045999875](https://github.com/Pelagians/Current/actions/runs/40045999875) | Checked crop retry running |
 
 The first two use harness `037c597f`, with eight complete session boots and
 10,450 independently parsed raw journal records. There are no COSMIC panics,
@@ -1423,3 +1423,37 @@ unchanged screenshot when the field is unrecognized. It does not lower the
 confidence/uniqueness checks, consent to another request or bypass actual
 timezone verification. Retry `40043111760` keeps the exact signed payloads;
 only the harness changes. The failed attempt is not a complete-flow pass.
+
+Retry `40043111760` also stopped before password entry. Its exact request and
+Password placeholder were recognized, but the latter remained at 32.4. The
+full-frame fallback had incorrectly required the submission button before its
+separate cyan-control crop had run, so no enlarged full frame was produced.
+Correction `a6b8760a` triggers that read from the unique weak field and exact
+request alone; eventual password entry still requires both controls at their
+original thresholds. A regression fixture removes the submission label from
+the raw pass and proves the re-read is still requested, while wrong requests,
+ambiguous fields and already-confident fields do not trigger it. Full-flow
+retry `40045130851` uses harness `4b6f1510` and unchanged signed payloads.
+
+Stable advanced to `f3b4b335` during qualification. Merge `4b6f1510` reconciles
+its workflow action updates and equivalent vendor-unit enablement correction.
+The image runtime inputs under `files`, `installer`, `recipes` and `packages`
+remain byte-identical to `243ebb2b`; the stronger generated-link regression test
+is retained. All 116 image tests and 80 isolated runtime checks pass, along
+with Actionlint and diff checks. This merge is not a new OCI or ISO build.
+
+An isolated Ubuntu 24.04/Tesseract 5.3.4 ARM64 reproduction confirmed raw
+Password confidence 32.4 and demonstrated that enlarging the complete frame
+still misses it. Superseded VM run `40045130851` was therefore cancelled before
+acceptance. A plain grayscale crop of the observed weak word bounds, padded by
+four pixels and enlarged three times, scores 96.8 with single-line OCR. It needs
+no inversion, pixel thresholding or lower confidence requirement.
+
+Harness `7d3e7ce8` uses those bounded coordinates. Its actual `control_ocr`
+function was extracted unchanged and executed against both retained original
+failure frames in an isolated Ubuntu container. Both independently recognize
+Password at `(538, 373)` and Authenticate at `(842, 462)` under the exact
+request. No password was entered; original artifacts were not overwritten and
+the test container was removed. This is tool reproduction, not an x86_64 boot
+pass. Fresh full-flow retry `40045999875` retains the same signed images and
+mandatory timezone, journal, graphical-login, reboot and rollback gates.
