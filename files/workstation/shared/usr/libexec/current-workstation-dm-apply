@@ -193,11 +193,11 @@ select_destination() {
   if [[ "$(readlink "$system_dir/$selected" || :)" == /dev/null ]]; then
     log "removing stale mask on selected $selected"
   fi
-  # generator.early shadows the selected vendor unit with a symlink at boot.
-  # Enabling by unit name then fails as a linked unit; use the validated vendor
-  # path so systemctl --root can install persistent enablement independently.
   if persistent_systemctl unmask "$selected" display-manager.service &&
      retire_selected_link &&
+     # The early generator intentionally links the selected name. Enabling by
+     # name finds that generated link and systemctl refuses it. Read the already
+     # validated vendor file directly, leaving the generator's boot gating intact.
      persistent_systemctl enable --force "/usr/lib/systemd/system/$selected" && normalize_selected_alias && verify_alias; then
     rm -rf "$saved"
     return 0

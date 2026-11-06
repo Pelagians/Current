@@ -1,0 +1,63 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+name: current-bootstrap
+description: Minimal experimental Current first-boot installer payload.
+base-image: quay.io/fedora/fedora-bootc
+image-version: 44@sha256:dc1055df531e11ea6753af22414cb7ff217023e93d68cca3f92198df6214f9ee
+platforms:
+  - linux/amd64
+  - linux/arm64
+modules:
+  - type: dnf
+    install:
+      install-weak-deps: false
+      packages:
+        - bootc
+        # Anaconda falls back to C.UTF-8 unless the selected locale is present.
+        # Keep the English installer/TUI path supported without desktop payloads.
+        - glibc-langpack-en
+        # The Fedora base already runs Avahi; supply its native NSS module.
+        - nss-mdns
+        - NetworkManager
+        - NetworkManager-tui
+        - NetworkManager-wifi
+        - linux-firmware
+        - pciutils
+        - usbutils
+        - util-linux
+        - mokutil
+        - skopeo
+        - sudo
+        - openssh-server
+        - iproute
+        - iputils
+        - curl
+        - ca-certificates
+        - xfsprogs
+        - vim-minimal
+        - less
+  - from-file: layers/shared/setup.yml
+  - type: files
+    files:
+      - source: bootstrap
+        destination: /
+      - source: base/runtime/usr/lib/systemd/system/avahi-daemon.service.d
+        destination: /usr/lib/systemd/system/avahi-daemon.service.d
+      - source: base/runtime/usr/share/current/image-matrix.tsv
+        destination: /usr/share/current/image-matrix.tsv
+      - source: justfiles/usr/local/bin/current
+        destination: /usr/local/bin/current
+  - type: systemd
+    system:
+      enabled:
+        - NetworkManager.service
+        - sshd.service
+      masked:
+        - bootc-fetch-apply-updates.service
+        - bootc-fetch-apply-updates.timer
+  - type: containerfile
+    snippets:
+      # Vendor default only: do not persist a bootstrap default.target in /etc.
+      - RUN rm -f /etc/systemd/system/default.target && ln -sfn multi-user.target /usr/lib/systemd/system/default.target
+  - from-file: layers/shared/initramfs.yml
+  - from-file: layers/shared/signing.yml

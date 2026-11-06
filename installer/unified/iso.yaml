@@ -1,0 +1,6 @@
+label: Current-Installer
+grub2:
+  entries:
+    - name: Install Current (experimental)
+      linux: /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=Current-Installer inst.graphical console=tty0 selinux=1 enforcing=0 rhgb quiet
+      initrd: /images/pxeboot/initrd.img

@@ -6,9 +6,17 @@ set -euo pipefail
 # The optional root allows qualification against an isolated filesystem.
 root="${1:-/}"
 root="${root%/}"
-destination="$root/boot/efi/EFI/almalinux"
-updates="$root/usr/lib/bootupd/updates/EFI/almalinux"
-files=(shimx64.efi mmx64.efi gcdx64.efi)
+# Defaults preserve the existing Alma x64 installer contract.
+vendor="${2:-almalinux}"
+architecture="${3:-x86_64}"
+case "$vendor:$architecture" in
+  almalinux:x86_64|fedora:x86_64) suffix=x64 ;;
+  fedora:aarch64) suffix=aa64 ;;
+  *) echo "Unsupported installer EFI platform: $vendor:$architecture" >&2; exit 1 ;;
+esac
+destination="$root/boot/efi/EFI/$vendor"
+updates="$root/usr/lib/bootupd/updates/EFI/$vendor"
+files=("shim$suffix.efi" "mm$suffix.efi" "gcd$suffix.efi")
 sources=()
 
 # Validate the whole input set before writing anything. gcdx64.efi must come
@@ -19,6 +27,14 @@ for file in "${files[@]}"; do
   elif [[ -s "$updates/$file" ]]; then
     sources+=("$updates/$file")
   else
+    source_found=
+    for source in "$root"/usr/lib/efi/*/*/EFI/"$vendor/$file"; do
+      if [[ -s "$source" ]]; then source_found="$source"; break; fi
+    done
+    if [[ -n "$source_found" ]]; then
+      sources+=("$source_found")
+      continue
+    fi
     printf 'Installer EFI preparation: missing %s in %s and %s\n' \
       "$file" "$destination" "$updates" >&2
     exit 1
@@ -35,4 +51,4 @@ for i in "${!files[@]}"; do
     cp --preserve=mode,timestamps -- "${sources[$i]}" "$destination/${files[$i]}"
   fi
 done
-printf 'Installer EFI preparation: Alma x64 shim, MokManager, CD-boot GRUB and font ready\n'
+printf 'Installer EFI preparation: %s %s shim, MokManager, CD-boot GRUB and font ready\n' "$vendor" "$architecture"

@@ -1,6 +1,7 @@
 ---
 modules:
-  # COSMIC portal backend and COSMIC Flatpak remotes. The gtk fallback and
+  # COSMIC Flatpak remotes. The shared COSMIC package layer owns its native
+  # portal backend; image policy is applied after native RPM repairs. The gtk fallback and
   # gnome-keyring Secret backend match COSMIC upstream portal configuration.
   - type: dnf
     install:
@@ -8,7 +9,6 @@ modules:
       packages:
         - gnome-keyring
         - gnome-keyring-pam
-        - xdg-desktop-portal-cosmic
         - xdg-desktop-portal-gtk
 
   - type: containerfile

@@ -1,5 +1,10 @@
 # Installer ISO
 
+The experimental [unified installer](setup.md) instead installs a minimal bootstrap
+and selects the final image after first boot. Its [native build instructions and
+qualification gates](../maintainers/unified-installer.md) are separate from the
+existing Alma workflow below.
+
 The Current Alma 10 installer installs a published bootc payload through Anaconda.
 
 ## What this builds

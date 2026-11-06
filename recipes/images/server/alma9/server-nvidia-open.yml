@@ -14,5 +14,5 @@ modules:
   - from-file: layers/alma9/core.yml
   - from-file: layers/alma9/nvidia-open.yml
   - from-file: layers/features/ceph-host.yml
-  - type: initramfs
-  - type: signing
+  - from-file: layers/shared/initramfs.yml
+  - from-file: layers/shared/signing.yml

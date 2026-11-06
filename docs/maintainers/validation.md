@@ -87,3 +87,8 @@ retained Distrobox mount repair with an unchanged backup. These are isolated
 fixtures; real retained-container upgrade qualification remains pending.
 Build download fixtures execute both CPU paths with real checksum verification
 and reject invalid checksums/unknown CPUs before installation.
+
+Unified setup tests are included in runtime discovery; native ISO wrapper tests
+are included in matrix discovery. Both use isolated fixtures. See
+[unified installer qualification](unified-installer.md#qualification-gates) for
+required installed-boot and cross-distribution evidence.
