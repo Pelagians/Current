@@ -40,3 +40,8 @@ modules:
         - inputplumber
         - openconnect-gui
         - gui-scale-applet
+        
+  - type: systemd
+    system:
+      enabled:
+        - cosmic-ext-storage-daemon.service
