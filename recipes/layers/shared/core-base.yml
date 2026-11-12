@@ -19,6 +19,8 @@ modules:
         - e2fsprogs
         - filesystem
         - glibc
+        # Retain the installer's English locale across every destination role.
+        - glibc-langpack-en
         - ca-certificates
         - hostname
         - irqbalance
@@ -92,6 +94,8 @@ modules:
         destination: /
       - source: base/branding
         destination: /
+
+  - from-file: layers/shared/setup.yml
 
   - from-file: layers/features/k3s.yml
   - from-file: layers/features/pcp.yml

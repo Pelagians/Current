@@ -1,0 +1,7 @@
+modules:
+  - type: initramfs
+  # bootc uses initramfs.img; dracut's shutdown lookup uses modules/<kver>/initrd.
+  # Create the alias after generation so every installed kernel is covered.
+  - type: script
+    scripts:
+      - dracut-initrd-link.sh

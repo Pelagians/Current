@@ -1,0 +1,160 @@
+name: Qualify unified installer in disposable UEFI VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      iso_run:
+        description: Successful unified ISO workflow run ID
+        required: true
+        default: '39917099704'
+      iso_revision:
+        description: Exact source revision in the ISO build receipt
+        required: true
+        default: 480b323e91ce0ca4fc7f3497f6a8934e9c6953d1
+      distribution:
+        type: choice
+        options: [fedora, alma10, alma9]
+        default: fedora
+      channel:
+        description: Published destination channel with setup API
+        default: br-codex_unified-installer
+      scenario:
+        type: choice
+        options: [server-flow, reject-btrfs, bootstrap-reboot, bootstrap-locale-reboot, workstation-flow, workstation-mdns-flow, rebase-flow, rebase-locale-flow, cosmic-data-audit]
+        default: server-flow
+      desktop:
+        type: choice
+        options: [gnome, cosmic]
+        default: gnome
+      target_distribution:
+        description: Optional destination distro for rebase-flow or workstation-flow
+        type: choice
+        options: [none, fedora, alma10, alma9]
+        default: none
+      target_desktop:
+        description: Desktop at the destination; auto preserves it across distros or switches it within one distro
+        type: choice
+        options: [auto, gnome, cosmic]
+        default: auto
+      target_channel:
+        description: Optional independent destination channel for native candidate rebases
+        default: ''
+      image_revision:
+        description: Exact source revision required from published destinations
+        default: 782560bfcb1a853ac9a6a3d3eeb694438794f7e6
+  push:
+    paths:
+      - .github/workflows/test-unified-installer-vm.yml
+      - scripts/test-unified-installer-vm.py
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: installer-vm-${{ github.ref }}-${{ inputs.distribution || 'fedora' }}-${{ inputs.scenario || 'server-flow' }}-${{ inputs.channel || 'br-codex_unified-installer' }}-${{ inputs.desktop || 'gnome' }}-${{ inputs.target_distribution || 'none' }}-${{ inputs.target_desktop || 'auto' }}-${{ inputs.target_channel || 'same' }}
+  cancel-in-progress: true
+
+jobs:
+  cosmic-data-audit:
+    if: ${{ inputs.scenario == 'cosmic-data-audit' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: sigstore/cosign-installer@v4.1.2
+      - name: Inspect locale registry data in the signed native image
+        env:
+          DISTRIBUTION: ${{ inputs.distribution }}
+          CHANNEL: ${{ inputs.channel }}
+          IMAGE_REVISION: ${{ inputs.image_revision }}
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends podman
+          case "$DISTRIBUTION" in fedora|alma9|alma10) ;; *) exit 2;; esac
+          [[ "$CHANNEL" =~ ^br-[A-Za-z0-9_.-]+$ ]]
+          repo="ghcr.io/pelagians/${DISTRIBUTION}-cosmic"
+          cosign verify --key cosign.pub "${repo}:${CHANNEL}" > signature.json
+          digest=$(python3 -c 'import json; print(json.load(open("signature.json"))[0]["critical"]["image"]["docker-manifest-digest"])')
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          pinned="${repo}@${digest}"
+          sudo podman pull "$pinned"
+          sudo podman image inspect "$pinned" > image.json
+          python3 -c 'import json,os; i=json.load(open("image.json"))[0]; assert i["Architecture"]=="amd64"; assert i["Config"]["Labels"]["org.opencontainers.image.revision"]==os.environ["IMAGE_REVISION"]'
+          sudo podman run --rm -i --read-only --network none --cap-drop ALL --security-opt no-new-privileges --entrypoint /usr/bin/python3 "$pinned" <<'PY_AUDIT'
+          import json, os, subprocess
+          from pathlib import Path
+          package = subprocess.run(['rpm', '-q', 'iso-codes'], text=True, capture_output=True)
+          report = {'package': package.stdout.strip(), 'container_xdg_data_dirs': os.environ.get('XDG_DATA_DIRS'), 'files': {}}
+          for name in ('iso_3166-1.json', 'iso_639-2.json', 'iso_639-3.json'):
+              path = Path('/usr/share/iso-codes/json') / name
+              try:
+                  data = json.loads(path.read_text())
+                  report['files'][name] = {'present': True, 'keys': list(data)}
+                  if name == 'iso_3166-1.json':
+                      report['files'][name]['missing_flags'] = sum(not isinstance(entry.get('flag'), str) for entry in data['3166-1'])
+              except (OSError, ValueError) as error:
+                  report['files'][name] = {'present': False, 'error': str(error)}
+          print('::notice title=Current COSMIC locale inventory::' + json.dumps(report), flush=True)
+          if package.returncode or not all(info['present'] and not info.get('missing_flags', 0) for info in report['files'].values()):
+              raise SystemExit('COSMIC locale registry package/data schema did not validate; this inventory is not boot qualification')
+          PY_AUDIT
+
+  uefi:
+    if: ${{ inputs.scenario != 'cosmic-data-audit' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install test tools and inspect runner
+        run: |
+          # These SDKs belong only to this disposable GitHub runner.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo apt-get update
+          # QMP screenshots use -display none; GTK, SPICE, audio and extra
+          # storage backends are unnecessary. Keep firmware/ROMs explicit.
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf ipxe-qemu seabios python3-pexpect python3-pil tesseract-ocr tesseract-ocr-eng
+          uname -a
+          free -h
+          df -h .
+          if test -e /dev/kvm; then sudo chmod a+rw /dev/kvm; fi
+          ls -l /dev/kvm || true
+      - uses: actions/download-artifact@v4
+        with:
+          name: current-installer-x86_64-experimental
+          path: iso
+          run-id: ${{ inputs.iso_run || '39917099704' }}
+          github-token: ${{ github.token }}
+      - name: Exercise original ISO and first boot on a new virtual disk
+        env:
+          ISO_REVISION: ${{ inputs.iso_revision || '480b323e91ce0ca4fc7f3497f6a8934e9c6953d1' }}
+          DISTRIBUTION: ${{ inputs.distribution || 'fedora' }}
+          CHANNEL: ${{ inputs.channel || 'br-codex_unified-installer' }}
+          SCENARIO: ${{ inputs.scenario || 'server-flow' }}
+          DESKTOP: ${{ inputs.desktop || 'gnome' }}
+          TARGET_DISTRIBUTION: ${{ inputs.target_distribution || 'none' }}
+          TARGET_DESKTOP: ${{ inputs.target_desktop || 'auto' }}
+          TARGET_CHANNEL: ${{ inputs.target_channel || '' }}
+          IMAGE_REVISION: ${{ inputs.image_revision || '782560bfcb1a853ac9a6a3d3eeb694438794f7e6' }}
+        run: |
+          extra=()
+          scenario="$SCENARIO"
+          if [[ "$scenario" == workstation-mdns-flow ]]; then scenario=workstation-flow; extra+=(--require-mdns --expect-locale en_US.UTF-8 --require-clean-avahi); fi
+          if [[ "$scenario" == bootstrap-locale-reboot ]]; then scenario=bootstrap-reboot; extra+=(--expect-locale en_US.UTF-8 --require-clean-avahi); fi
+          if [[ "$scenario" == rebase-locale-flow ]]; then scenario=rebase-flow; extra+=(--expect-locale en_US.UTF-8 --require-clean-avahi); fi
+          if [[ "$TARGET_DISTRIBUTION" != none ]]; then extra+=(--target-distribution "$TARGET_DISTRIBUTION"); fi
+          if [[ "$TARGET_DESKTOP" != auto ]]; then extra+=(--target-desktop "$TARGET_DESKTOP"); fi
+          if [[ -n "$TARGET_CHANNEL" ]]; then extra+=(--target-channel "$TARGET_CHANNEL"); fi
+          exec /usr/bin/python3 scripts/test-unified-installer-vm.py \
+            --artifact iso --revision "$ISO_REVISION" --output vm-evidence \
+            --distribution "$DISTRIBUTION" --channel "$CHANNEL" --scenario "$scenario" \
+            --desktop "$DESKTOP" --image-revision "$IMAGE_REVISION" "${extra[@]}"
+      - uses: actions/upload-artifact@v7
+        if: ${{ always() }}
+        with:
+          name: unified-installer-uefi-evidence
+          path: vm-evidence/evidence/
+          if-no-files-found: warn
+          retention-days: 7

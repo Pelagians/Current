@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "qualification": "experimental",
+  "nvidia_source": "https://download.nvidia.com/XFree86/Linux-x86_64/580.178.04/README/supportedchips.html",
+  "open_source": "https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus",
+  "reviewed": "2026-10-20",
+  "nvidia": {
+    "13c2": {"name": "GeForce GTX 970", "drivers": ["nvidia-580"]},
+    "1b80": {"name": "GeForce GTX 1080", "drivers": ["nvidia-580"]},
+    "1c82": {"name": "GeForce GTX 1050 Ti", "drivers": ["nvidia-580"]},
+    "1e04": {"name": "GeForce RTX 2080 Ti", "drivers": ["nvidia-open", "nvidia-580"]},
+    "2182": {"name": "GeForce GTX 1660 Ti", "drivers": ["nvidia-open", "nvidia-580"]},
+    "2684": {"name": "GeForce RTX 4090", "drivers": ["nvidia-open", "nvidia-580"]}
+  },
+  "cpu_levels": {"fedora": 1, "alma9": 2, "alma10": 3}
+}

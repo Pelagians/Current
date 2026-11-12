@@ -1,0 +1,18 @@
+--- a/cosmic-panel-bin/src/space/render.rs
++++ b/cosmic-panel-bin/src/space/render.rs
+@@ -136,7 +136,14 @@
+             };
+             let egl_surface = self.egl_surface.as_mut().unwrap();
+             _ = unsafe { renderer.egl_context().make_current_with_surface(egl_surface) };
+-            let age = egl_surface.buffer_age().unwrap_or_default() as usize;
++            // Floating docks expose transparent margins. Repaint the complete
++            // surface so a reused EGL buffer cannot retain pixels outside the
++            // rounded background as applet sizes and anchor gaps change.
++            let age = if self.config.expand_to_edges() {
++                egl_surface.buffer_age().unwrap_or_default() as usize
++            } else {
++                0
++            };
+             let mut f = renderer.bind(egl_surface)?;
+             // if not visible, just clear and exit early
+             let not_visible = self.config.autohide_enabled()
