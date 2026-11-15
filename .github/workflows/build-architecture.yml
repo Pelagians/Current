@@ -61,7 +61,7 @@ jobs:
           recipe="$(python3 scripts/publish-image-index.py prepare --image '${{ matrix.name }}' --architecture '${{ inputs.architecture }}')"
           printf 'recipe=%s\n' "$recipe" >> "$GITHUB_OUTPUT"
       - name: Build Server image
-        uses: blue-build/github-action@v1.13
+        uses: blue-build/github-action@v1.14
         with: &native_build_options
           recipe: ${{ steps.prepare.outputs.recipe }}
           skip_checkout: true
@@ -110,7 +110,7 @@ jobs:
       - name: Build Workstation image
         id: build
         continue-on-error: true
-        uses: blue-build/github-action@v1.13
+        uses: blue-build/github-action@v1.14
         with: *native_build_options
       # Both desktops use COPR. Retry a transient failed build once; never skip packages.
       - name: Wait before workstation retry
@@ -118,7 +118,7 @@ jobs:
         run: sleep 30
       - name: Retry workstation image
         if: ${{ steps.build.outcome == 'failure' }}
-        uses: blue-build/github-action@v1.13
+        uses: blue-build/github-action@v1.14
         with: *native_build_options
       - name: Record verified native digest
         env:
