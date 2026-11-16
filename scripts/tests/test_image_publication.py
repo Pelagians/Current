@@ -258,7 +258,7 @@ class Publication(unittest.TestCase):
             self.assertIn('          ' + option + '\n', server + '\n')
         for name in ('Build Workstation image', 'Retry workstation image'):
             step = native.split('- name: ' + name + '\n', 1)[1].split('\n      - ', 1)[0]
-            self.assertIn('uses: blue-build/github-action@v1.13\n', step)
+            self.assertIn('uses: blue-build/github-action@v1.14\n', step)
             self.assertIn('        with: *native_build_options\n', step + '\n')
             if name == 'Retry workstation image':
                 self.assertIn("if: ${{ steps.build.outcome == 'failure' }}", step)
