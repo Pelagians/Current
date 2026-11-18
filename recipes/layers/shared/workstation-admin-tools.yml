@@ -31,3 +31,6 @@ modules:
         - traceroute
         - tuned
         - vulkan-validation-layers
+        - ntfs-3g
+        - btrfs-progs
+        - exfatprogs
