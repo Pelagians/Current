@@ -1,0 +1,12 @@
+[Unit]
+Description=Observe the Current setup destination deployment
+ConditionPathExists=/var/lib/current/setup/state.json
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/current-setup reconcile
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

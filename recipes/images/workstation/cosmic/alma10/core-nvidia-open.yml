@@ -21,5 +21,5 @@ modules:
   - from-file: layers/alma/cosmic.yml
   - from-file: layers/shared/workstation-cosmic.yml
   - from-file: layers/shared/nvidia-workstation.yml
-  - type: initramfs
-  - type: signing
+  - from-file: layers/shared/initramfs.yml
+  - from-file: layers/shared/signing.yml

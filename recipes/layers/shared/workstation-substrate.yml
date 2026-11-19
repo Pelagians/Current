@@ -22,6 +22,8 @@ modules:
         - alsa-ucm
         - alsa-utils
         - attr
+        - avahi
+        - avahi-tools
         - bash-completion
         - bluez
         - bolt
@@ -73,6 +75,7 @@ modules:
         - libcamera-tools
         - libsane-hpaio
         - logrotate
+        - nss-mdns
         - orca
         - pavucontrol
         - pciutils

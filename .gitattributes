@@ -1,0 +1,5 @@
+# Raw Tesseract evidence has an empty final text field on structural rows.
+# Preserve the original TSV bytes, including the final field separator.
+scripts/tests/fixtures/cosmic-welcome/*.tsv whitespace=-blank-at-eol
+# Unified patches retain the space prefix on blank context lines.
+packages/cosmic-repairs/patches/*.patch whitespace=-blank-at-eol

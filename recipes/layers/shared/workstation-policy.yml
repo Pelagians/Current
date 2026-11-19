@@ -1,4 +1,8 @@
 modules:
+  - type: script
+    scripts:
+      - setup-avahi-account.sh
+
   # Workstation images boot to the graphical target.
   - type: containerfile
     snippets:

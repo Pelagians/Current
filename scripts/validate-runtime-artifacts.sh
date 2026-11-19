@@ -16,6 +16,9 @@ bash -n files/nvidia/usr/local/libexec/current/current-pcp-nvidia-pmda-apply
 bash -n modules/os-release-meta/os-release-meta.sh
 bash -n files/justfiles/usr/local/bin/current
 for helper in files/justfiles/usr/libexec/current-*; do bash -n "$helper"; done
+bash -n scripts/build-unified-installer-iso.sh
+bash -n installer/unified/prepare-runtime.sh
+bash -n files/bootstrap/etc/profile.d/current-setup.sh
 bash -n scripts/build-alma10-installer-iso.sh
 bash -n installer/alma10-server/prepare-efi.sh
 

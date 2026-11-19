@@ -1,5 +1,10 @@
 ---
 modules:
+  - type: files
+    files:
+      - source: workstation/alma9
+        destination: /
+
   - type: dnf
     install:
       install-weak-deps: false

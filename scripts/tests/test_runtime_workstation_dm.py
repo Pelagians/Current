@@ -103,35 +103,29 @@ fi
         self.run_helper()
         self.assert_owner("gdm.service")
 
-    def test_generated_selected_unit_does_not_break_persistent_enable(self):
-        # Reproduce the boot failure: generator.early links the selected unit,
-        # so systemctl --root enable <unit-name> treats it as a linked unit.
-        for desktop, unit in (("gnome", "gdm.service"),
-                              ("cosmic", "cosmic-greeter.service")):
-            with self.subTest(desktop=desktop):
-                self.marker(desktop)
-                early = self.root / "run/systemd/generator.early"
-                if early.exists():
-                    shutil.rmtree(early)
-                self.run_helper("--generate", self.root / "run/systemd/generator",
-                                early, self.root / "run/systemd/generator.late")
-                # The fixture injects root_dir to find its files; production
-                # runs with root_dir="" and emits targets under /usr. Absolute
-                # fixture paths would be wrongly rooted a second time by
-                # systemctl --root, breaking generated default.target.
-                for name in (unit, "display-manager.service", "default.target"):
-                    link = early / name
-                    target = os.readlink(link)
-                    self.assertTrue(target.startswith(str(self.root) + "/"), target)
+    def test_persistent_selection_with_active_early_generator_links(self):
+        self.env['SYSTEMD_UNIT_PATH'] = '/run/systemd/generator.early:/etc/systemd/system:/run/systemd/system:/usr/lib/systemd/system'
+        early = self.root / 'run/systemd/generator.early'
+        for desktop, unit in (("gnome", "gdm.service"), ("cosmic", "cosmic-greeter.service")):
+            if early.exists():
+                shutil.rmtree(early)
+            self.marker(desktop)
+            self.run_helper('--generate', self.root / 'normal', early, self.root / 'late')
+            # Production has no fixture-root prefix in its generated links.
+            for link in early.iterdir():
+                if link.is_symlink() and os.readlink(link).startswith(str(self.root)):
+                    target = os.readlink(link).removeprefix(str(self.root))
                     link.unlink()
-                    link.symlink_to(target[len(str(self.root)):])
-                self.run_helper()
-                self.assert_owner(unit)
-                calls = (self.root / "systemctl-calls").read_text()
-                self.assertIn(
-                    f"--no-reload enable --force /usr/lib/systemd/system/{unit}",
-                    calls,
-                )
+                    link.symlink_to(target)
+            before = {p.name: os.readlink(p) for p in early.iterdir() if p.is_symlink()}
+            broken = subprocess.run([self.env['TEST_SYSTEMCTL'], '--root=' + str(self.root),
+                                     '--no-reload', 'enable', '--force', unit],
+                                    env=self.env, text=True, capture_output=True)
+            self.assertNotEqual(broken.returncode, 0)
+            self.assertIn('linked unit', broken.stderr)
+            self.run_helper()
+            self.assert_owner(unit)
+            self.assertEqual(before, {p.name: os.readlink(p) for p in early.iterdir() if p.is_symlink()})
 
     def test_gnome_packaged_contracts_on_alma_lanes(self):
         self.write("usr/sbin/gdm", "#!/bin/sh\nexit 0\n", executable=True)

@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+if [ "${1:-}" = setup ]; then
+  shift
+  exec /usr/libexec/current-setup "$@"
+fi
+
 JUSTFILE="/usr/share/current/just/index.just"
 
 if [ ! -f "$JUSTFILE" ]; then
