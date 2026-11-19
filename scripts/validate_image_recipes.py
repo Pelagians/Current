@@ -7,6 +7,9 @@ from image_matrix import ROOT as root, load_rows, recipe_graph, die
 core_base = root / 'recipes/layers/shared/core-base.yml'
 shared_core = root / 'recipes/layers/shared/core.yml'
 alma_core = root / 'recipes/layers/alma/core.yml'
+shared_cosmic = root / 'recipes/layers/shared/workstation-cosmic.yml'
+alma_cosmic = root / 'recipes/layers/alma/cosmic.yml'
+fedora_cosmic = root / 'recipes/layers/fedora/cosmic.yml'
 k3s_feature = root / 'recipes/layers/features/k3s.yml'
 ceph_feature = root / 'recipes/layers/features/ceph.yml'
 cockpit_feature = root / 'recipes/layers/features/cockpit.yml'
@@ -71,13 +74,23 @@ for row in rows:
     recipe = root / row['recipe']
     graph = recipe_graph(recipe)
     text = recipe.read_text(encoding='utf-8')
+    is_cosmic = row['environment'] == 'cosmic'
+    if graph.count(shared_cosmic) != int(is_cosmic):
+        die(f"{row['image']}: incorrect shared COSMIC layer scope")
+    for platform, layer in (('alma', alma_cosmic), ('fedora', fedora_cosmic)):
+        expected = is_cosmic and row['platform'].startswith(platform)
+        if graph.count(layer) != int(expected):
+            die(f"{row['image']}: incorrect COSMIC package source scope for {platform}")
+        if expected and graph.index(layer) > graph.index(shared_cosmic):
+            die(f"{row['image']}: configure the COSMIC package source before installing COSMIC")
+
     # Supplemental Alma packages are restricted to the ARM image/role that
     # needs them. Install them before the existing common transaction.
     for platform, environment, name, before in (
         ('alma9', None, 'arm-core', core_base),
-        ('alma9', 'cosmic', 'arm-cosmic', root / 'recipes/layers/alma/cosmic.yml'),
+        ('alma9', 'cosmic', 'arm-cosmic', alma_cosmic),
         ('alma10', 'gnome', 'arm-gnome', root / 'recipes/layers/shared/workstation-gnome-modern.yml'),
-        ('alma10', 'cosmic', 'arm-cosmic', root / 'recipes/layers/alma/cosmic.yml'),
+        ('alma10', 'cosmic', 'arm-cosmic', alma_cosmic),
     ):
         layer = root / 'recipes/layers' / platform / (name + '.yml')
         expected = row['platform'] == platform and any(r['image'] == row['image'] and r['architecture'] == 'aarch64' for r in rows)
@@ -90,7 +103,7 @@ for row in rows:
     expected_assets = row['platform'] == 'alma9' and row['environment'] == 'cosmic'
     if graph.count(cosmic_assets) != int(expected_assets):
         die(f"{row['image']}: incorrect EL9 COSMIC asset source scope")
-    if expected_assets and not graph.index(cosmic_assets) < graph.index(root / 'recipes/layers/alma/cosmic.yml'):
+    if expected_assets and not graph.index(cosmic_assets) < graph.index(alma_cosmic):
         die(f"{row['image']}: install missing assets before COSMIC consumers")
     if row['platform'] in {'alma10', 'fedora'}:
         rocm = root / 'recipes/layers' / row['platform'] / 'rocm.yml'

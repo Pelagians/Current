@@ -22,26 +22,5 @@ modules:
     install:
       install-weak-deps: false
       packages:
-        - cosmic-config-fedora
-        - cosmic-ext-applet-tailscale
-        - cosmic-ext-applet-clipboard-manager
-        - cosmic-ext-applet-system-monitor
-        - cosmic-ext-applet-ollama
-        - cosmic-ext-applet-emoji-selector
-        - cosmic-ext-applet-sysinfo
-        - cosmic-ext-applet-minimon
-        - cosmic-ext-applet-classic-menu
-        - cosmic-ext-tweaks
-        - cosmic-ext-storage
-        - cosmic-ext-examine
-        - cosmic-ext-applet-places-menu
-        - gvfs-nfs
-        - pipewire-v4l2
-        - inputplumber
         - openconnect-gui
         - gui-scale-applet
-        
-  - type: systemd
-    system:
-      enabled:
-        - cosmic-ext-storage-daemon.service

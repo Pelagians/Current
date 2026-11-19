@@ -34,6 +34,27 @@ modules:
         - cosmic-greeter
         - greetd
         - adw-gtk3-theme
+        - cosmic-config-fedora
+        - cosmic-ext-applet-tailscale
+        - cosmic-ext-applet-clipboard-manager
+        - cosmic-ext-applet-system-monitor
+        - cosmic-ext-applet-ollama
+        - cosmic-ext-applet-emoji-selector
+        - cosmic-ext-applet-sysinfo
+        - cosmic-ext-applet-minimon
+        - cosmic-ext-applet-classic-menu
+        - cosmic-ext-tweaks
+        - cosmic-ext-storage
+        - cosmic-ext-examine
+        - cosmic-ext-applet-places-menu
+        - gvfs-nfs
+        - pipewire-v4l2
+        - inputplumber
+
+  - type: systemd
+    system:
+      enabled:
+        - cosmic-ext-storage-daemon.service
 
   - type: files
     files:
@@ -52,6 +73,8 @@ modules:
           command -v cosmic-files >/dev/null; \
           command -v cosmic-settings >/dev/null; \
           command -v cosmic-store >/dev/null; \
+          command -v cosmic-ext-storage >/dev/null; \
+          test -f /usr/share/applications/com.cosmic.ext.Storage.desktop; \
           rpm -q cosmic-edit cosmic-idle cosmic-monitor cosmic-player; \
           command -v cosmic-greeter-start >/dev/null; \
           command -v cosmic-greeter-daemon >/dev/null; \

@@ -19,7 +19,7 @@ These files are the reusable composition units included from image recipes with 
 - `shared/workstation-modern.yml`: shared workstation delta reused by the Alma 10 and Fedora lanes.
 - `shared/workstation-gnome.yml`: GNOME workstation layer.
 - `shared/workstation-gnome-modern.yml`: shared GNOME app delta reused by the Alma 10 and Fedora lanes.
-- `shared/workstation-cosmic.yml`: common COSMIC workstation package list, payloads, and validation.
+- `shared/workstation-cosmic.yml`: shared desktop, apps and panel applets for all COSMIC images. Enables the Storage daemon shipped by the current COPR RPMs.
 - `shared/nvidia-base.yml`, `shared/nvidia-common.yml`, `shared/nvidia-open-common.yml`, `shared/nvidia-open.yml`, `shared/nvidia-workstation.yml`: shared NVIDIA lane plumbing, including the NVIDIA PCP PMDA on NVIDIA images only.
 
 ## Distro-specific layers
@@ -28,8 +28,9 @@ These files are the reusable composition units included from image recipes with 
 - `alma9/core.yml`, `alma10/core.yml`, `fedora/core.yml`: distro-specific core drift layered after the shared core baseline and shared core tooling.
 - `alma9/workstation.yml`, `alma10/workstation.yml`, `fedora/workstation.yml`: distro workstation drift layered after the shared workstation substrate.
 - `alma9/gnome.yml`, `alma10/gnome.yml`: GNOME-only distro drift where the shared GNOME layers are not enough.
-- `alma/cosmic.yml`: Alma-family COSMIC COPR source setup and COPR-backed applets shared by Alma 9 and Alma 10.
-- `fedora/cosmic.yml`, `fedora/nvidia-open.yml`, `fedora/nvidia-580.yml`: Fedora edge-lane drift, including the Fedora proprietary R580 akmod-built lane.
+- `alma/cosmic.yml`: Enterprise COSMIC COPR setup for Alma 9 and Alma 10. Also installs `gui-scale-applet` and the standalone `openconnect-gui` on Alma. The shared workstation substrate supplies NetworkManager OpenConnect support.
+- `fedora/cosmic.yml`: adds the signed [COSMIC extensions COPR](https://copr.fedorainfracloud.org/coprs/ligenix/cosmic-ext/) for `cosmic-ext-*` and `inputplumber`. Fedora packages supply the rest of the COSMIC desktop.
+- `fedora/nvidia-open.yml`, `fedora/nvidia-580.yml`: Fedora GPU lanes, including the proprietary R580 akmod-built lane.
 - `fedora/nvidia-workstation.yml`: common Fedora NVIDIA workstation extras with explicit R580, x64 open and ARM open package sources. Negativo17 repos are restored only for this transaction and removed afterward.
 - `alma9/nvidia-580.yml`: the Alma 9 implementation of the public NVIDIA 580 lane shared by server and workstation images, using Alma/NVIDIA prebuilt module-stream kmods.
 - `alma9/nvidia-workstation.yml`: Alma 9 NVIDIA workstation-only media backend additions, kept out of the server lane.
