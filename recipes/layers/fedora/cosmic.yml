@@ -1,10 +1,8 @@
 ---
 modules:
-  # Fedora ships COSMIC packages directly, so this lane keeps only
-  # Fedora-native COSMIC config drift and leaves the common stack to the
-  # shared COSMIC layer.
-  - type: dnf
-    install:
-      install-weak-deps: false
-      packages:
-        - cosmic-config-fedora
+  # Fedora supplies the core desktop. The scoped COPR supplies the add-ons
+  # installed by the shared COSMIC layer.
+  - type: files
+    files:
+      - source: cosmic/fedora
+        destination: /

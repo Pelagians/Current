@@ -1,0 +1,8 @@
+[current-cosmic-ext]
+name=COPR ligenix/cosmic-ext for Fedora $releasever ($basearch)
+baseurl=https://download.copr.fedorainfracloud.org/results/ligenix/cosmic-ext/fedora-$releasever-$basearch/
+enabled=1
+gpgcheck=1
+gpgkey=https://download.copr.fedorainfracloud.org/results/ligenix/cosmic-ext/pubkey.gpg
+# Fedora supplies the COSMIC session and core apps.
+includepkgs=cosmic-ext-*,inputplumber
